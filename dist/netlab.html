@@ -515,6 +515,37 @@ table.rules,table.eps{border-radius:10px;overflow:hidden}
 .wire.cut{stroke:#8a8f95!important;stroke-dasharray:2 7;opacity:.9}
 @media (max-width:980px){.pill{max-width:100%}}
 
+
+/* ===== Netzplaner: Feinschliff ===== */
+.hn,.ipl{paint-order:stroke;stroke:var(--paper);stroke-width:5px;stroke-linejoin:round}
+.hn{font-family:var(--display);font-weight:700;letter-spacing:-.01em}
+.sbx .canvas{background:radial-gradient(1200px 700px at 50% 0,color-mix(in srgb,var(--blue) 5%,var(--paper)),var(--paper))}
+.fpl{filter:drop-shadow(0 3px 5px rgba(14,23,38,.28))}
+.dev.sel .selbox{stroke:var(--blue);stroke-width:2.2;stroke-dasharray:none;fill:color-mix(in srgb,var(--blue) 7%,transparent)}
+.dev:hover .selbox{stroke:color-mix(in srgb,var(--blue) 55%,transparent);stroke-width:1.6}
+.dev.sel:hover .selbox{stroke:var(--blue)}
+.lw:hover .wire:not(.hit){stroke-width:3.6;opacity:1}
+.wire{transition:stroke-width .12s,opacity .12s}
+.sbar{height:54px;box-shadow:0 1px 0 var(--line),0 6px 16px -14px rgba(14,23,38,.5)}
+.rail{padding:.7rem .5rem;gap:4px}
+.rb{position:relative;padding:.55rem .1rem .45rem;transition:background .15s,color .15s}
+.rb.act::before{content:"";position:absolute;left:-.5rem;top:22%;bottom:22%;width:3px;border-radius:0 3px 3px 0;background:var(--blue)}
+.rb:focus-visible{outline-offset:-2px}
+.hint{border-radius:14px;padding:.55rem 1.05rem;backdrop-filter:blur(6px)}
+.fly{border-radius:18px}
+.tile{border-radius:14px;background:var(--panel)}
+.tile:hover{transform:translateY(-1px)}
+.dock{border-radius:18px 18px 0 0;box-shadow:0 -10px 30px -18px rgba(14,23,38,.45);border-top:0}
+.dt{border-radius:8px 8px 0 0}
+.dt.act{color:var(--blue)}
+.ihead b{font:800 1.2rem var(--display);letter-spacing:-.02em}
+.insp{box-shadow:-10px 0 30px -24px rgba(14,23,38,.5)}
+.itabs button.act{color:var(--blue)}
+.chip{padding:.2rem .65rem}
+.btn.primary{box-shadow:0 1px 0 rgba(255,255,255,.2) inset,0 6px 14px -8px color-mix(in srgb,var(--blue) 80%,transparent)}
+.empty{font:600 17px var(--display);fill:var(--muted)}
+@media (max-width:980px){.sbar{height:auto;min-height:54px;padding:.6rem .8rem}.rb.act::before{left:22%;right:22%;top:auto;bottom:-.35rem;width:auto;height:3px;border-radius:3px 3px 0 0}.dock{border-radius:0}}
+
 /* Lab-Seitenleiste */
 .side{padding:1.4rem 1.4rem 2rem}
 .ltitle{font-size:1.6rem;letter-spacing:-.025em;font-weight:800}
@@ -2340,7 +2371,7 @@ const Sandbox = (function () {
           : `<text class="hn" x="${L.w / 2}" y="-18">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="-6">${esc(sub)} · ${stt.used}/${stt.total} belegt</text>`) + '</g>';
     }
     s += simOverlay();
-    if (!Object.keys(net.devs).length) s += `<text x="${VW / 2}" y="${VH / 2}" class="empty">Leeres Projekt – füge oben ein Gerät hinzu.</text>`;
+    if (!Object.keys(net.devs).length) s += `<text x="${VW / 2}" y="${VH / 2}" class="empty">Leeres Projekt. Öffne links eine Kategorie und wähle ein Gerät.</text>`;
     return s;
   }
 

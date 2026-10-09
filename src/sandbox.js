@@ -423,7 +423,7 @@ const Sandbox = (function () {
           : `<text class="hn" x="${L.w / 2}" y="-18">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="-6">${esc(sub)} · ${stt.used}/${stt.total} belegt</text>`) + '</g>';
     }
     s += simOverlay();
-    if (!Object.keys(net.devs).length) s += `<text x="${VW / 2}" y="${VH / 2}" class="empty">Leeres Projekt – füge oben ein Gerät hinzu.</text>`;
+    if (!Object.keys(net.devs).length) s += `<text x="${VW / 2}" y="${VH / 2}" class="empty">Leeres Projekt. Öffne links eine Kategorie und wähle ein Gerät.</text>`;
     return s;
   }
 
