@@ -20,36 +20,68 @@
   function markDone(id) { if (done.has(id)) return false; done.add(id); store.set('done', [...done]); leds(); return true; }
 
   // ---------------- Home ----------------
+  const DEMO = [
+    ['c', 'PC-A> ping 10.0.20.10'],
+    ['o', 'Sende 4 ICMP-Echos an 10.0.20.10 ...'],
+    ['o', 'Erfolgsrate 0 Prozent (0/4)'],
+    ['o', ''],
+    ['d', '[Ping-Debugger] VLAN 20 ist auf dem Trunk Gi0/1 nicht erlaubt.'],
+    ['d', '[Pfad] PC-A → SW1 → SW2 ✗'],
+    ['c', 'SW1(config-if)# switchport trunk allowed vlan add 20'],
+    ['o', 'Erfolgsrate 100 Prozent (4/4)']
+  ];
+  function runDemo(el) {
+    const lines = [...el.querySelectorAll('.l')];
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { lines.forEach(l => l.classList.add('show')); return; }
+    el.classList.add('run'); let i = 0;
+    const step = () => {
+      if (!el.isConnected || i >= lines.length) { lines.forEach(l => l.classList.remove('caret')); return; }
+      lines.forEach(l => l.classList.remove('caret'));
+      const l = lines[i++]; l.classList.add('show', 'caret');
+      setTimeout(step, DEMO[i - 1][0] === 'c' ? 900 : 420);
+    };
+    setTimeout(step, 500);
+  }
   function home() {
     cur = null; document.title = 'NetLab – Cisco-Netzwerke lernen';
     const tracks = [...new Set(ALL.map(l => l.track))];
     const next = ALL.find(l => !done.has(l.id));
+    const pct = Math.round(done.size / ALL.length * 100);
     app.innerHTML = `
-      <section class="hero">
-        <h1>Netzwerke lernt man, indem man sie baut.</h1>
-        <p class="lede">Echte Cisco-IOS-Befehle, ein Simulator, der Pakete wirklich durch VLANs, Trunks, Router, ACLs und IPsec-Tunnel schickt – und ein Ping-Debugger, der dir zeigt, wo sie hängen bleiben.</p>
-        <div class="cta">${next ? `<a class="btn primary" href="#lab/${next.id}">${done.size ? 'Weiter mit' : 'Starten mit'} „${esc(next.title)}“</a>` : '<span class="allgood">Alle Labs abgeschlossen. Stark.</span>'}
-        <a class="btn" href="#sandbox">Eigenes Netz planen</a></div>
+      <section class="hero2">
+        <div>
+          <h1>Netzwerke lernt man, indem man sie baut.</h1>
+          <p class="lede">Tippe echte Cisco-IOS-Befehle in einen Simulator, der Pakete durch VLANs, Trunks, Router, ACLs und IPsec-Tunnel schickt. Wenn ein Ping scheitert, zeigt dir der Debugger die Stelle.</p>
+          <div class="cta">${next ? `<a class="btn primary big" href="#lab/${next.id}">${done.size ? 'Weiter mit' : 'Starten mit'} „${esc(next.title)}“</a>` : '<span class="allgood">Alle Labs abgeschlossen. Stark.</span>'}
+          <a class="btn big" href="#sandbox">Eigenes Netz planen</a></div>
+          <div class="prog"><div class="prog-t"><span>Dein Fortschritt</span><b>${done.size} von ${ALL.length} Labs</b></div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${ALL.length}" aria-valuenow="${done.size}" aria-label="Fortschritt"><i style="width:${pct}%"></i></div></div>
+        </div>
+        <figure class="demo" aria-label="Beispiel: Der Ping-Debugger findet einen fehlenden VLAN-Eintrag am Trunk">
+          <div class="demo-bar"><i></i><i></i><i></i><span>Konsole</span></div>
+          <pre>${DEMO.map(([k, t]) => `<span class="l js k-${k === 'c' ? 'cmd' : k === 'd' ? 'dbg' : 'out'}">${esc(t)}</span>`).join('')}</pre>
+        </figure>
       </section>
-      <a class="planner" href="#sandbox">
-        <span class="pl-t">Netzplaner</span>
-        <span class="pl-d">Baue dein Netz mit echter Hardware: Catalyst 9200L/9500, ASA-Firewall, MDS-FC-Switch, Huawei-Server mit frei bestückbaren RoCE-/FC-Karten und OceanStor-Storage. Jedes Gerät zeigt seine echten Ports mit Belegung, du steckst Transceiver und Kabel Port für Port, baust das Rack und exportierst am Ende geprüfte Configs, FC-Zoning, Hardware-Blätter und Patchliste.</span>
+      <a class="try" href="#sandbox">
+        <div><h2>Netzplaner</h2>
+        <p>Baue dein Netz mit echter Hardware: Catalyst 9200L/9500, ASA-Firewall, MDS-FC-Switch, Huawei-Server und OceanStor-Storage. Steck Transceiver und Kabel Port für Port, plane das Rack und exportiere geprüfte Configs, FC-Zoning, Hardware-Blätter und die Patchliste.</p></div>
+        <span class="go">Planer öffnen</span>
       </a>
-      <section class="rack" aria-label="Lernpfad">
-        ${tracks.map(t => `<div class="rack-row">
-          <h2 class="rack-label">${esc(t)}</h2>
-          <div class="ports">${ALL.map((l, i) => l.track !== t ? '' : `
-            <a class="port ${done.has(l.id) ? 'on' : ''}" href="#lab/${l.id}">
-              <span class="jack" aria-hidden="true"><span class="led"></span><span class="pin"></span><span class="pnum">${i + 1}</span></span>
-              <span class="ptitle">${esc(l.title)}</span>
-              <span class="pmeta">${TYPE[l.type]}, ${l.est}${done.has(l.id) ? ', erledigt' : ''}</span>
-            </a>`).join('')}</div></div>`).join('')}
+      <section class="path" aria-label="Lernpfad">
+        ${tracks.map(t => { const ls = ALL.filter(l => l.track === t); const nd = ls.filter(l => done.has(l.id)).length; return `<div class="track">
+          <div class="track-h"><h2>${esc(t)}</h2><span class="muted">${nd} von ${ls.length} erledigt</span></div>
+          <ul class="labs">${ls.map(l => { const i = ALL.indexOf(l), isDone = done.has(l.id), isNext = next && next.id === l.id; return `
+            <li><a class="lab-row ${isDone ? 'done' : ''} ${isNext ? 'next' : ''}" href="#lab/${l.id}">
+              <span class="lab-n" aria-hidden="true">${isDone ? '✓' : i + 1}</span>
+              <span class="lab-t">${esc(l.title)}<span class="lab-m">${TYPE[l.type]}, ${l.est}</span></span>
+              <span class="lab-tag">${isDone ? 'Erledigt' : isNext ? 'Als Nächstes' : 'Öffnen'}</span>
+            </a></li>`; }).join('')}</ul></div>`; }).join('')}
       </section>
       <section class="howto">
-        <div><h3>So funktioniert ein Lab</h3><p>Links stehen die Aufgaben. Sie haken sich live ab, sobald dein Netz sie erfüllt. Klick auf ein Gerät öffnet seine Konsole – dort tippst du IOS-Befehle wie am echten Gerät, inklusive Abkürzungen wie <code>conf t</code> oder <code>sh ip int br</code>.</p></div>
+        <div><h3>So funktioniert ein Lab</h3><p>Links stehen die Aufgaben. Sie haken sich live ab, sobald dein Netz sie erfüllt. Ein Klick auf ein Gerät öffnet seine Konsole. Dort tippst du IOS-Befehle wie am echten Gerät, auch mit Abkürzungen wie <code>conf t</code> oder <code>sh ip int br</code>.</p></div>
         <div><h3>Wenn ein Ping scheitert</h3><p>Der Simulator verfolgt jedes Paket Hop für Hop und nennt den Grund: falsches VLAN, fehlender Trunk, Interface im shutdown, fehlende Rückroute, ACL-Treffer oder ein IKEv2-Proposal, das nicht passt.</p></div>
         <div><h3>Dein Fortschritt</h3><p>Konfigurationen und erledigte Labs speichert dein Browser auf diesem Gerät. Jedes Lab lässt sich zurücksetzen.</p></div>
       </section>`;
+    runDemo($('.demo'));
   }
 
   // ---------------- Shell ----------------
@@ -58,13 +90,14 @@
     document.title = lab.title + ' – NetLab';
     app.innerHTML = `<div class="lab">
       <aside class="side">
-        <a class="back" href="#">Alle Labs</a>
+        <a class="back" href="#">‹ Alle Labs</a>
         <p class="crumb">Lab ${i + 1} in ${esc(lab.track)}</p>
         <h1 class="ltitle">${esc(lab.title)}</h1>
         <p class="intro">${lab.intro}</p>
         ${lab.spec ? `<div class="spec"><table>${lab.spec.map((r, k) => `<tr>${r.map(c => k ? `<td>${esc(c)}</td>` : `<th>${esc(c)}</th>`).join('')}</tr>`).join('')}</table></div>` : ''}
         <div id="banner"></div>
-        <h2 class="sh">Aufgaben</h2>
+        <div class="shr"><h2 class="sh">Aufgaben</h2><span id="tcount"></span></div>
+        <div class="bar" aria-hidden="true"><i id="tbar" style="width:0"></i></div>
         <ul class="tasks" id="tasks"></ul>
         ${lab.hints ? `<details class="hints"><summary>Hinweise (${lab.hints.length})</summary><ol>${lab.hints.map(h => `<li>${h}</li>`).join('')}</ol></details>` : ''}
         <div class="actions">${lab.sol ? '<button class="btn" id="solBtn">Lösung ansehen</button>' : ''}<button class="btn ghost" id="resetBtn">Lab zurücksetzen</button></div>
@@ -75,6 +108,8 @@
   }
   function renderTasks(list, lab) {
     $('#tasks').innerHTML = list.map(t => `<li class="${t.ok ? 'ok' : ''}"><span class="box" aria-hidden="true"></span><span><span class="sr">${t.ok ? 'Erledigt: ' : 'Offen: '}</span>${t.t}${t.note && !t.ok ? `<span class="tnote">${esc(t.note)}</span>` : ''}</span></li>`).join('');
+    const nok = list.filter(t => t.ok).length;
+    $('#tcount').textContent = `${nok} von ${list.length}`; $('#tbar').style.width = (list.length ? nok / list.length * 100 : 0) + '%';
     const all = list.length && list.every(t => t.ok);
     if (all) {
       const fresh = markDone(lab.id);
@@ -289,7 +324,9 @@
 
   // ---------------- Router ----------------
   function route() {
-    if (location.hash === '#sandbox') { cur = null; window.scrollTo(0, 0); return Sandbox.open(app); }
+    const onSbx = location.hash === '#sandbox';
+    $('#nav-labs').setAttribute('aria-current', onSbx ? 'false' : 'page'); $('#nav-sbx').setAttribute('aria-current', onSbx ? 'page' : 'false');
+    if (onSbx) { cur = null; window.scrollTo(0, 0); return Sandbox.open(app); }
     Sandbox.close();
     const m = location.hash.match(/^#lab\/([\w-]+)/); const lab = m && ALL.find(l => l.id === m[1]);
     window.scrollTo(0, 0);

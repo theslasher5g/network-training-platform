@@ -6,14 +6,15 @@
 <title>NetLab – Cisco-Netzwerke lernen</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=Hanken+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --paper:#F3F5F9; --panel:#FFFFFF; --ink:#0F172A; --muted:#5B6B82; --line:#E2E8F0; --on-blue:#FFFFFF;
+  --paper:#F4F6FA; --panel:#FFFFFF; --ink:#0E1726; --muted:#5B6B82; --line:#E2E8F0; --on-blue:#FFFFFF;
   --blue:#2563EB; --amber:#B7791F; --red:#DC2626; --green:#16A34A;
   --rack:#26313B; --rack-hi:#33414D; --tape:#F3F5F7;
   --term:#10161B; --term-fg:#D3DEE6; --term-dim:#8494A1; --term-dbg:#F2B544; --term-err:#FF8A78; --term-cmd:#9FD3FF;
-  --sans:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --display:"Bricolage Grotesque","Hanken Grotesk",system-ui,sans-serif;
+  --sans:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
 }
@@ -27,7 +28,7 @@
 }
 *,*::before,*::after{box-sizing:border-box}
 html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
-body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font:15px/1.55 var(--sans);letter-spacing:-.003em;-webkit-font-smoothing:antialiased}
+body{margin:0;min-height:100%;background:var(--paper);color:var(--ink);font:15.5px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
 a{color:var(--blue)}
 code,pre{font-family:var(--mono);font-size:.88em}
 code{background:color-mix(in srgb,var(--blue) 10%,transparent);padding:.05em .3em;border-radius:3px;white-space:nowrap}
@@ -36,9 +37,14 @@ code{background:color-mix(in srgb,var(--blue) 10%,transparent);padding:.05em .3e
 .muted{color:var(--muted);font-weight:400}
 
 /* header */
-.top{display:flex;align-items:center;gap:1rem;padding:.75rem clamp(1rem,3vw,2rem);border-bottom:1px solid var(--line);background:var(--panel);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
-.brand{font-weight:700;font-size:1.15rem;color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:.5rem}
-.brand svg{width:26px;height:26px}
+.top{display:flex;align-items:center;gap:1rem;padding:.75rem clamp(1rem,3vw,2rem);border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--panel) 88%,transparent);-webkit-backdrop-filter:saturate(1.4) blur(12px);backdrop-filter:saturate(1.4) blur(12px);position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.brand{font:800 1.3rem var(--display);letter-spacing:-.02em;color:var(--ink);text-decoration:none;display:flex;align-items:center;gap:.55rem}
+.brand svg{width:28px;height:28px;color:var(--blue)}
+.nav{display:flex;gap:.2rem;margin-left:1rem}
+.nav a{color:var(--muted);text-decoration:none;font-weight:600;font-size:.92rem;padding:.4rem .85rem;border-radius:999px;transition:background .15s,color .15s}
+.nav a:hover{color:var(--ink);background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.nav a[aria-current=page]{color:var(--ink);background:color-mix(in srgb,var(--blue) 12%,transparent)}
+.skip{position:absolute;left:1rem;top:-4rem;background:var(--ink);color:var(--paper);padding:.5rem 1rem;border-radius:8px;z-index:30;text-decoration:none;font-weight:600}.skip:focus{top:.6rem}
 .meter{margin-left:auto;display:flex;align-items:center;gap:.6rem}
 #leds{display:flex;gap:4px;flex-wrap:wrap}
 .hled{width:10px;height:10px;border-radius:50%;background:var(--line);display:block}
@@ -47,39 +53,60 @@ code{background:color-mix(in srgb,var(--blue) 10%,transparent);padding:.05em .3e
 
 /* home */
 main{max-width:1240px;margin:0 auto;padding:clamp(1rem,3vw,2rem)}
-.hero{padding:2.5rem 0 2rem;max-width:44rem}
-.hero h1{font-size:clamp(2rem,4.6vw,3.3rem);line-height:1.05;letter-spacing:-.02em;margin:0 0 1rem}
-.lede{font-size:1.15rem;color:var(--muted);margin:0 0 1.6rem;max-width:38rem}
-.allgood{font-weight:700;color:var(--green)}
 .btn{font:inherit;font-size:.95rem;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:.55rem .95rem;border-radius:6px;cursor:pointer;text-decoration:none;display:inline-block}
 .btn:hover{border-color:var(--ink)}
 .btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:700}
 .btn.ghost{background:transparent}
-.rack{display:flex;flex-direction:column;gap:14px;margin:1rem 0 3rem}
-.rack-row{background:var(--rack);border-radius:6px;padding:14px 18px 16px;display:grid;grid-template-columns:170px 1fr;gap:16px;align-items:start;position:relative}
-.rack-row::before,.rack-row::after{content:"";position:absolute;top:50%;width:9px;height:9px;border-radius:50%;background:var(--rack-hi);transform:translateY(-50%);box-shadow:inset 0 1px 2px #0006}
-.rack-row::before{left:6px}.rack-row::after{right:6px}
-.rack-label{margin:6px 0 0 8px;background:var(--tape);color:#1d2730;font-size:.95rem;padding:.35rem .6rem;border-radius:2px;line-height:1.25;font-weight:700;overflow-wrap:anywhere}
-.ports{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:10px}
-.port{display:grid;grid-template-columns:44px 1fr;grid-template-rows:auto auto;column-gap:10px;text-decoration:none;color:#E5EBF0;padding:10px;border-radius:5px;background:var(--rack-hi);border:1px solid transparent}
-.port:hover{border-color:#ffffff40}
-.jack{grid-row:1/3;width:44px;height:38px;background:#0D1216;border-radius:3px;position:relative;box-shadow:inset 0 2px 4px #000c}
-.jack .pin{position:absolute;left:12px;right:12px;bottom:0;height:8px;background:#05080a;border-radius:2px 2px 0 0}
-.led{position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:#3a454f}
-.port.on .led{background:#3DDB8A;box-shadow:0 0 8px #3DDB8A}
-.pnum{position:absolute;opacity:0}
-.port{position:relative}
-.ptitle{font-weight:700;font-size:.95rem;line-height:1.25}
-.pmeta{font-size:.8rem;color:#A9B6C1}
-.howto{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:2rem;border-top:1px solid var(--line);padding-top:2rem;margin-bottom:2rem}
-.howto h3{margin:0 0 .4rem;font-size:1.05rem}.howto p{margin:0;color:var(--muted)}
+
+/* Startseite */
+h1,h2,.ltitle{font-family:var(--display)}
+.hero2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:clamp(1.5rem,4vw,3.5rem);align-items:center;padding:clamp(1.5rem,5vw,3.5rem) 0 clamp(1.5rem,4vw,2.5rem)}
+.hero2 h1{font-size:clamp(2.3rem,5vw,3.8rem);line-height:1.02;letter-spacing:-.035em;font-weight:800;margin:0 0 1.1rem;text-wrap:balance}
+.lede{font-size:1.1rem;color:var(--muted);margin:0 0 1.6rem;max-width:34rem}
+.cta{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
+.btn.big{padding:.75rem 1.25rem;font-size:1rem;border-radius:12px}
+.allgood{font-weight:700;color:var(--green)}
+.prog{margin-top:1.6rem;max-width:26rem}
+.prog-t{display:flex;justify-content:space-between;font-size:.88rem;color:var(--muted);margin-bottom:.4rem}.prog-t b{color:var(--ink);font-variant-numeric:tabular-nums}
+.bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--blue),var(--green));transition:width .4s}
+.demo{margin:0;background:var(--term);color:var(--term-fg);border-radius:18px;box-shadow:0 24px 60px -20px rgba(14,23,38,.45),0 0 0 1px rgba(255,255,255,.05) inset;overflow:hidden}
+.demo-bar{display:flex;align-items:center;gap:.4rem;padding:.65rem .9rem;background:#ffffff0d;font:500 .76rem var(--mono);color:var(--term-dim)}
+.demo-bar i{width:10px;height:10px;border-radius:50%;background:#ffffff26}.demo-bar span{margin-left:.5rem}
+.demo pre{margin:0;padding:1rem 1.1rem 1.2rem;font:13px/1.65 var(--mono);white-space:pre-wrap;min-height:15.5em}
+.demo .l{display:block;min-height:1.65em}
+.demo .l.js{opacity:0}.demo.run .l.js.show{opacity:1}
+.demo .caret::after{content:"";display:inline-block;width:.55em;height:1.05em;background:var(--term-dbg);vertical-align:text-bottom;margin-left:2px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.try{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1.2rem;align-items:center;text-decoration:none;color:var(--ink);background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:1.3rem 1.5rem;margin:0 0 3rem;transition:border-color .15s,box-shadow .15s}
+.try:hover{border-color:var(--blue);box-shadow:0 8px 28px -12px color-mix(in srgb,var(--blue) 45%,transparent)}
+.try h2{margin:0 0 .3rem;font-size:1.35rem;letter-spacing:-.02em}.try p{margin:0;color:var(--muted);max-width:52rem}
+.try .go{font-weight:700;color:var(--blue);white-space:nowrap}
+.path{display:flex;flex-direction:column;gap:2.2rem;margin-bottom:3.5rem}
+.track{display:grid;grid-template-columns:200px minmax(0,1fr);gap:1rem 2rem}
+.track-h h2{margin:0;font-size:1.3rem;letter-spacing:-.02em;line-height:1.2}.track-h .muted{font-size:.85rem;font-variant-numeric:tabular-nums}
+.labs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
+.labs li+li{border-top:1px solid var(--line)}
+.lab-row{display:grid;grid-template-columns:2.2rem minmax(0,1fr) auto;gap:.9rem;align-items:center;padding:.85rem 1.1rem;text-decoration:none;color:var(--ink);transition:background .15s}
+.lab-row:hover{background:color-mix(in srgb,var(--blue) 6%,var(--panel))}
+.lab-n{width:2rem;height:2rem;border-radius:50%;display:grid;place-items:center;font:600 .82rem var(--mono);color:var(--muted);border:1.5px solid var(--line);font-variant-numeric:tabular-nums}
+.lab-row.done .lab-n{background:var(--green);border-color:var(--green);color:#fff}
+.lab-row.next .lab-n{border-color:var(--blue);color:var(--blue);box-shadow:0 0 0 4px color-mix(in srgb,var(--blue) 14%,transparent)}
+.lab-t{font-weight:600;line-height:1.3}.lab-m{display:block;font-size:.82rem;color:var(--muted);font-weight:400}
+.lab-tag{font-size:.78rem;font-weight:600;padding:.2rem .65rem;border-radius:999px;background:var(--paper);color:var(--muted);white-space:nowrap}
+.lab-row.next .lab-tag{background:var(--blue);color:var(--on-blue)}
+.lab-row.done .lab-tag{background:color-mix(in srgb,var(--green) 14%,var(--panel));color:var(--green)}
+.howto{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:2rem;border-top:1px solid var(--line);padding-top:2rem;margin-bottom:2rem}
+.howto h3{margin:0 0 .4rem;font:700 1.08rem var(--display);letter-spacing:-.01em}.howto p{margin:0;color:var(--muted)}
+@media (max-width:900px){.hero2{grid-template-columns:1fr}.track{grid-template-columns:1fr}.try{grid-template-columns:1fr}}
+@media (max-width:560px){.lab-row{grid-template-columns:2rem minmax(0,1fr);}.lab-tag{grid-column:2;justify-self:start}.nav{margin-left:0}.brand{font-size:1.15rem}.top{gap:.5rem}}
+@media (prefers-reduced-motion:reduce){.demo .l.js{opacity:1}.demo .caret::after{animation:none}}
+
 
 /* lab layout */
 main:has(.lab){max-width:none;padding:0}
 .lab{display:grid;grid-template-columns:minmax(290px,370px) 1fr;min-height:calc(100vh - 56px)}
 .side{background:var(--panel);border-right:1px solid var(--line);padding:1.25rem 1.25rem 2rem;overflow:auto}
 .back{font-size:.9rem;text-decoration:none}
-.back::before{content:"‹ "}
 .crumb{color:var(--muted);font-size:.85rem;margin:.9rem 0 .1rem}
 .ltitle{font-size:1.5rem;line-height:1.15;margin:0 0 .6rem;letter-spacing:-.01em}
 .intro{margin:0 0 1rem;color:var(--muted)}
@@ -196,19 +223,12 @@ main:has(.lab)+footer{display:none}
 @media (max-width:860px){
   .lab{grid-template-columns:1fr}
   .side{border-right:0;border-bottom:1px solid var(--line)}
-  .rack-row{grid-template-columns:1fr;padding:12px 18px 14px}
-  .rack-label{justify-self:start;margin:0}
   #topo{max-height:none}
   .out{max-height:60vh}
   #leds{display:none}
 }
 
-/* nav + home planner */
-.nav{display:flex;gap:1rem;margin-left:1.5rem}.nav a{color:var(--ink);text-decoration:none;font-weight:700;font-size:.95rem}.nav a:hover{text-decoration:underline}
-.cta{display:flex;gap:.6rem;flex-wrap:wrap;align-items:center}
-.planner{display:grid;grid-template-columns:200px 1fr;gap:1.2rem;align-items:center;text-decoration:none;color:var(--ink);border:2px solid var(--ink);border-radius:8px;padding:1.1rem 1.3rem;margin:0 0 1.2rem;background:var(--panel)}
-.planner:hover{background:color-mix(in srgb,var(--blue) 6%,var(--panel))}
-.pl-t{font-size:1.5rem;font-weight:700;letter-spacing:-.01em}.pl-d{color:var(--muted)}
+/* sandbox */
 /* sandbox */
 main:has(.sbx){max-width:none;padding:0}
 main:has(.sbx)+footer{display:none}
@@ -297,8 +317,6 @@ main:has(.sbx)+footer{display:none}
   .sbx{grid-template-columns:1fr;grid-template-areas:"bar" "hint" "cv" "pal" "fp" "insp" "term"}
   .insp{border-left:0;max-height:none;position:static;border-bottom:1px solid var(--line)}
   .tg.end{margin-left:0}
-  .planner{grid-template-columns:1fr}
-  .nav{margin-left:.8rem}
 }
 
 /* ===== Netzplaner v3: Frontpanels, Rack, Belegung ===== */
@@ -452,13 +470,6 @@ main:has(.sbx){max-width:none;padding:0}
 .pres circle{stroke:#fff;stroke-width:1.5}.pres.ok circle{fill:#16A34A}.pres.bad circle{fill:#DC2626}.pres path{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .modal{backdrop-filter:blur(3px)}.mbox{border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.35)}
 table.rules,table.eps{border-radius:10px;overflow:hidden}
-/* Startseite: ruhiger */
-.hero h1{letter-spacing:-.03em}
-.planner{border:1px solid var(--line);border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.05);background:var(--panel)}.planner:hover{border-color:var(--blue);background:var(--panel)}
-.rack-row{background:var(--panel);border:1px solid var(--line);border-radius:16px;grid-template-columns:150px 1fr}.rack-row::before,.rack-row::after{display:none}
-.rack-label{background:transparent;color:var(--ink);padding:.2rem 0 0;font-size:1rem;margin:0}
-.port{background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:12px}.port:hover{border-color:var(--blue)}
-.pmeta{color:var(--muted)}.jack{background:var(--panel);box-shadow:none;border:1px solid var(--line);border-radius:8px}.jack .pin{background:var(--line)}.led{background:var(--line)}.pnum{color:var(--muted)}
 .side{box-shadow:none}
 @media (max-width:980px){
   .sbx{display:flex;flex-direction:column;height:auto;min-height:0;overflow:visible}
@@ -503,16 +514,32 @@ table.rules,table.eps{border-radius:10px;overflow:hidden}
 .dev.off,.rdev.off{opacity:.38}.dev.off .selbox{opacity:1}
 .wire.cut{stroke:#8a8f95!important;stroke-dasharray:2 7;opacity:.9}
 @media (max-width:980px){.pill{max-width:100%}}
+
+/* Lab-Seitenleiste */
+.side{padding:1.4rem 1.4rem 2rem}
+.ltitle{font-size:1.6rem;letter-spacing:-.025em;font-weight:800}
+.back{display:inline-block;padding:.2rem .6rem .2rem .3rem;margin-left:-.3rem;border-radius:8px;color:var(--muted);font-weight:600;text-decoration:none}.back:hover{background:var(--paper);color:var(--ink)}
+.crumb{display:inline-block;font-size:.78rem;font-weight:600;color:var(--blue);background:color-mix(in srgb,var(--blue) 10%,transparent);padding:.15rem .6rem;border-radius:999px;margin:.9rem 0 .5rem}
+.shr{display:flex;align-items:baseline;justify-content:space-between;margin:1.4rem 0 .5rem}.shr .sh{margin:0;font:700 1.05rem var(--display)}.shr span{font-size:.84rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.shr+.bar{margin-bottom:.8rem;height:6px}
+.tasks li{padding:.15rem 0}
+.box{border-radius:50%;width:20px;height:20px;margin-top:1px}
+.tasks li.ok{text-decoration:line-through;text-decoration-color:color-mix(in srgb,var(--muted) 50%,transparent)}
+.hints{border-radius:12px}.hints summary{font-weight:600}
+.banner{border-radius:12px}
+.term{border-radius:0}
+footer{padding:1.5rem 1rem 2.5rem}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+<a class="skip" href="#app">Zum Inhalt springen</a>
 <header class="top">
   <a class="brand" href="#" aria-label="NetLab Startseite"><svg viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="7" width="22" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="6" y="11" width="4" height="5" fill="currentColor"/><rect x="11" y="11" width="4" height="5" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="#3DBB7E"/></svg>NetLab</a>
-  <nav class="nav"><a href="#">Labs</a><a href="#sandbox">Netzplaner</a></nav>
+  <nav class="nav" aria-label="Hauptnavigation"><a href="#" id="nav-labs">Labs</a><a href="#sandbox" id="nav-sbx">Netzplaner</a></nav>
   <div class="meter"><div id="leds" aria-label="Fortschritt pro Lab"></div><span id="count"></span></div>
 </header>
-<main id="app"></main>
+<main id="app" tabindex="-1"></main>
 <footer>NetLab simuliert Cisco IOS in vereinfachter Form. Befehle und Verhalten orientieren sich an IOS 15 / IOS-XE.</footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
@@ -3035,36 +3062,68 @@ if (typeof module !== 'undefined') module.exports = Sandbox;
   function markDone(id) { if (done.has(id)) return false; done.add(id); store.set('done', [...done]); leds(); return true; }
 
   // ---------------- Home ----------------
+  const DEMO = [
+    ['c', 'PC-A> ping 10.0.20.10'],
+    ['o', 'Sende 4 ICMP-Echos an 10.0.20.10 ...'],
+    ['o', 'Erfolgsrate 0 Prozent (0/4)'],
+    ['o', ''],
+    ['d', '[Ping-Debugger] VLAN 20 ist auf dem Trunk Gi0/1 nicht erlaubt.'],
+    ['d', '[Pfad] PC-A → SW1 → SW2 ✗'],
+    ['c', 'SW1(config-if)# switchport trunk allowed vlan add 20'],
+    ['o', 'Erfolgsrate 100 Prozent (4/4)']
+  ];
+  function runDemo(el) {
+    const lines = [...el.querySelectorAll('.l')];
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { lines.forEach(l => l.classList.add('show')); return; }
+    el.classList.add('run'); let i = 0;
+    const step = () => {
+      if (!el.isConnected || i >= lines.length) { lines.forEach(l => l.classList.remove('caret')); return; }
+      lines.forEach(l => l.classList.remove('caret'));
+      const l = lines[i++]; l.classList.add('show', 'caret');
+      setTimeout(step, DEMO[i - 1][0] === 'c' ? 900 : 420);
+    };
+    setTimeout(step, 500);
+  }
   function home() {
     cur = null; document.title = 'NetLab – Cisco-Netzwerke lernen';
     const tracks = [...new Set(ALL.map(l => l.track))];
     const next = ALL.find(l => !done.has(l.id));
+    const pct = Math.round(done.size / ALL.length * 100);
     app.innerHTML = `
-      <section class="hero">
-        <h1>Netzwerke lernt man, indem man sie baut.</h1>
-        <p class="lede">Echte Cisco-IOS-Befehle, ein Simulator, der Pakete wirklich durch VLANs, Trunks, Router, ACLs und IPsec-Tunnel schickt – und ein Ping-Debugger, der dir zeigt, wo sie hängen bleiben.</p>
-        <div class="cta">${next ? `<a class="btn primary" href="#lab/${next.id}">${done.size ? 'Weiter mit' : 'Starten mit'} „${esc(next.title)}“</a>` : '<span class="allgood">Alle Labs abgeschlossen. Stark.</span>'}
-        <a class="btn" href="#sandbox">Eigenes Netz planen</a></div>
+      <section class="hero2">
+        <div>
+          <h1>Netzwerke lernt man, indem man sie baut.</h1>
+          <p class="lede">Tippe echte Cisco-IOS-Befehle in einen Simulator, der Pakete durch VLANs, Trunks, Router, ACLs und IPsec-Tunnel schickt. Wenn ein Ping scheitert, zeigt dir der Debugger die Stelle.</p>
+          <div class="cta">${next ? `<a class="btn primary big" href="#lab/${next.id}">${done.size ? 'Weiter mit' : 'Starten mit'} „${esc(next.title)}“</a>` : '<span class="allgood">Alle Labs abgeschlossen. Stark.</span>'}
+          <a class="btn big" href="#sandbox">Eigenes Netz planen</a></div>
+          <div class="prog"><div class="prog-t"><span>Dein Fortschritt</span><b>${done.size} von ${ALL.length} Labs</b></div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="${ALL.length}" aria-valuenow="${done.size}" aria-label="Fortschritt"><i style="width:${pct}%"></i></div></div>
+        </div>
+        <figure class="demo" aria-label="Beispiel: Der Ping-Debugger findet einen fehlenden VLAN-Eintrag am Trunk">
+          <div class="demo-bar"><i></i><i></i><i></i><span>Konsole</span></div>
+          <pre>${DEMO.map(([k, t]) => `<span class="l js k-${k === 'c' ? 'cmd' : k === 'd' ? 'dbg' : 'out'}">${esc(t)}</span>`).join('')}</pre>
+        </figure>
       </section>
-      <a class="planner" href="#sandbox">
-        <span class="pl-t">Netzplaner</span>
-        <span class="pl-d">Baue dein Netz mit echter Hardware: Catalyst 9200L/9500, ASA-Firewall, MDS-FC-Switch, Huawei-Server mit frei bestückbaren RoCE-/FC-Karten und OceanStor-Storage. Jedes Gerät zeigt seine echten Ports mit Belegung, du steckst Transceiver und Kabel Port für Port, baust das Rack und exportierst am Ende geprüfte Configs, FC-Zoning, Hardware-Blätter und Patchliste.</span>
+      <a class="try" href="#sandbox">
+        <div><h2>Netzplaner</h2>
+        <p>Baue dein Netz mit echter Hardware: Catalyst 9200L/9500, ASA-Firewall, MDS-FC-Switch, Huawei-Server und OceanStor-Storage. Steck Transceiver und Kabel Port für Port, plane das Rack und exportiere geprüfte Configs, FC-Zoning, Hardware-Blätter und die Patchliste.</p></div>
+        <span class="go">Planer öffnen</span>
       </a>
-      <section class="rack" aria-label="Lernpfad">
-        ${tracks.map(t => `<div class="rack-row">
-          <h2 class="rack-label">${esc(t)}</h2>
-          <div class="ports">${ALL.map((l, i) => l.track !== t ? '' : `
-            <a class="port ${done.has(l.id) ? 'on' : ''}" href="#lab/${l.id}">
-              <span class="jack" aria-hidden="true"><span class="led"></span><span class="pin"></span><span class="pnum">${i + 1}</span></span>
-              <span class="ptitle">${esc(l.title)}</span>
-              <span class="pmeta">${TYPE[l.type]}, ${l.est}${done.has(l.id) ? ', erledigt' : ''}</span>
-            </a>`).join('')}</div></div>`).join('')}
+      <section class="path" aria-label="Lernpfad">
+        ${tracks.map(t => { const ls = ALL.filter(l => l.track === t); const nd = ls.filter(l => done.has(l.id)).length; return `<div class="track">
+          <div class="track-h"><h2>${esc(t)}</h2><span class="muted">${nd} von ${ls.length} erledigt</span></div>
+          <ul class="labs">${ls.map(l => { const i = ALL.indexOf(l), isDone = done.has(l.id), isNext = next && next.id === l.id; return `
+            <li><a class="lab-row ${isDone ? 'done' : ''} ${isNext ? 'next' : ''}" href="#lab/${l.id}">
+              <span class="lab-n" aria-hidden="true">${isDone ? '✓' : i + 1}</span>
+              <span class="lab-t">${esc(l.title)}<span class="lab-m">${TYPE[l.type]}, ${l.est}</span></span>
+              <span class="lab-tag">${isDone ? 'Erledigt' : isNext ? 'Als Nächstes' : 'Öffnen'}</span>
+            </a></li>`; }).join('')}</ul></div>`; }).join('')}
       </section>
       <section class="howto">
-        <div><h3>So funktioniert ein Lab</h3><p>Links stehen die Aufgaben. Sie haken sich live ab, sobald dein Netz sie erfüllt. Klick auf ein Gerät öffnet seine Konsole – dort tippst du IOS-Befehle wie am echten Gerät, inklusive Abkürzungen wie <code>conf t</code> oder <code>sh ip int br</code>.</p></div>
+        <div><h3>So funktioniert ein Lab</h3><p>Links stehen die Aufgaben. Sie haken sich live ab, sobald dein Netz sie erfüllt. Ein Klick auf ein Gerät öffnet seine Konsole. Dort tippst du IOS-Befehle wie am echten Gerät, auch mit Abkürzungen wie <code>conf t</code> oder <code>sh ip int br</code>.</p></div>
         <div><h3>Wenn ein Ping scheitert</h3><p>Der Simulator verfolgt jedes Paket Hop für Hop und nennt den Grund: falsches VLAN, fehlender Trunk, Interface im shutdown, fehlende Rückroute, ACL-Treffer oder ein IKEv2-Proposal, das nicht passt.</p></div>
         <div><h3>Dein Fortschritt</h3><p>Konfigurationen und erledigte Labs speichert dein Browser auf diesem Gerät. Jedes Lab lässt sich zurücksetzen.</p></div>
       </section>`;
+    runDemo($('.demo'));
   }
 
   // ---------------- Shell ----------------
@@ -3073,13 +3132,14 @@ if (typeof module !== 'undefined') module.exports = Sandbox;
     document.title = lab.title + ' – NetLab';
     app.innerHTML = `<div class="lab">
       <aside class="side">
-        <a class="back" href="#">Alle Labs</a>
+        <a class="back" href="#">‹ Alle Labs</a>
         <p class="crumb">Lab ${i + 1} in ${esc(lab.track)}</p>
         <h1 class="ltitle">${esc(lab.title)}</h1>
         <p class="intro">${lab.intro}</p>
         ${lab.spec ? `<div class="spec"><table>${lab.spec.map((r, k) => `<tr>${r.map(c => k ? `<td>${esc(c)}</td>` : `<th>${esc(c)}</th>`).join('')}</tr>`).join('')}</table></div>` : ''}
         <div id="banner"></div>
-        <h2 class="sh">Aufgaben</h2>
+        <div class="shr"><h2 class="sh">Aufgaben</h2><span id="tcount"></span></div>
+        <div class="bar" aria-hidden="true"><i id="tbar" style="width:0"></i></div>
         <ul class="tasks" id="tasks"></ul>
         ${lab.hints ? `<details class="hints"><summary>Hinweise (${lab.hints.length})</summary><ol>${lab.hints.map(h => `<li>${h}</li>`).join('')}</ol></details>` : ''}
         <div class="actions">${lab.sol ? '<button class="btn" id="solBtn">Lösung ansehen</button>' : ''}<button class="btn ghost" id="resetBtn">Lab zurücksetzen</button></div>
@@ -3090,6 +3150,8 @@ if (typeof module !== 'undefined') module.exports = Sandbox;
   }
   function renderTasks(list, lab) {
     $('#tasks').innerHTML = list.map(t => `<li class="${t.ok ? 'ok' : ''}"><span class="box" aria-hidden="true"></span><span><span class="sr">${t.ok ? 'Erledigt: ' : 'Offen: '}</span>${t.t}${t.note && !t.ok ? `<span class="tnote">${esc(t.note)}</span>` : ''}</span></li>`).join('');
+    const nok = list.filter(t => t.ok).length;
+    $('#tcount').textContent = `${nok} von ${list.length}`; $('#tbar').style.width = (list.length ? nok / list.length * 100 : 0) + '%';
     const all = list.length && list.every(t => t.ok);
     if (all) {
       const fresh = markDone(lab.id);
@@ -3304,7 +3366,9 @@ if (typeof module !== 'undefined') module.exports = Sandbox;
 
   // ---------------- Router ----------------
   function route() {
-    if (location.hash === '#sandbox') { cur = null; window.scrollTo(0, 0); return Sandbox.open(app); }
+    const onSbx = location.hash === '#sandbox';
+    $('#nav-labs').setAttribute('aria-current', onSbx ? 'false' : 'page'); $('#nav-sbx').setAttribute('aria-current', onSbx ? 'page' : 'false');
+    if (onSbx) { cur = null; window.scrollTo(0, 0); return Sandbox.open(app); }
     Sandbox.close();
     const m = location.hash.match(/^#lab\/([\w-]+)/); const lab = m && ALL.find(l => l.id === m[1]);
     window.scrollTo(0, 0);
