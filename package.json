@@ -1,0 +1,10 @@
+{
+  "name": "network-training-platform",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NetLab – Lern- und Planungsplattform für Cisco-Netzwerke im Browser",
+  "scripts": {
+    "build": "python3 build.py",
+    "test": "node tests/labs.test.js && node tests/apps.test.js && node tests/internet.test.js && node tests/scenarios.test.js"
+  }
+}
