@@ -546,6 +546,10 @@ table.rules,table.eps{border-radius:10px;overflow:hidden}
 .empty{font:600 17px var(--display);fill:var(--muted)}
 @media (max-width:980px){.sbar{height:auto;min-height:54px;padding:.6rem .8rem}.rb.act::before{left:22%;right:22%;top:auto;bottom:-.35rem;width:auto;height:3px;border-radius:3px 3px 0 0}.dock{border-radius:0}}
 
+.zoom{position:absolute;right:12px;bottom:12px;z-index:4;display:flex;flex-direction:column;gap:2px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:3px;box-shadow:0 8px 24px -10px rgba(14,23,38,.35)}
+.zoom .ibtn{border:0;background:transparent}.zoom .ibtn:hover:not(:disabled){background:var(--paper)}
+.canvas.rack~.zoom{display:none}
+.canvas:not(.rack) #cv{cursor:grab}#cv.panning{cursor:grabbing}
 /* Lab-Seitenleiste */
 .side{padding:1.4rem 1.4rem 2rem}
 .ltitle{font-size:1.6rem;letter-spacing:-.025em;font-weight:800}
@@ -2081,7 +2085,8 @@ const Sandbox = (function () {
       </header>
       <nav class="rail" id="rail" aria-label="Werkzeuge und Geräte"></nav>
       <div class="stage"><div class="hint" id="hint" aria-live="polite" hidden></div><div class="fly" id="fly" hidden></div>
-        <div class="canvas" id="cvwrap"><svg id="cv" role="group" aria-label="Netzplan"></svg></div></div>
+        <div class="canvas" id="cvwrap"><svg id="cv" role="group" aria-label="Netzplan"></svg></div>
+        <div class="zoom" role="group" aria-label="Zoom"><button class="ibtn" id="zIn" title="Vergrößern (+)" aria-label="Vergrößern"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button class="ibtn" id="zOut" title="Verkleinern (-)" aria-label="Verkleinern"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button><button class="ibtn" id="zFit" title="Alles einpassen (0)" aria-label="Alles einpassen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button></div></div>
       <section class="dock" id="dock">
         <div class="dtabs" role="tablist"><button role="tab" class="dt" data-d="ports">Ports</button><button role="tab" class="dt" data-d="cli">Konsole</button><button role="tab" class="dt" data-d="pkt">Pakete <i class="badge" id="pktn"></i></button><button role="tab" class="dt" data-d="task" id="dtTask" hidden>Aufgabe <i class="badge" id="taskn"></i></button><span class="sp"></span><button class="dtog" id="dockTgl" aria-label="Dock ein- oder ausklappen" title="Dock ein-/ausklappen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
         <div class="dpane" data-p="ports" id="fp"></div>
@@ -2098,11 +2103,13 @@ const Sandbox = (function () {
     $$('.mlist button').forEach(b => b.onclick = () => { b.closest('details').open = false; menu(b.dataset.m); });
     $$('#dock [data-d]').forEach(b => b.onclick = () => { S.dock = b.dataset.d; S.dockOpen = true; drawDock(); if (S.dock === 'cli') setTimeout(() => $('#cmd').focus(), 0); });
     $('#dockTgl').onclick = () => { S.dockOpen = !S.dockOpen; drawDock(); };
+    $('#zIn').onclick = () => zoomAt(1 / 1.25); $('#zOut').onclick = () => zoomAt(1.25); $('#zFit').onclick = fitView;
     wireCanvas(); wireTerm(); document.addEventListener('keydown', escKey); render();
   }
   function escKey(e) {
     if (!S || document.querySelector('.modal')) return;
     if ((e.ctrlKey || e.metaKey) && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '')) { const k = e.key.toLowerCase(); if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; } if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; } }
+    if (!/^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '') && !e.ctrlKey && !e.metaKey) { if (e.key === '+' || e.key === '=') zoomAt(1 / 1.25); else if (e.key === '-') zoomAt(1.25); else if (e.key === '0') fitView(); }
     if (e.key === 'Escape' && (S.cabling || S.pend || S.pduSrc || S.tool !== 'select' || S.flyout != null)) { S.cabling = false; S.pend = null; S.pduSrc = null; S.tool = 'select'; S.flyout = null; render(); }
   }
   function undo() { if (!S.undo.length) return; S.redo.push(JSON.stringify(S.net)); S.net = JSON.parse(S.undo.pop()); migrate(S.net); S.pend = null; S.sim = null; save(); render(); }
@@ -2133,7 +2140,7 @@ const Sandbox = (function () {
     const wasToast = !!S.toast; if (S.toast) h = S.toast;
     $('#hint').innerHTML = h; $('#hint').hidden = !h; S.toast = '';
     clearTimeout(S._ht); if (wasToast) S._ht = setTimeout(() => { const el = $('#hint'); if (el && S && !S.cabling && S.tool === 'select') el.hidden = true; }, 6500);
-    S.vb = null; vmap(); drawView(); drawPal(); drawPanel(); drawInsp(); drawOut(); drawPdu(); drawTask(); drawDock(); $('#undoBtn').disabled = !S.undo.length; $('#redoBtn').disabled = !S.redo.length;
+    if (!S.vbUser) S.vb = null; vmap(); drawView(); drawPal(); drawPanel(); drawInsp(); drawOut(); drawPdu(); drawTask(); drawDock(); $('#undoBtn').disabled = !S.undo.length; $('#redoBtn').disabled = !S.redo.length;
   }
 
   // ---------------- Palette (Packet-Tracer-Stil) ----------------
@@ -2147,7 +2154,7 @@ const Sandbox = (function () {
   };
   function tileIcon(M) { const k = M.icon || (M.fw ? 'fw' : M.type); const g = ICON[M.icon] || TICON[k] || ICON[k] || TICON[M.type] || ''; return `<svg viewBox="-28 -24 56 48" class="tic" aria-hidden="true">${g}</svg>`; }
   function addAt(model, x, y) {
-    act(() => { const n = Object.keys(S.net.devs).length; const id = addDev(S.net, model, x == null ? 160 + (n * 143) % 860 : x, y == null ? 120 + (n * 101) % 400 : y); S.sel = id; S.port = null; S.cabling = false; S.tool = 'select'; S.flyout = null; });
+    act(() => { const n = Object.keys(S.net.devs).length; if (x == null && S.vbUser && S.vb && S.view === 'plan') { x = Math.round(S.vb.x + S.vb.w / 2 + (n % 5 - 2) * 40); y = Math.round(S.vb.y + S.vb.h / 2 + (n % 5 - 2) * 30); } const id = addDev(S.net, model, x == null ? 160 + (n * 143) % 860 : x, y == null ? 120 + (n * 101) % 400 : y); S.sel = id; S.port = null; S.cabling = false; S.tool = 'select'; S.flyout = null; });
   }
   const RI = {
     select: '<path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.95.06z"/>',
@@ -2350,7 +2357,7 @@ const Sandbox = (function () {
   function drawPlan() {
     const net = S.net, LC = {}; for (const id in net.devs) LC[id] = layout(net.devs[id]);
     const P = (id, p) => { const d = net.devs[id], L = LC[id], q = L.ports[p]; return { x: d.x - L.w / 2 + q.x + q.s / 2, y: d.y - L.h / 2 + q.y + q.s / 2, s: q.s, row: q.row, rows: L.rows }; };
-    let s = defs() + '<pattern id="gr" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".9" style="fill:var(--line)"/></pattern><rect width="' + VW + '" height="' + VH + '" fill="url(#gr)" pointer-events="none"/>', cab = '';
+    let s = defs() + '<pattern id="gr" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".9" style="fill:var(--line)"/></pattern><rect x="-4000" y="-4000" width="9000" height="9000" fill="url(#gr)" pointer-events="none"/>', cab = '';
     const lamp = st => st.st === 'connected' ? '#3DDB8A' : st.st === 'err-disabled' ? '#FFB020' : st.link && st.st !== 'disabled' ? '#FF5A4A' : st.st === 'disabled' ? '#8a8f95' : '#FF5A4A';
     net.links.forEach((l, li) => {
       if (!LC[l.a] || !LC[l.b] || !LC[l.a].ports[l.ap] || !LC[l.b].ports[l.bp]) return;
@@ -2412,21 +2419,46 @@ const Sandbox = (function () {
     if (S.view === 'rack') { svg.setAttribute('viewBox', `0 0 700 ${RU * UH + 52}`); svg.style.width = '700px'; svg.style.height = (RU * UH + 52) + 'px'; svg.style.maxWidth = 'none'; svg.innerHTML = drawRack(); }
     else { const v = S.vb || (S.vb = fitVB()); svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); svg.style.width = ''; svg.style.height = ''; svg.style.maxWidth = ''; svg.innerHTML = drawPlan(); }
   }
+  const ZMIN = 120, ZMAX = 6000;
+  function setVB(v) { S.vb = v; S.vbUser = true; $('#cv').setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); }
+  function zoomAt(f, c) {
+    if (S.view !== 'plan') return;
+    const v = S.vb || (S.vb = fitVB()), w = Math.min(ZMAX, Math.max(ZMIN, v.w * f)); f = w / v.w; if (f === 1) return;
+    c = c || { x: v.x + v.w / 2, y: v.y + v.h / 2 };
+    setVB({ x: c.x - (c.x - v.x) * f, y: c.y - (c.y - v.y) * f, w: v.w * f, h: v.h * f });
+  }
+  function fitView() { if (S.view !== 'plan') return; S.vbUser = false; S.vb = null; drawView(); }
   function wireCanvas() {
     const svg = $('#cv');
     const pt = e => { const r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal, k = Math.min(r.width / vb.width, r.height / vb.height), ox = (r.width - vb.width * k) / 2, oy = (r.height - vb.height * k) / 2; return S.view === 'rack' ? { x: (e.clientX - r.left) * vb.width / r.width, y: (e.clientY - r.top) * vb.height / r.height } : { x: vb.x + (e.clientX - r.left - ox) / k, y: vb.y + (e.clientY - r.top - oy) / k }; };
     svg.addEventListener('pointerdown', e => {
-      if (e.target.closest('.cp') || e.target.closest('.lw')) return; const g = e.target.closest('[data-dev]'); if (!g) return;
+      if (e.target.closest('.cp') || e.target.closest('.lw')) return; const g = e.target.closest('[data-dev]');
+      if (!g) { if (S.view === 'plan') startPan(e); return; }
       const d = S.net.devs[g.dataset.dev], p = pt(e); S.drag = { id: d.id, sx: p.x, sy: p.y, ox: d.x, oy: d.y, orack: d.rack, moved: false, snap: JSON.stringify(S.net) }; svg.setPointerCapture(e.pointerId);
     });
+    const startPan = e => {
+      const P = S.ptrs || (S.ptrs = new Map()); P.set(e.pointerId, { x: e.clientX, y: e.clientY }); svg.setPointerCapture(e.pointerId);
+      const v = S.vb || (S.vb = fitVB());
+      if (P.size === 1) { S.pan = { x: e.clientX, y: e.clientY, v: { ...v } }; svg.classList.add('panning'); }
+      else if (P.size === 2) { const [a, b] = [...P.values()]; S.pan = null; S.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, v: { ...v }, c: pt({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }) }; }
+    };
+    const endPtr = e => { if (!S.ptrs || !S.ptrs.has(e.pointerId)) return; S.ptrs.delete(e.pointerId); if (S.ptrs.size < 2) S.pinch = null; if (!S.ptrs.size) { S.pan = null; svg.classList.remove('panning'); } };
+    svg.addEventListener('pointercancel', endPtr);
+    svg.addEventListener('wheel', e => { if (S.view !== 'plan') return; e.preventDefault(); zoomAt(Math.exp(e.deltaY * (e.deltaMode === 1 ? .05 : .0015)), pt(e)); }, { passive: false });
     svg.addEventListener('pointermove', e => {
+      if (S.ptrs && S.ptrs.has(e.pointerId)) {
+        S.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (S.pinch) { const [a, b] = [...S.ptrs.values()], q = S.pinch, f = Math.min(ZMAX / q.v.w, Math.max(ZMIN / q.v.w, q.d / (Math.hypot(a.x - b.x, a.y - b.y) || 1))); setVB({ x: q.c.x - (q.c.x - q.v.x) * f, y: q.c.y - (q.c.y - q.v.y) * f, w: q.v.w * f, h: q.v.h * f }); }
+        else if (S.pan) { const r = svg.getBoundingClientRect(), v = S.pan.v, k = Math.min(r.width / v.w, r.height / v.h); setVB({ x: v.x - (e.clientX - S.pan.x) / k, y: v.y - (e.clientY - S.pan.y) / k, w: v.w, h: v.h }); }
+        return;
+      }
       if (!S.drag) return; const p = pt(e), d = S.net.devs[S.drag.id], dx = p.x - S.drag.sx, dy = p.y - S.drag.sy; if (Math.abs(dx) + Math.abs(dy) > 4) S.drag.moved = true; if (!S.drag.moved) return;
       if (S.view === 'plan') { const L = layout(d); const v = S.vb || { x: 0, y: 0, w: VW, h: VH }; d.x = Math.max(v.x + L.w / 2 + 8, Math.min(v.x + v.w - L.w / 2 - 8, Math.round(S.drag.ox + dx))); d.y = Math.max(v.y + L.h / 2 + 30, Math.min(v.y + v.h - L.h / 2 - 36, Math.round(S.drag.oy + dy))); drawView(); }
       else if (uOf(d) && S.drag.orack) { const pos = Math.max(1, Math.min(RU - uOf(d) + 1, Math.round(S.drag.orack - dy / UH))); if (pos !== d.rack && freeAt(S.net, d.id, pos, uOf(d))) { d.rack = pos; drawView(); } }
     });
     svg.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('text/plain')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
     svg.addEventListener('drop', e => { e.preventDefault(); const m = e.dataTransfer.getData('text/plain'); if (!MODELS[m]) return; const p = pt(e); if (S.view === 'rack') addAt(m); else addAt(m, Math.round(p.x), Math.round(p.y)); });
-    svg.addEventListener('pointerup', () => { if (!S.drag) return; const { id, moved, snap } = S.drag; S.drag = null; if (moved) { if (snap) { S.undo.push(snap); if (S.undo.length > 60) S.undo.shift(); S.redo = []; } save(); drawInsp(); $('#undoBtn').disabled = false; } else { const now = Date.now(), lc = S.lastClick; if (lc && lc.id === id && now - lc.t < 380 && S.tool === 'select' && !S.cabling) { S.lastClick = null; dblDev(id); } else { S.lastClick = { id, t: now }; clickDev(id); } } });
+    svg.addEventListener('pointerup', e => { endPtr(e); if (!S.drag) return; const { id, moved, snap } = S.drag; S.drag = null; if (moved) { if (snap) { S.undo.push(snap); if (S.undo.length > 60) S.undo.shift(); S.redo = []; } save(); drawInsp(); $('#undoBtn').disabled = false; } else { const now = Date.now(), lc = S.lastClick; if (lc && lc.id === id && now - lc.t < 380 && S.tool === 'select' && !S.cabling) { S.lastClick = null; dblDev(id); } else { S.lastClick = { id, t: now }; clickDev(id); } } });
     svg.addEventListener('click', e => { const c = e.target.closest('.cp') || e.target.closest('.lw'); if (c) portClick(c.dataset.d, c.dataset.p, !e.target.closest('.cp')); });
     svg.addEventListener('keydown', e => { const g = e.target.closest('[data-dev]'); if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); clickDev(g.dataset.dev); } });
   }
