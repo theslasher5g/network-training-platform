@@ -10,6 +10,7 @@ const Sandbox = (function () {
   const LXN = typeof LX !== 'undefined' ? LX : require('./linux.js');
   const STORN = typeof STOR !== 'undefined' ? STOR : require('./storage.js');
   const WINN = typeof WIN !== 'undefined' ? WIN : require('./windows.js');
+  const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
   const SH = NL.sh, MODELS = NL.MODELS, CARDS = NL.CARDS, XCVR = NL.XCVR, KIND = NL.KIND, hip = NL.hip;
   const RU = 42, UH = 30, RX = 46, RW = 470, VW = 1200, VH = 640;
   const VCOL = ['#2B66C8', '#1E8A57', '#8E44AD', '#D35400', '#16A085', '#C0392B', '#7F8C2D', '#2C7BB6', '#B5487E', '#5D6D7E'];
@@ -29,7 +30,7 @@ const Sandbox = (function () {
 
   // ---------------- helpers / model ----------------
   const uOf = d => (MODELS[d.model] || {}).u || 0;
-  const isIcon = d => d.type === 'pc' || !!(MODELS[d.model] && MODELS[d.model].icon);
+  const isIcon = d => d.type === 'pc' || d.icon === 'vm' || !!(MODELS[d.model] && MODELS[d.model].icon);
   const isMg = p => p === 'ibmc' || /mgmt$/i.test(p) || /^Management/.test(p);
   const exportable = d => !isIcon(d);
   const dh = id => S.net.devs[id].cfg.hostname;
@@ -115,7 +116,7 @@ const Sandbox = (function () {
       else if (a === 'connected') { L(`%LINEPROTO-5-UPDOWN: Line protocol on Interface ${p}, changed state to down`); L(`%LINK-3-UPDOWN: Interface ${p}, changed state to down`); }
     }
   }
-  function act(fn) { const before = S.undo ? JSON.stringify(S.net) : null, prev = states(); fn(); logDiff(prev); if (before !== null && JSON.stringify(S.net) !== before) { S.undo.push(before); if (S.undo.length > 60) S.undo.shift(); S.redo = []; } save(); if (typeof document !== 'undefined' && document.getElementById('cv')) render(); }
+  function act(fn) { const before = S.undo ? JSON.stringify(S.net) : null, prev = states(); fn(); if (S.net) { const mv = VIRTN.haRun(S.net); if (mv.length) toast(`HA: ${mv.length} VM${mv.length > 1 ? 's' : ''} auf anderen Cluster-Hosts neu gestartet.`); } logDiff(prev); if (before !== null && JSON.stringify(S.net) !== before) { S.undo.push(before); if (S.undo.length > 60) S.undo.shift(); S.redo = []; } save(); if (typeof document !== 'undefined' && document.getElementById('cv')) render(); }
 
   // ---------------- open / toolbar ----------------
   const GROUPS = [['Switches', M => M.type === 'switch'], ['Router', M => M.type === 'router' && !M.fw], ['Firewall', M => M.fw], ['FC-Switch (SAN)', M => M.type === 'fc'], ['Server', M => M.type === 'server' && !M.icon], ['Storage', M => M.type === 'storage'], ['Endgeräte', M => M.type === 'pc' || M.icon]];
@@ -424,6 +425,7 @@ const Sandbox = (function () {
   const ICON = {
     pc: '<rect x="-20" y="-18" width="40" height="27" rx="3" class="body"/><rect x="-15" y="-13" width="30" height="17" class="screen"/><path class="stroke" d="M0 9v6M-10 16h20"/>',
     server: '<rect x="-15" y="-22" width="30" height="44" rx="3" class="body"/><path class="stroke" d="M-9 -12h18M-9 -4h18M-9 4h18"/><circle cx="7" cy="14" r="2.2" class="dot"/>',
+    vm: '<rect x="-17" y="-17" width="34" height="34" rx="5" class="body" style="stroke-dasharray:5 3"/><path class="stroke" d="M-10 -6h20M-10 2h20"/><text y="13" font-size="8" font-weight="700" style="fill:var(--blue);text-anchor:middle;font-family:var(--sans)">VM</text>',
     phone: '<rect x="-13" y="-20" width="26" height="38" rx="4" class="body"/><rect x="-8" y="-15" width="16" height="9" class="screen"/>' + [-6, 0, 6].map(x => [0, 6, 12].map(y => `<circle cx="${x}" cy="${y}" r="1.6" class="dot"/>`).join('')).join(''),
     cloud: '<path class="body" d="M-26 12a12 12 0 0 1 2-23 16 16 0 0 1 30-4 12 12 0 0 1 20 9 10 10 0 0 1-2 18z"/><path class="stroke" d="M-8 1h16M0 -7v16"/>',
     printer: '<rect x="-20" y="-8" width="40" height="20" rx="3" class="body"/><path class="stroke" d="M-12 -8v-10h24v10M-12 12v6h24v-6"/><circle cx="13" cy="0" r="2" class="dot"/>'
@@ -439,12 +441,13 @@ const Sandbox = (function () {
       cab += `<g class="lw ${rel ? 'rel' : ''}" data-d="${l.a}" data-p="${esc(l.ap)}"><title>${esc(dh(l.a))} ${esc(SH(l.ap))} ↔ ${esc(dh(l.b))} ${esc(SH(l.bp))}, ${CABSHORT[l.cable || 'cu']}${up ? ', Link up' : ', kein Link: ' + esc(st.reason)}</title>`
         + `<path d="${c.d}" class="wire hit"/><path d="${c.d}" data-li="${li}" class="wire ${up ? '' : 'dn'} ${l.cut ? 'cut' : ''}" style="stroke:${CABCOL[l.cable || 'cu']}"/><circle class="lamp" cx="${c.la.x.toFixed(1)}" cy="${c.la.y.toFixed(1)}" r="2.7" style="fill:${lamp(st)}"/><circle class="lamp" cx="${c.lb.x.toFixed(1)}" cy="${c.lb.y.toFixed(1)}" r="2.7" style="fill:${lamp(NL.portStatus(net, l.b, l.bp))}"/>${up ? '' : `<circle cx="${c.mx}" cy="${c.my}" r="7" class="xdot"/><path class="xmark" d="M${c.mx - 3} ${c.my - 3}l6 6m0 -6l-6 6"/>`}</g>`;
     });
-    s += zonesSvg() + cab;
+    let vl = ''; net.links.forEach(l => { if (!l.virt) return; const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], hh = net.devs[vm.vm.host]; if (!hh || !LC[hh.id]) return; vl += `<line class="vlink ${vm.vm.state === 'running' && !hh.off ? '' : 'dn'}" x1="${hh.x}" y1="${(hh.y + LC[hh.id].h / 2).toFixed(1)}" x2="${vm.x}" y2="${vm.y - 24}"/>`; });
+    s += zonesSvg() + vl + cab;
     for (const id in net.devs) {
       const d = net.devs[id], L = LC[id], x = d.x - L.w / 2, y = d.y - L.h / 2, h0 = hip(d, d.ports[0]) || {}, M = MODELS[d.model] || {};
       const sub = L.icon ? (NL.isHost(d) ? (h0.ip ? h0.ip + '/' + NL.maskLen(h0.mask) : 'keine IP') : '') : (M.label || '').replace(/^(Huawei|Cisco) /, '');
       const stt = L.icon ? null : stats(d);
-      s += `<g class="dev ${isSelDev(id) ? 'sel' : ''} ${id === S.pduSrc ? 'src' : ''} ${d.off ? 'off' : ''}" data-dev="${id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen">`
+      s += `<g class="dev ${isSelDev(id) ? 'sel' : ''} ${id === S.pduSrc ? 'src' : ''} ${d.off || (d.vm && d.vm.state !== 'running') ? 'off' : ''}" data-dev="${id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen">`
         + `<rect class="selbox" x="-5" y="-5" width="${L.w + 10}" height="${L.h + 10}" rx="7"/>`
         + (L.icon ? `<g transform="translate(32,34) scale(.85)" class="ic">${ICON[d.icon] || ICON[d.type]}</g>` : `<rect class="fpl t-${d.fw ? 'fw' : d.type}" width="${L.w}" height="${L.h}" rx="4"/>${groupsSvg(L, 0, 0, false)}`)
         + portsSvg(d, L, 0, 0, false)
@@ -572,7 +575,7 @@ const Sandbox = (function () {
     svg.addEventListener('keydown', e => { const g = e.target.closest('[data-dev]'); if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); clickDev(g.dataset.dev); } });
   }
   function dblDev(id) { const d = S.net.devs[id]; if (!d) return; if (canApps(d)) { S.sel = id; render(); openApps(id, 'home'); } else if (!NL.isHost(d) && d.type !== 'fc') { S.sel = id; S.dock = 'cli'; S.dockOpen = true; render(); setTimeout(() => $('#cmd').focus(), 0); } }
-  function delDev(id) { act(() => { S.net.links = S.net.links.filter(l => l.a !== id && l.b !== id); delete S.net.devs[id]; delete S.out[id]; if (S.sel === id) { S.sel = null; S.port = null; } }); }
+  function delDev(id) { act(() => { VIRTN.cascade(S.net, id); S.net.links = S.net.links.filter(l => l.a !== id && l.b !== id); delete S.net.devs[id]; delete S.out[id]; if (S.sel === id) { S.sel = null; S.port = null; } }); }
   function toggleOff(id) { const d = S.net.devs[id]; act(() => { d.off = !d.off; toast(d.off ? `<b>${esc(d.cfg.hostname)}</b> ist ausgeschaltet – alle Links daran sind down.` : `${esc(d.cfg.hostname)} läuft wieder.`); }); }
   function clickDev(id) { if (S.tool === 'delete' && !S.cabling) { delDev(id); return; } if (S.tool === 'fail' && !S.cabling) { toggleOff(id); return; } if (S.tool === 'pdu' && !S.cabling) { pduPick(id); return; } const d = S.net.devs[id]; if (S.cabling && S.pend && isIcon(d) && S.pend.dev !== id) { portClick(id, d.ports[0]); return; } S.selNote = null; S.multi = new Set(); S.sel = id; S.port = isIcon(d) ? d.ports[0] : null; render(); }
 
@@ -593,6 +596,7 @@ const Sandbox = (function () {
     if (S.tool === 'fail' && !S.cabling) { const l = NL.linkOf(S.net, id, p); if (l) act(() => { l.cut = !l.cut; toast(l.cut ? 'Kabel gezogen – der Link ist down.' : 'Kabel wieder gesteckt.'); }); else if (!cableClick) toggleOff(id); return; }
     if (S.tool === 'pdu' && !S.cabling) { pduPick(id); return; }
     if (S.cabling && !cableClick) {
+      if (d.vm) { toast('VMs hängen am virtuellen Switch ihres Hosts und brauchen kein Kabel. Netzwerk und VLAN stellst du im Inspektor der VM und des Hosts ein.'); render(); return; }
       if (NL.linkOf(S.net, id, p)) { toast(`${esc(d.cfg.hostname)} ${esc(SH(p))} ist bereits belegt – erst das Kabel entfernen.`); S.sel = id; S.port = p; render(); return; }
       if (!S.pend || S.pend.dev === id) { S.pend = S.pend && S.pend.dev === id && S.pend.port === p ? null : { dev: id, port: p }; S.sel = id; S.port = p; render(); return; }
       connect(id, p); return;
@@ -645,7 +649,8 @@ const Sandbox = (function () {
     const st = NL.portStatus(S.net, d.id, p), i = d.cfg.ifs && d.cfg.ifs[p], k = d.pk[p], hostD = NL.isHost(d), card = d.pcard && d.pcard[p] ? CARDS[d.pcard[p]] : null;
     let h = `<section class="card"><h3>Port ${esc(SH(p))} <span class="muted">${esc(KIND[k].label)}${card ? ', ' + esc(card.short) : ''}</span></h3>`;
     h += `<p class="pst s-${st.st}"><b>${st.st === 'connected' ? 'Link up, ' + NL.fmtSpeed(st.speed, st.proto) : st.st === 'notconnect' ? 'Kein Link' : st.st}</b>${st.st !== 'connected' && st.reason ? ' – ' + esc(st.reason) : ''}</p>`;
-    if (st.link) h += `<p class="conn">Kabel: ${CABSHORT[st.link.cable || 'cu']} <a class="wk-ctx" href="#wiki/kabel-${st.link.cable || 'cu'}">Wiki</a><br>zu <b>${esc(dh(st.peer.dev))}</b> ${esc(SH(st.peer.port))} <button class="lnkbtn" id="goPeer">anzeigen</button></p><button class="btn small" id="unplug">Kabel entfernen</button>`;
+    if (d.vm) { const vh = S.net.devs[d.vm.host]; h += `<p class="conn">Virtuell verbunden mit <b>${esc(vh.cfg.hostname)}</b> (${esc(vh.vsw.name)}), VLAN ${d.vm.vlan || 'ohne Tag'}.</p>`; }
+    else if (st.link) h += `<p class="conn">Kabel: ${CABSHORT[st.link.cable || 'cu']} <a class="wk-ctx" href="#wiki/kabel-${st.link.cable || 'cu'}">Wiki</a><br>zu <b>${esc(dh(st.peer.dev))}</b> ${esc(SH(st.peer.port))} <button class="lnkbtn" id="goPeer">anzeigen</button></p><button class="btn small" id="unplug">Kabel entfernen</button>`;
     else h += `<p class="conn muted">Kein Kabel gesteckt.</p><button class="btn small" id="plugFrom">Kabel von hier verlegen</button>`;
     if (k !== 'rj45') h += `<div class="f"><label for="xc">Transceiver im ${esc(KIND[k].label)}-Slot</label><select id="xc">${opt('', d.xcvr[p] || '', '– leer (oder DAC-Kabel) –')}${Object.entries(XCVR).filter(([x, X]) => NL.slotAccepts(k, X)).map(([x, X]) => opt(x, d.xcvr[p] || '', `${x} (${X.label})`)).join('')}</select><a class="wk-ctx" href="#wiki/${d.xcvr[p] ? 'xcvr-' + d.xcvr[p].toLowerCase() : 'transceiver-grundlagen'}">Im Wiki nachlesen</a></div>`;
     if (card && card.roce) h += `<p class="note">Diese Karte ist RoCE v2-fähig (RDMA). Der Switch-Port braucht <code>priority-flow-control mode on</code> und MTU 9216.</p>`;
@@ -696,8 +701,37 @@ const Sandbox = (function () {
     if (d.fw) h += acc('Firewall-Richtlinien', `<p class="muted small">${Object.values(d.cfg.acls).reduce((n, a) => n + a.length, 0)} ACL-Regeln, ${d.cfg.nat.length} NAT-Regeln, ${d.cfg.routes.length} Routen</p><button class="btn small" id="fwBtn">Regelwerk, NAT und Routen bearbeiten</button>`, true);
     if (d.type === 'fc') h += acc('Fabric', `<div class="f"><label for="vsan">VSAN</label><input id="vsan" inputmode="numeric" value="${d.cfg.vsan || 10}"></div>`, false) + acc('Zoning', zoningHtml(d), true);
     if (d.type === 'storage') h += acc('Pools und LUNs', storageHtml(d), true);
+    if (d.vm) h += acc('Virtuelle Maschine', vmHtml(d), true);
+    else if (d.type === 'server' && !isIcon(d) && !(MODELS[d.model] && MODELS[d.model].cloud)) h += acc('Virtualisierung', hvHtml(d), VIRTN.isHost(d));
     if (u) h += acc('Rack', `<div class="f2"><div class="f"><label for="rpos">Unterste HE (1–${RU})</label><input id="rpos" inputmode="numeric" value="${d.rack || ''}" placeholder="nicht eingebaut"></div><div class="f"><label>Höhe</label><span class="hv">${u} HE</span></div></div><div class="irow"><button class="btn small" id="rset">${d.rack ? 'Verschieben' : 'Einbauen'}</button>${d.rack ? '<button class="btn small ghost" id="runset">Ausbauen</button>' : ''}</div>`, false);
     return h + `<div class="drow"><button class="btn ghost small danger" id="ddel">Gerät löschen</button></div></section>`;
+  }
+  // ---------------- Virtualisierung: Hypervisor-Host und VMs ----------------
+  const defSvcVm = () => defSvc();
+  function hvHtml(d) {
+    if (!VIRTN.isHost(d)) return `<p class="muted small">Ein Hypervisor (z. B. KVM oder VMware ESXi) lässt mehrere virtuelle Maschinen auf einem Server laufen. Die VMs hängen an einem virtuellen Switch (vSwitch), dessen Uplinks die physischen Netzwerkports des Servers sind.</p><button class="btn small primary" id="hvOn">Als Hypervisor einrichten</button>`;
+    const vms = VIRTN.vmsOf(S.net, d.id), ur = VIRTN.usedRam(S.net, d.id), uc = VIRTN.usedCpu(S.net, d.id), c = d.hv, ds = VIRTN.datastores(S.net, d);
+    const ports = d.ports.filter(p => d.pk[p] !== 'fc' && !isMg(p));
+    return `<div class="vmcap"><div class="obar" role="img" aria-label="RAM-Belegung"><i class="up" style="flex:${ur}"></i><i class="fr" style="flex:${Math.max(0, c.ramGb - ur)}"></i></div><p class="small muted">RAM ${ur} von ${c.ramGb} GB belegt, vCPUs ${uc} von ${c.cores} Kernen (bis ${c.cores * VIRTN.OVERCOMMIT} bei ${VIRTN.OVERCOMMIT}:1 Überbuchung)</p></div>
+      <h4>${esc(d.vsw.name)}: Uplinks</h4><div class="small">${ports.map(p => `<label class="ck"><input type="checkbox" data-upl="${esc(p)}" ${d.vsw.uplinks.includes(p) ? 'checked' : ''}> ${esc(SH(p))} <span class="muted">(${NL.portStatus(S.net, d.id, p).st === 'connected' ? 'Link up' : 'kein Link'})</span></label>`).join('')}</div>
+      <p class="muted small">Nur Kabel an Uplink-Ports verbinden die VMs mit dem Netz. Mit VLAN-Tag braucht der Switchport einen Trunk.</p>
+      <div class="f2"><div class="f"><label for="hvCl">Cluster</label><input id="hvCl" value="${esc(c.cluster)}" placeholder="z. B. CL1"></div><label class="ck"><input type="checkbox" id="hvHa" ${VIRTN.clusterHa(S.net, c.cluster) || c.ha ? 'checked' : ''}> HA aktiv (Cluster)</label></div>
+      <p class="muted small">Datastores (LUNs, die dieser Host sieht): ${ds.length ? ds.map(x => `${esc(x.name)} (${x.gb - VIRTN.dsUsed(S.net, x.id)} von ${x.gb} GB frei)`).join(', ') : 'keine. Für Migration und HA braucht der Cluster eine gemeinsame LUN.'}</p>
+      <h4>Virtuelle Maschinen (${vms.length})</h4>${vms.length ? vms.map(v => `<div class="lunrow"><div class="lunh"><button class="lnkbtn" data-vmsel="${v.id}"><b>${esc(v.cfg.hostname)}</b></button><span class="chip ${v.vm.state === 'running' ? 'g' : ''}">${v.vm.state === 'running' ? 'läuft' : 'aus'}</span></div><div class="muted small">${v.vm.cpu} vCPU, ${v.vm.ramGb} GB RAM, ${v.vm.diskGb} GB auf ${esc(VIRTN.dsName(S.net, v.vm.ds))}, VLAN ${v.vm.vlan || 'ohne Tag'}</div><div class="appbtns"><button class="btn small" data-vmgo="${v.id}">${v.vm.state === 'running' ? 'Stoppen' : 'Starten'}</button><button class="btn small ghost danger" data-vmdel="${v.id}">Löschen</button></div></div>`).join('') : '<p class="muted small">Noch keine VM.</p>'}
+      <h4>Neue VM</h4><div class="f2"><div class="f"><label for="vmn">Name</label><input id="vmn" placeholder="WEB-VM" maxlength="15"></div><div class="f"><label for="vmv">VLAN (0 = ohne Tag)</label><input id="vmv" type="number" min="0" max="4094" value="0"></div></div>
+      <div class="f3"><div class="f"><label for="vmc">vCPUs</label><input id="vmc" type="number" min="1" max="32" value="2"></div><div class="f"><label for="vmr">RAM (GB)</label><input id="vmr" type="number" min="1" max="512" value="4"></div><div class="f"><label for="vmd">Platte (GB)</label><input id="vmd" type="number" min="1" max="2000" value="40"></div></div>
+      <div class="f2"><div class="f"><label for="vms">Datastore</label><select id="vms"><option value="local">lokale Platte</option>${ds.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></div><div class="f"><label for="vmo">Betriebssystem</label><select id="vmo"><option value="linux">Ubuntu Linux</option><option value="windows">Windows Server</option></select></div></div>
+      <div class="irow"><button class="btn small primary" id="vmGo">VM anlegen</button><button class="btn small ghost" id="hvOff">Hypervisor abbauen</button></div>`;
+  }
+  function vmHtml(d) {
+    const v = d.vm, h = S.net.devs[v.host], same = Object.values(S.net.devs).filter(x => VIRTN.isHost(x) && x.hv.cluster && x.hv.cluster === h.hv.cluster && x.id !== h.id), ds = VIRTN.datastores(S.net, h);
+    return `<p class="pst ${v.state === 'running' ? 's-connected' : 's-notconnect'}">Status: <b>${v.state === 'running' ? 'läuft' : 'ausgeschaltet'}</b> auf <b>${esc(h.cfg.hostname)}</b>${h.off ? ' (Host aus)' : ''}</p>
+      <div class="appbtns"><button class="btn small ${v.state === 'running' ? '' : 'primary'}" id="vmToggle">${v.state === 'running' ? 'VM stoppen' : 'VM starten'}</button><button class="btn small" id="vmHostSel" data-host="${h.id}">Host anzeigen</button></div>
+      <p class="muted small">${v.cpu} vCPU, ${v.ramGb} GB RAM, ${v.diskGb} GB auf ${esc(VIRTN.dsName(S.net, v.ds))}</p>
+      <div class="f2"><div class="f"><label for="vmVl">VLAN (0 = ohne Tag)</label><input id="vmVl" type="number" min="0" max="4094" value="${v.vlan}"></div><div class="f"><label>&nbsp;</label><button class="btn small" id="vmVlGo">Übernehmen</button></div></div>
+      <div class="f"><label for="vmMig">Auf anderen Host verschieben (Migration)</label><div class="irow"><select id="vmMig"><option value="">– Host wählen –</option>${same.map(x => `<option value="${x.id}">${esc(x.cfg.hostname)}</option>`).join('')}</select><button class="btn small" id="vmMigGo">Verschieben</button></div>${same.length ? '' : '<p class="muted small">Kein weiterer Host im Cluster. Cluster-Name im Host-Inspektor setzen.</p>'}</div>
+      <div class="f"><label for="vmDs">Datastore (nur bei ausgeschalteter VM)</label><select id="vmDs" ${v.state === 'running' ? 'disabled' : ''}><option value="local" ${v.ds === 'local' ? 'selected' : ''}>lokale Platte</option>${ds.map(x => `<option value="${x.id}" ${v.ds === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
+      ${v.events.length ? `<h4>Ereignisse</h4><ul class="small muted">${v.events.slice(-5).map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}`;
   }
   // ---------------- Storage: Pools, LUNs, Zoning ----------------
   const fcLabel = () => { const m = {}; Object.values(S.net.devs).forEach(x => (x.type === 'server' || x.type === 'storage') && x.ports.filter(q => x.pk[q] === 'fc').forEach(q => { m[NL.wwpn(x, q)] = `${x.cfg.hostname} ${q}`; })); return m; };
@@ -784,13 +818,28 @@ const Sandbox = (function () {
     $$('[data-delzone]').forEach(b => b.onclick = () => act(() => { STORN.zoneDel(d, b.dataset.delzone); toast('Zone gelöscht.'); }));
     if (g('zngo')) g('zngo').onclick = () => act(() => { res(STORN.zoneAdd(d, g('znn').value, [g('zni').value, g('znt').value]), 'Zone angelegt. Zoneset aktivieren, damit sie gilt.'); });
     if (g('dos')) g('dos').onchange = () => act(() => { d.os = g('dos').value; delete S.out[d.id]; delete S.sess[d.id]; toast(`Betriebssystem: ${d.os === 'windows' ? 'Windows Server 2022' : 'Ubuntu Linux'}. Das Terminal startet neu (Konsole öffnen).`); });
+    const vres = (r, ok) => toast(r.err ? `<span class="neg">${esc(r.err)}</span>` : ok);
+    if (g('hvOn')) g('hvOn').onclick = () => act(() => { VIRTN.enable(S.net, d); toast('Hypervisor eingerichtet. Prüfe die Uplinks und lege VMs an.'); });
+    if (g('hvOff')) g('hvOff').onclick = () => act(() => { vres(VIRTN.disable(S.net, d), 'Hypervisor abgebaut.'); });
+    $$('[data-upl]').forEach(c => c.onchange = () => act(() => { VIRTN.setUplink(d, c.dataset.upl, c.checked); }));
+    if (g('hvCl')) g('hvCl').onchange = () => act(() => { d.hv.cluster = g('hvCl').value.trim(); });
+    if (g('hvHa')) g('hvHa').onchange = () => act(() => { VIRTN.setHa(S.net, d, g('hvHa').checked); toast(g('hvHa').checked ? 'HA aktiv: Fällt der Host aus, starten seine VMs auf anderen Cluster-Hosts neu (gemeinsamer Datastore nötig).' : 'HA aus.'); });
+    if (g('vmGo')) g('vmGo').onclick = () => act(() => { const r = VIRTN.createVm(S.net, d, { name: g('vmn').value, vlan: g('vmv').value, cpu: g('vmc').value, ramGb: g('vmr').value, diskGb: g('vmd').value, ds: g('vms').value, os: g('vmo').value }, defSvc); vres(r, 'VM angelegt. Starte sie und gib ihr eine IP-Adresse (Port eth0).'); if (r.id) { S.sel = r.id; S.port = null; S.selNote = null; S.multi = new Set(); } });
+    $$('[data-vmsel]').forEach(b => b.onclick = () => { S.sel = b.dataset.vmsel; S.port = null; render(); });
+    $$('[data-vmgo]').forEach(b => b.onclick = () => act(() => { const v = S.net.devs[b.dataset.vmgo]; vres(v.vm.state === 'running' ? VIRTN.stop(S.net, v) : VIRTN.start(S.net, v), v.vm.state === 'running' ? `${v.cfg.hostname} läuft.` : `${v.cfg.hostname} ist aus.`); }));
+    $$('[data-vmdel]').forEach(b => b.onclick = () => { const v = S.net.devs[b.dataset.vmdel]; if (!confirm(`VM ${v.cfg.hostname} löschen?`)) return; act(() => { VIRTN.del(S.net, v); toast('VM gelöscht.'); }); });
+    if (g('vmToggle')) g('vmToggle').onclick = () => act(() => { vres(d.vm.state === 'running' ? VIRTN.stop(S.net, d) : VIRTN.start(S.net, d), d.vm.state === 'running' ? `${d.cfg.hostname} läuft.` : `${d.cfg.hostname} ist ausgeschaltet.`); });
+    if (g('vmHostSel')) g('vmHostSel').onclick = () => { S.sel = g('vmHostSel').dataset.host; S.port = null; render(); };
+    if (g('vmVlGo')) g('vmVlGo').onclick = () => act(() => { vres(VIRTN.setVlan(d, g('vmVl').value), 'VLAN gesetzt.'); });
+    if (g('vmMigGo')) g('vmMigGo').onclick = () => act(() => { if (!g('vmMig').value) { toast('<span class="neg">Wähle einen Ziel-Host.</span>'); return; } vres(VIRTN.migrate(S.net, d, g('vmMig').value), `${d.cfg.hostname} läuft jetzt auf ${(S.net.devs[g('vmMig').value] || { cfg: {} }).cfg.hostname}.`); });
+    if (g('vmDs')) g('vmDs').onchange = () => act(() => { d.vm.ds = g('vmDs').value; toast('Datastore gewechselt.'); });
     if (g('appDesk')) g('appDesk').onclick = () => openApps(d.id, 'home');
     if (g('appSvc')) g('appSvc').onclick = () => openApps(d.id, 'svc');
     if (g('fwBtn')) g('fwBtn').onclick = () => fwModal(d);
     if (g('vsan')) g('vsan').onchange = () => act(() => { d.cfg.vsan = Math.max(1, Math.min(4093, +g('vsan').value || 10)); });
     if (g('rset')) g('rset').onclick = () => { const v = +g('rpos').value, u = uOf(d); if (!(v >= 1 && v + u - 1 <= RU)) { toast(`<span class="neg">Position 1–${RU - u + 1} (Gerät belegt ${u} HE).</span>`); render(); return; } if (!freeAt(S.net, d.id, v, u)) { toast('<span class="neg">Dieser Platz im Rack ist bereits belegt.</span>'); render(); return; } act(() => { d.rack = v; toast(`${esc(d.cfg.hostname)} sitzt in HE ${v}${u > 1 ? '–' + (v + u - 1) : ''}.`); }); };
     if (g('runset')) g('runset').onclick = () => act(() => { d.rack = null; });
-    if (g('ddel')) g('ddel').onclick = () => { if (!confirm(`${d.cfg.hostname} mit allen Kabeln löschen?`)) return; act(() => { S.net.links = S.net.links.filter(l => l.a !== d.id && l.b !== d.id); delete S.net.devs[d.id]; delete S.out[d.id]; S.sel = null; S.port = null; }); };
+    if (g('ddel')) g('ddel').onclick = () => { if (!confirm(`${d.cfg.hostname} mit allen Kabeln${VIRTN.vmsOf(S.net, d.id).length ? ' und VMs' : ''} löschen?`)) return; act(() => { VIRTN.cascade(S.net, d.id); S.net.links = S.net.links.filter(l => l.a !== d.id && l.b !== d.id); delete S.net.devs[d.id]; delete S.out[d.id]; S.sel = null; S.port = null; }); };
   }
 
   // ---------------- firewall policy modal ----------------
@@ -854,7 +903,7 @@ const Sandbox = (function () {
   }
   function autoDesc() {
     const per = {};
-    for (const l of S.net.links) for (const [a, ap, b, bp] of [[l.a, l.ap, l.b, l.bp], [l.b, l.bp, l.a, l.ap]]) {
+    for (const l of S.net.links.filter(x => !x.virt)) for (const [a, ap, b, bp] of [[l.a, l.ap, l.b, l.bp], [l.b, l.bp, l.a, l.ap]]) {
       const d = S.net.devs[a]; if (!(d.type === 'switch' || (d.type === 'router' && !d.fw)) || d.cfg.ifs[ap].desc) continue; const pd = S.net.devs[b];
       (per[a] = per[a] || []).push('interface ' + ap, 'description ' + (NL.isHost(pd) ? `${pd.cfg.hostname} ${SH(bp)}` : `${pd.type === 'router' ? 'Router' : 'Uplink'} ${pd.cfg.hostname} ${SH(bp)}`));
     }
@@ -877,7 +926,7 @@ const Sandbox = (function () {
     for (const ip in ips) if (ips[ip].length > 1) add('Fehler', null, `IP ${ip} doppelt vergeben: ${ips[ip].join(', ')}`);
     for (const d of devs) {
       const id = d.id;
-      if (isIcon(d)) { const p = d.ports[0], h = hip(d, p); if (!NL.linkOf(net, id, p)) add('Hinweis', id, 'Endgerät ist nicht verkabelt'); else if (NL.portStatus(net, id, p).st !== 'connected') add('Fehler', id, 'kein Link – ' + NL.portStatus(net, id, p).reason); else if (!h || !h.ip) add('Hinweis', id, 'keine IP-Adresse'); else if (!d.cfg.gw) add('Hinweis', id, 'kein Default-Gateway gesetzt'); continue; }
+      if (isIcon(d)) { const p = d.ports[0], h = hip(d, p); if (d.vm && d.vm.state !== 'running') add('Hinweis', id, 'VM ist ausgeschaltet'); else if (d.vm && net.devs[d.vm.host].off) add('Hinweis', id, `Der Host ${net.devs[d.vm.host].cfg.hostname} ist ausgeschaltet`); else if (!d.vm && !NL.linkOf(net, id, p)) add('Hinweis', id, 'Endgerät ist nicht verkabelt'); else if (!d.vm && NL.portStatus(net, id, p).st !== 'connected') add('Fehler', id, 'kein Link – ' + NL.portStatus(net, id, p).reason); else if (!h || !h.ip) add('Hinweis', id, 'keine IP-Adresse'); else if (!d.cfg.gw) add('Hinweis', id, 'kein Default-Gateway gesetzt'); continue; }
       if (d.type === 'server' || d.type === 'storage') lintHost(net, d, add); else if (d.type === 'fc') lintFc(net, d, add); else if (d.fw) lintFw(net, d, add); else lintIos(net, d, add);
     }
     const rank = { Fehler: 0, Warnung: 1, Hinweis: 2 }; return out.sort((a, b) => rank[a.sev] - rank[b.sev]);
@@ -984,7 +1033,7 @@ const Sandbox = (function () {
   let XS = { dev: null, view: 'cfg' };
   function csv() {
     const q = v => `"${String(v).replace(/"/g, '""')}"`, rows = [['Nr', 'Gerät A', 'Port A', 'Transceiver A', 'Gerät B', 'Port B', 'Transceiver B', 'Kabel', 'Status']];
-    S.net.links.forEach((l, k) => { const A = S.net.devs[l.a], B = S.net.devs[l.b], st = NL.portStatus(S.net, l.a, l.ap); const x = (D, p) => D.xcvr[p] || (l.cable === 'dac' ? 'DAC' : '');
+    S.net.links.filter(x => !x.virt).forEach((l, k) => { const A = S.net.devs[l.a], B = S.net.devs[l.b], st = NL.portStatus(S.net, l.a, l.ap); const x = (D, p) => D.xcvr[p] || (l.cable === 'dac' ? 'DAC' : '');
       rows.push([k + 1, A.cfg.hostname, l.ap, x(A, l.ap), B.cfg.hostname, l.bp, x(B, l.bp), NL.CABLES[l.cable || 'cu'], st.st === 'connected' ? 'up' : 'kein Link: ' + st.reason]); });
     return '\ufeff' + rows.map(r => r.map(q).join(';')).join('\r\n');
   }
@@ -1015,8 +1064,8 @@ const Sandbox = (function () {
     }
   }
   function patchTable() {
-    if (!S.net.links.length) return '<p class="muted">Noch keine Kabel.</p>';
-    return `<div class="tscroll"><table class="eps ptab"><thead><tr><th>Nr</th><th>Von</th><th>Nach</th><th>Kabel</th><th>Status</th></tr></thead><tbody>${S.net.links.map((l, k) => { const A = S.net.devs[l.a], B = S.net.devs[l.b], st = NL.portStatus(S.net, l.a, l.ap), x = (D, p) => D.xcvr[p] ? ` <span class="muted">(${D.xcvr[p]})</span>` : '';
+    if (!S.net.links.some(l => !l.virt)) return '<p class="muted">Noch keine Kabel.</p>';
+    return `<div class="tscroll"><table class="eps ptab"><thead><tr><th>Nr</th><th>Von</th><th>Nach</th><th>Kabel</th><th>Status</th></tr></thead><tbody>${S.net.links.filter(l => !l.virt).map((l, k) => { const A = S.net.devs[l.a], B = S.net.devs[l.b], st = NL.portStatus(S.net, l.a, l.ap), x = (D, p) => D.xcvr[p] ? ` <span class="muted">(${D.xcvr[p]})</span>` : '';
       return `<tr class="${st.st === 'connected' ? 'ok' : 'bad'}"><td>${k + 1}</td><td>${esc(A.cfg.hostname)} ${esc(SH(l.ap))}${x(A, l.ap)}</td><td>${esc(B.cfg.hostname)} ${esc(SH(l.bp))}${x(B, l.bp)}</td><td>${esc(CABSHORT[l.cable || 'cu'])}</td><td>${st.st === 'connected' ? 'up' : esc(st.reason)}</td></tr>`; }).join('')}</tbody></table></div>`;
   }
   async function saveFile(name, data) {
@@ -1085,7 +1134,7 @@ const Sandbox = (function () {
     net = net || S.net;
     return {
       net, ifaces: d => d.ports.filter(p => !isMg(p)).map((p, i) => { const h = hip(d, p) || {}; return { lin: 'eth' + i, alias: 'Ethernet' + i, port: p, ip: h.ip || null, mask: h.mask || null, up: NL.portStatus(net, d.id, p).st === 'connected' }; }),
-      luns: d => STORN.hostLuns(net, d), setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => withNet(net, () => resolve(d, n)), reach: (d, ip) => NL.ping(net, d.id, ip).ok, ping: (d, ip, flow) => NL.ping(net, d.id, ip, flow), net,
+      luns: d => STORN.hostLuns(net, d), setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => withNet(net, () => resolve(d, n)), virsh: (d, a, root) => VIRTN.virsh(net, d, a, root), reach: (d, ip) => NL.ping(net, d.id, ip).ok, ping: (d, ip, flow) => NL.ping(net, d.id, ip, flow), net,
       fallback: (d, line) => withNet(net, () => hostLine(d, (S && S.sess && S.sess[d.id]) || NL.newSess(), line))
     };
   }
@@ -1194,6 +1243,13 @@ const Sandbox = (function () {
   const PWD = '(ConvertTo-SecureString "Sommer2026!" -AsPlainText -Force)';
   const dcSetup = (net, withUsers) => wxr(net, 'DC01', ['Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools', 'Install-ADDSForest -DomainName lab.local -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssw0rd123" -AsPlainText -Force) -Force'].concat(withUsers ? ['New-ADGroup -Name Vertrieb -GroupScope Global', `New-ADUser -Name "Max Muster" -SamAccountName mmuster -AccountPassword ${PWD} -Enabled $true`, 'Add-ADGroupMember -Identity Vertrieb -Members mmuster'] : []));
   const joinDomain = (net, h) => { hd(net, h).cfg.dns = '10.0.0.10'; wxr(net, h, 'Add-Computer -DomainName lab.local -Credential lab\\administrator'); };
+  // Virtualisierung: zwei Hypervisor-Hosts mit SAN-Datastore DS01 (Pool, LUN, Zoning), VMs im 10.0.0.0/24
+  function vmSan(net, o = {}) {
+    stBase(net, ['HV1', 'HV2']); const t = hd(net, 'STO-01'), m = hd(net, 'MDS-A'), h1 = hd(net, 'HV1'), h2 = hd(net, 'HV2');
+    STORN.createPool(t, { name: 'POOL1', raid: 'raid5', disks: 6, diskGb: 600 }); STORN.createLun(t, { name: 'DS01', pool: 'POOL1', gb: 500 }); STORN.maskLun(t, 0, h1.id, true); if (!o.onlyFirst) STORN.maskLun(t, 0, h2.id, true);
+    STORN.autoZones(net, m); STORN.zoneActive(m, true); VIRTN.enable(net, h1); VIRTN.enable(net, h2); h1.hv.cluster = 'CL1'; h2.hv.cluster = 'CL1';
+    [['WEB-VM', 60], ['DB-VM', 61]].forEach(([n, ip]) => { const r = VIRTN.createVm(net, h1, { name: n, cpu: 2, ramGb: 16, diskGb: 40, ds: t.id + ':0' }, defSvc); const v = net.devs[r.id]; rn(net, n, [`ip 10.0.0.${ip}/24 10.0.0.1`]); VIRTN.start(net, v); });
+  }
   function lxBase(net, srv, bare) {
     mk(net, 'C9200L-24P-4X', 450, 190, 'SW'); mk(net, 'ISR4331', 450, 50, 'R-GW'); mk(net, 'PC', 170, 320, 'PC-1'); mk(net, 'Server', 740, 320, srv); if (bare) hd(net, srv).svc.http.on = false;
     lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24); lk(net, 'PC-1', 'eth0', 'SW', G + 1); lk(net, srv, 'eth0', 'SW', G + 2);
@@ -1418,6 +1474,54 @@ const Sandbox = (function () {
         { t: 'Nur die Gruppe <code>LAB\\Vertrieb</code> hat Vollzugriff', c: n => hd(n, 'FS01').win.shares.some(s => s.name === 'Daten' && s.full.length === 1 && /vertrieb$/i.test(s.full[0])) }],
       hints: ['<code>Install-WindowsFeature FS-FileServer</code>, <code>New-Item -ItemType Directory -Path D:\\Daten</code>.', '<code>New-SmbShare -Name Daten -Path D:\\Daten -FullAccess LAB\\Vertrieb</code>. Die Gruppe muss in AD existieren, sonst meldet Windows „Keine Zuordnung zwischen Kontonamen und Sicherheits-IDs“.', 'Besser als „Jeder“: Berechtigungen immer an Gruppen vergeben, nie an einzelne Benutzer (AGDLP-Prinzip).'],
       sol(net) { wxr(net, 'FS01', ['Install-WindowsFeature FS-FileServer', 'New-Item -ItemType Directory -Path D:\\Daten', 'New-SmbShare -Name Daten -Path D:\\Daten -FullAccess LAB\\Vertrieb']); } }
+    ,
+    // ---- System Engineer: Virtualisierung ----
+    { id: 'sc-vm-net', kind: 'Fehlersuche', title: 'Virtualisierung: VM erreicht das Netz nicht', est: '15 min',
+      intro: 'Auf dem Hypervisor HV1 läuft die VM <code>WEB-VM</code> im VLAN 20 (<code>10.20.0.10/24</code>). PC-20 im selben VLAN erreicht sie nicht, und die VM erreicht nicht einmal ihr Gateway. Das Kabel des Hosts hängt am Switch. Es sind drei Fehler eingebaut: im vSwitch des Hosts und am Switchport.',
+      build(net) {
+        mk(net, 'C9200L-24P-4X', 420, 60, 'SW'); mk(net, 'HW-2288H-V5', 200, 330, 'HV1'); mk(net, 'PC', 640, 330, 'PC-20'); lk(net, 'HV1', 'eth1', 'SW', G + 1); lk(net, 'PC-20', 'eth0', 'SW', G + 3);
+        rn(net, 'SW', ['vlan 10', 'vlan 20', 'interface g1/0/1', 'switchport mode access', 'switchport access vlan 10', 'interface g1/0/3', 'switchport mode access', 'switchport access vlan 20', 'ip routing', 'interface vlan 20', 'ip address 10.20.0.1 255.255.255.0', 'no shutdown']);
+        rn(net, 'PC-20', ['ip 10.20.0.50/24 10.20.0.1']); const h = hd(net, 'HV1'); VIRTN.enable(net, h); VIRTN.setUplink(h, 'eth1', false);
+        const r = VIRTN.createVm(net, h, { name: 'WEB-VM', cpu: 2, ramGb: 8, diskGb: 40, vlan: 20 }, defSvc); rn(net, 'WEB-VM', ['ip 10.20.0.10/24 10.20.0.1']); VIRTN.start(net, net.devs[r.id]); },
+      goals: [
+        { t: 'Der Port <code>eth1</code> ist Uplink des vSwitch von HV1 (dort steckt das Kabel)', c: n => hd(n, 'HV1').vsw.uplinks.includes('eth1') },
+        { t: 'Der Switchport Gi1/0/1 ist ein Trunk, der VLAN 20 durchlässt', c: n => { const i = hd(n, 'SW').cfg.ifs[G + 1], a = i.allowed; return i.mode === 'trunk' && (a === null || a.includes(20)); } },
+        { t: 'WEB-VM erreicht das Gateway <code>10.20.0.1</code>', c: n => pg(n, 'WEB-VM', '10.20.0.1') },
+        { t: 'PC-20 erreicht WEB-VM', c: n => pg(n, 'PC-20', '10.20.0.10') }],
+      hints: ['Klicke HV1 an → „Virtualisierung“. Der vSwitch nutzt die Uplinks, die du ankreuzt. Das Kabel steckt in <code>eth1</code>.', 'Der Ping-Debugger sagt es danach direkt: Die VM sendet Frames mit VLAN-Tag 20. Ein Access-Port nimmt keine getaggten Frames an – der Port zum Host muss ein Trunk sein: <code>interface g1/0/1</code>, <code>switchport mode trunk</code>.', 'Beim Trunk die erlaubten VLANs prüfen: <code>switchport trunk allowed vlan 10,20</code>.'],
+      sol(net) { VIRTN.setUplink(hd(net, 'HV1'), 'eth1', true); rn(net, 'SW', ['interface g1/0/1', 'switchport mode trunk', 'switchport trunk allowed vlan 10,20']); } },
+    { id: 'sc-vm-capacity', kind: 'Aufbau', title: 'Virtualisierung: VMs auf zwei Hosts verteilen', est: '15 min',
+      intro: 'HV1 hat 256 GB RAM und trägt schon drei VMs mit je 80 GB (240 GB). Die neue VM <code>NEW-APP</code> braucht 32 GB und lässt sich nicht starten. Du darfst keine VM löschen und keine ausgeschaltet lassen. HV2 hat viel Platz. Bilde einen Cluster und verschiebe eine VM (die VMs liegen auf lokalen Platten, also nur kalt).',
+      build(net) { mk(net, 'C9200L-24P-4X', 420, 60, 'SW'); mk(net, 'HW-1288H-V5', 200, 330, 'HV1'); mk(net, 'HW-1288H-V5', 700, 330, 'HV2'); lk(net, 'HV1', 'eth0', 'SW', G + 1); lk(net, 'HV2', 'eth0', 'SW', G + 2);
+        const h1 = hd(net, 'HV1'), h2 = hd(net, 'HV2'); VIRTN.enable(net, h1); VIRTN.enable(net, h2);
+        ['APP-1', 'APP-2', 'APP-3'].forEach(n => { const r = VIRTN.createVm(net, h1, { name: n, cpu: 4, ramGb: 80, diskGb: 100 }, defSvc); VIRTN.start(net, net.devs[r.id]); }); VIRTN.createVm(net, h1, { name: 'NEW-APP', cpu: 4, ramGb: 32, diskGb: 100 }, defSvc); },
+      goals: [
+        { t: 'HV1 und HV2 gehören zum selben Cluster', c: n => { const a = hd(n, 'HV1').hv.cluster, b = hd(n, 'HV2').hv.cluster; return !!a && a === b; } },
+        { t: 'Es gibt weiterhin vier VMs (keine gelöscht)', c: n => Object.values(n.devs).filter(d => d.vm).length === 4 },
+        { t: 'NEW-APP läuft', c: n => hd(n, 'NEW-APP').vm.state === 'running' },
+        { t: 'Alle vier VMs laufen, und HV1 überschreitet seine 256 GB nicht', c: n => Object.values(n.devs).filter(d => d.vm).every(d => d.vm.state === 'running') && VIRTN.usedRam(n, hd(n, 'HV1').id) <= 256 }],
+      hints: ['Die Fehlermeldung beim Start nennt, wie viel RAM frei ist. Auf HV1 sind es nur 16 GB.', 'HV1 anklicken → „Virtualisierung“ → Cluster z. B. <code>CL1</code> eintragen, dasselbe bei HV2. Ohne Cluster lässt sich keine VM verschieben.', 'Eine VM liegt auf der lokalen Platte: erst stoppen, dann beim VM-Inspektor „Auf anderen Host verschieben“, dann wieder starten. Danach NEW-APP starten.'],
+      sol(net) { const h1 = hd(net, 'HV1'), h2 = hd(net, 'HV2'); h1.hv.cluster = 'CL1'; h2.hv.cluster = 'CL1'; const v = hd(net, 'APP-3'); VIRTN.stop(net, v); VIRTN.migrate(net, v, h2.id); VIRTN.start(net, v); VIRTN.start(net, hd(net, 'NEW-APP')); } },
+    { id: 'sc-vm-migrate', kind: 'Aufbau', title: 'Virtualisierung: Live-Migration über SAN-Datastore', est: '20 min',
+      intro: 'Die VMs <code>WEB-VM</code> und <code>DB-VM</code> laufen auf HV1 und liegen auf dem SAN-Datastore <code>DS01</code>. HV1 soll gewartet werden: Verschiebe beide VMs live auf HV2, ohne sie auszuschalten. Dafür muss HV2 den Datastore sehen.',
+      build(net) { vmSan(net, { onlyFirst: true }); },
+      goals: [
+        { t: 'Die LUN <code>DS01</code> ist auch für HV2 freigegeben (Masking)', c: n => { const t = hd(n, 'STO-01'); return STORN.st(t).luns.some(l => l.name === 'DS01' && l.hosts.includes(hd(n, 'HV1').id) && l.hosts.includes(hd(n, 'HV2').id)); } },
+        { t: 'HV2 sieht den Datastore (<code>DS01</code>)', c: n => VIRTN.datastores(n, hd(n, 'HV2')).some(x => x.name === 'DS01') },
+        { t: 'WEB-VM und DB-VM laufen auf HV2', c: n => ['WEB-VM', 'DB-VM'].every(v => hd(n, v).vm.host === hd(n, 'HV2').id && hd(n, v).vm.state === 'running') },
+        { t: 'Beide VMs antworten auf Ping von R-GW', c: n => pg(n, 'R-GW', '10.0.0.60') && pg(n, 'R-GW', '10.0.0.61') }],
+      hints: ['Der Versuch zu verschieben meldet: Der Datastore ist auf HV2 nicht sichtbar. Das ist ein SAN-Problem: STO-01 anklicken → bei der LUN DS01 auch HV2 ankreuzen (Masking).', 'Danach auf der VM „Auf anderen Host verschieben“ wählen (beide Hosts sind schon im Cluster CL1). Eine laufende VM wandert nur mit gemeinsamem Datastore.', 'Zum Schluss prüfen, ob die VMs noch antworten: Sie bleiben im selben VLAN, der Uplink von HV2 führt in dasselbe Netz.'],
+      sol(net) { STORN.maskLun(hd(net, 'STO-01'), 0, hd(net, 'HV2').id, true); ['WEB-VM', 'DB-VM'].forEach(v => VIRTN.migrate(net, hd(net, v), hd(net, 'HV2').id)); } },
+    { id: 'sc-vm-ha', kind: 'Fehlersuche', title: 'Virtualisierung: Host-Ausfall und HA', est: '20 min',
+      intro: 'HV1 ist ausgefallen (Hardwaredefekt, im Plan ausgeschaltet). Die VMs <code>WEB-VM</code> und <code>DB-VM</code> liegen auf dem SAN-Datastore, sind aber offline. HA ist im Cluster nicht aktiv. Bringe die VMs wieder zum Laufen, und zwar ohne HV1 einzuschalten.',
+      build(net) { vmSan(net, { onlyFirst: true }); hd(net, 'HV1').off = true; },
+      goals: [
+        { t: 'HA ist im Cluster aktiv', c: n => VIRTN.clusterHa(n, 'CL1') },
+        { t: 'Der Datastore <code>DS01</code> ist auch auf HV2 sichtbar', c: n => VIRTN.datastores(n, hd(n, 'HV2')).some(x => x.name === 'DS01') },
+        { t: 'WEB-VM und DB-VM laufen auf HV2', c: n => ['WEB-VM', 'DB-VM'].every(v => hd(n, v).vm.host === hd(n, 'HV2').id && hd(n, v).vm.state === 'running') },
+        { t: 'Beide VMs antworten auf Ping von R-GW', c: n => pg(n, 'R-GW', '10.0.0.60') && pg(n, 'R-GW', '10.0.0.61') }],
+      hints: ['HA startet VMs eines ausgefallenen Hosts auf anderen Cluster-Hosts neu. Schalte es im Host-Inspektor ein (Haken „HA aktiv“).', 'Nach dem Einschalten steht im VM-Inspektor unter „Ereignisse“: „HA: kein Host mit gemeinsamem Datastore“. HV2 sieht die LUN nicht, weil sie nur für HV1 freigegeben ist (STO-01 → LUN DS01 → Masking).', 'Ohne gemeinsamen Datastore kann kein anderer Host die VM-Platten lesen. Deshalb baut man Cluster immer mit gemeinsamer LUN.'],
+      sol(net) { VIRTN.setHa(net, hd(net, 'HV2'), true); STORN.maskLun(hd(net, 'STO-01'), 0, hd(net, 'HV2').id, true); VIRTN.haRun(net); } }
   ];
   function buildScen(id) { const sc = SC.find(x => x.id === id), net = newNet(); sc.build(net); return net; }
   const sdone = () => store.get('scendone', []);
@@ -1499,7 +1603,7 @@ const Sandbox = (function () {
 
   // Kopieren, Duplizieren, Löschen
   const plural = n => `${n} Element${n > 1 ? 'e' : ''}`;
-  const payloadOf = ids => { const net = S.net, set = new Set(ids); return JSON.parse(JSON.stringify({ devs: ids.filter(i => net.devs[i]).map(i => net.devs[i]), links: net.links.filter(l => set.has(l.a) && set.has(l.b)), notes: ids.map(noteById).filter(Boolean) })); };
+  const payloadOf = ids => { const net = S.net, set = new Set(ids.filter(i => !(net.devs[i] && net.devs[i].vm))); return JSON.parse(JSON.stringify({ devs: [...set].filter(i => net.devs[i]).map(i => net.devs[i]), links: net.links.filter(l => !l.virt && set.has(l.a) && set.has(l.b)), notes: ids.map(noteById).filter(Boolean) })); };
   function uniqueName(name, used) { const base = name.replace(/[-_ ]?\d+$/, ''); for (let n = 1; n < 1000; n++) { const c = base + '-' + String(n).padStart(2, '0'); if (!used.has(c)) return c; } return name + '-copy'; }
   function instantiate(p, dx, dy) {
     const net = S.net, map = {}, out = [], used = new Set(Object.values(net.devs).map(d => d.cfg.hostname));
@@ -1522,7 +1626,7 @@ const Sandbox = (function () {
   }
   function delSel() {
     const ids = selIds(); if (!ids.length) return;
-    act(() => { ids.forEach(id => { if (S.net.devs[id]) { S.net.links = S.net.links.filter(l => l.a !== id && l.b !== id); delete S.net.devs[id]; delete S.out[id]; } else S.net.notes = notes().filter(n => n.id !== id); }); S.multi = new Set(); S.selNote = null; S.port = null; toast(`${plural(ids.length)} gelöscht. Strg+Z holt sie zurück.`); });
+    act(() => { ids.forEach(id => { if (S.net.devs[id]) { VIRTN.cascade(S.net, id); S.net.links = S.net.links.filter(l => l.a !== id && l.b !== id); delete S.net.devs[id]; delete S.out[id]; } else S.net.notes = notes().filter(n => n.id !== id); }); S.multi = new Set(); S.selNote = null; S.port = null; toast(`${plural(ids.length)} gelöscht. Strg+Z holt sie zurück.`); });
   }
 
   // Ausrichten und Verteilen
@@ -1673,7 +1777,7 @@ const Sandbox = (function () {
 
   function close() { document.removeEventListener('keydown', escKey); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;

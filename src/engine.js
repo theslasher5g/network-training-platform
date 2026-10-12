@@ -146,6 +146,12 @@ const NL = (function () {
   function linkOf(net, d, p) { return net.links.find(l => (l.a === d && l.ap === p) || (l.b === d && l.bp === p)) || null; }
   const cfgSpeed = (d, p) => { const i = d.cfg.ifs && d.cfg.ifs[p]; const e = i && i.extra.find(x => /^speed \d+$/.test(x)); return e ? +e.split(' ')[1] : null; };
   function phys(net, l) {
+    if (l.virt) { // virtueller Link VM ↔ vSwitch des Hypervisor-Hosts
+      const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], h = net.devs[vm.vm.host];
+      if (vm.vm.state !== 'running') return { ok: false, reason: `${vm.cfg.hostname} ist ausgeschaltet (VM gestoppt)` };
+      if (h.off) return { ok: false, reason: `Der Host ${h.cfg.hostname} ist ausgeschaltet (Ausfall-Simulation)` };
+      return { ok: true, speed: 10000, proto: 'eth' };
+    }
     const cab = l.cable || 'cu';
     const S = [[l.a, l.ap], [l.b, l.bp]].map(([id, p]) => { const d = net.devs[id]; return { d, p, h: d.cfg.hostname, k: (d.pk && d.pk[p]) || 'rj45', x: d.xcvr && d.xcvr[p] }; });
     const bad = r => ({ ok: false, reason: r });
@@ -218,10 +224,23 @@ const NL = (function () {
           const s = d.cfg.ifs[sub]; if (s.shutdown) { note(`${h} ${sh(sub)} ist shutdown`); return; }
           if (s.ip) eps.push({ dev: dId, ifn: sub });
         }
+      } else if (d.vsw) { // Hypervisor: virtueller Switch zwischen VMs und Uplinks
+        if (p.startsWith('vm-')) { const vm = net.devs[p.slice(3)]; if (vm && vm.vm) inVsw(dId, vm.vm.vlan || 0); }
+        else {
+          if (d.vsw.uplinks.includes(p)) inVsw(dId, tag === null ? 0 : tag);
+          else if (tag !== null) note(`${h} ${sh(p)}: Port ist kein Uplink des ${d.vsw.name}, die VMs im VLAN ${tag} sind darüber nicht erreichbar`);
+          if (tag === null) eps.push({ dev: dId, ifn: p });
+        }
       } else {
         if (tag === null) eps.push({ dev: dId, ifn: p });
         else note(`${h} empfängt getaggte Frames (VLAN ${tag}) – das Endgerät hängt an einem Trunk-Port`);
       }
+    };
+    const inVsw = (hId, v) => {
+      const k = 'vsw|' + hId + '|' + v; if (seen.has(k)) return; seen.add(k);
+      const h = net.devs[hId];
+      for (const vm of Object.values(net.devs)) if (vm.vm && vm.vm.host === hId && (vm.vm.vlan || 0) === v) { const l = linkOf(net, vm.id, 'eth0'), ph = l && phys(net, l); if (ph && ph.ok) eps.push({ dev: vm.id, ifn: 'eth0' }); else if (ph) note(ph.reason); }
+      for (const u of h.vsw.uplinks) if (peerOf(net, hId, u)) send(hId, u, v === 0 ? null : v);
     };
     const inSw = (dId, v) => {
       const k = dId + '|' + v; if (seen.has(k)) return; seen.add(k);
