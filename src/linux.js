@@ -8,7 +8,8 @@ const LX = (function () {
     'isc-dhcp-server': { d: 'DHCP-Server', units: ['isc-dhcp-server'], bins: ['dhcpd'] }, 'openssh-server': { d: 'SSH-Server', units: ['ssh'], bins: ['sshd'] },
     curl: { d: 'URL-Werkzeug', bins: ['curl'] }, nano: { d: 'Editor', bins: ['nano'] }, ufw: { d: 'Firewall-Frontend', bins: ['ufw'] },
     htop: { d: 'Prozessanzeige', bins: ['htop'] }, vim: { d: 'Editor', bins: ['vim'] }, tree: { d: 'Verzeichnisbaum', bins: ['tree'] },
-    'net-tools': { d: 'ifconfig, netstat', bins: ['ifconfig', 'netstat', 'route', 'arp'] }, dnsutils: { d: 'dig', bins: ['dig'] }, tcpdump: { d: 'Paketmitschnitt', bins: ['tcpdump'] }
+    'net-tools': { d: 'ifconfig, netstat', bins: ['ifconfig', 'netstat', 'route', 'arp'] }, dnsutils: { d: 'dig', bins: ['dig'] }, tcpdump: { d: 'Paketmitschnitt', bins: ['tcpdump'] },
+    'multipath-tools': { d: 'Multipathing für SAN-LUNs', bins: ['multipath', 'multipathd'] }
   };
   const PRE = ['curl', 'nano', 'ufw', 'openssh-server'];
   const UNITS = {
@@ -29,9 +30,10 @@ const LX = (function () {
     if (d.lx) return d.lx;
     const sv = d.svc || {}, name = d.cfg.hostname, fs = {};
     const dir = (p, o) => { fs[p] = { d: 1, o: o || 'root' }; }, file = (p, t, o, m) => { fs[p] = { t, o: o || 'root', m: m || '644' }; };
-    ['/', '/bin', '/etc', '/etc/nginx', '/etc/bind', '/etc/dhcp', '/home', '/root', '/tmp', '/usr', '/usr/bin', '/var', '/var/log', '/var/log/nginx', '/var/www', '/var/www/html', '/opt', '/srv', '/dev', '/proc'].forEach(p => dir(p));
+    ['/', '/bin', '/sys', '/sys/class', '/sys/class/scsi_host', '/sys/class/scsi_host/host0', '/sys/class/scsi_host/host1', '/etc', '/etc/nginx', '/etc/bind', '/etc/dhcp', '/home', '/root', '/tmp', '/usr', '/usr/bin', '/var', '/var/log', '/var/log/nginx', '/var/www', '/var/www/html', '/opt', '/srv', '/dev', '/proc'].forEach(p => dir(p));
     dir('/home/admin', 'admin'); dir('/tmp'); fs['/tmp'].m = '777';
     const pk = new Set(PRE); if (sv.http && sv.http.on) pk.add('nginx'); if (sv.dns && sv.dns.on) pk.add('bind9'); if (sv.dhcp && sv.dhcp.on) pk.add('isc-dhcp-server');
+    file('/sys/class/scsi_host/host0/scan', '', 'root', '200'); file('/sys/class/scsi_host/host1/scan', '', 'root', '200');
     file('/etc/hostname', name + '\n'); file('/etc/hosts', `127.0.0.1 localhost\n127.0.1.1 ${name}\n`);
     file('/etc/os-release', 'PRETTY_NAME="Ubuntu 22.04.4 LTS"\nNAME="Ubuntu"\nVERSION_ID="22.04"\n'); file('/etc/shadow', 'root:*:19000:0:99999:7:::\n', 'root', '640');
     file('/var/log/syslog', `${DATE} ${name} systemd[1]: Started Daily apt download activities.\n`, 'syslog', '640'); file('/var/log/auth.log', `${DATE} ${name} sshd[701]: Server listening on 0.0.0.0 port 22.\n`, 'syslog', '640');
@@ -41,7 +43,7 @@ const LX = (function () {
     if (pk.has('isc-dhcp-server')) { const p = sv.dhcp || {}; file('/etc/dhcp/dhcpd.conf', p.start && p.mask ? dhcpText(d, p) : DHCP_SAMPLE); }
     const units = {}; Object.keys(UNITS).forEach(u => { units[u] = { enabled: true, active: !UNITS[u].svc, seen: null }; });
     Object.keys(UNITS).forEach(u => { const s = UNITS[u].svc; if (s) { units[u].active = !!(sv[s] && sv[s].on); units[u].seen = units[u].active; units[u].enabled = units[u].active; } });
-    d.lx = { user: 'admin', root: false, cwd: '/home/admin', fs, pkgs: [...pk], units, users: ['root', 'admin'], fail: {}, log: [], ufw: { on: false, allow: [] }, pid: 600 };
+    d.lx = { user: 'admin', root: false, cwd: '/home/admin', fs, pkgs: [...pk], units, users: ['root', 'admin'], fail: {}, log: [], ufw: { on: false, allow: [] }, pid: 600, scsi: null, fmt: {}, mounts: {} };
     return d.lx;
   }
   const esc2 = s => String(s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
@@ -147,6 +149,66 @@ const LX = (function () {
     out.push(cur); return out;
   }
 
+  // ---------- SAN-LUNs (lsblk, multipath, mount) ----------
+  const gbStr = gb => gb >= 1024 ? (gb / 1024).toFixed(1).replace(/\.0$/, '') + 'T' : gb + 'G';
+  const scanList = (ctx, d) => (ctx.luns ? ctx.luns(d) : []).map(e => ({ key: e.sto + ':' + e.lun, name: e.name, gb: e.gb, paths: e.paths.map(p => ({ hp: p.hp, sp: p.sp, ctl: p.ctl })) }));
+  const isMp = L => L.pkgs.includes('multipath-tools');
+  function devTable(L) {
+    const out = []; let n = 1; (L.scsi || []).forEach((e, i) => { const paths = e.paths.map(p => ({ name: 'sd' + String.fromCharCode(97 + n++), p })); out.push({ e, i, mp: 'mpath' + String.fromCharCode(97 + i), paths }); }); return out;
+  }
+  function findDev(L, path) {
+    const t = devTable(L), m = path.match(/^\/dev\/(?:mapper\/)?(\w+)$/); if (!m) return null;
+    for (const x of t) { if (isMp(L) && m[1] === x.mp && /mapper/.test(path)) return { kind: 'mpath', x, gb: x.e.gb }; for (const q of x.paths) if (q.name === m[1] && !/mapper/.test(path)) return { kind: 'path', x, q, gb: x.e.gb }; }
+    return null;
+  }
+  const devPath = f => f.kind === 'mpath' ? '/dev/mapper/' + f.x.mp : '/dev/' + f.q.name;
+  function rescan(st) {
+    const L = st.L, before = (L.scsi || []).reduce((s, e) => s + e.paths.length, 0), cur = scanList(st.ctx, st.d), now = cur.reduce((s, e) => s + e.paths.length, 0);
+    const oldKeys = new Set((L.scsi || []).flatMap(e => e.paths.map(p => e.key + p.hp + p.sp))), newKeys = new Set(cur.flatMap(e => e.paths.map(p => e.key + p.hp + p.sp)));
+    const added = [...newKeys].filter(k => !oldKeys.has(k)).length, removed = [...oldKeys].filter(k => !newKeys.has(k)).length; void before; void now;
+    L.scsi = cur; return `Scanning SCSI subsystem for new devices\nScanning host 2 for all SCSI target IDs, all LUNs\n${added} new or changed device(s) found.\n${removed} device(s) removed.`;
+  }
+  const afterWrite = (st, p) => /^\/sys\/class\/scsi_host\/host\d+\/scan$/.test(p) ? rescan(st) : '';
+  function lsblk(st) {
+    const L = st.L, mnt = dev => Object.keys(L.mounts).filter(k => L.mounts[k] === dev).join(','), rows = ['NAME        MAJ:MIN RM   SIZE RO TYPE  MOUNTPOINTS', 'sda           8:0    0    20G  0 disk', '└─sda1        8:1    0    20G  0 part  /'];
+    devTable(L).forEach((x, i) => x.paths.forEach((q, k) => {
+      rows.push(`${q.name.padEnd(13)} 8:${(i * 16 + k) * 16}    0 ${gbStr(x.e.gb).padStart(5)}  0 disk`);
+      if (isMp(L)) rows.push(`└─${x.mp.padEnd(10)} 253:${i}    0 ${gbStr(x.e.gb).padStart(5)}  0 mpath ${mnt('/dev/mapper/' + x.mp)}`.trimEnd()); else if (mnt('/dev/' + q.name)) rows[rows.length - 1] += ' ' + mnt('/dev/' + q.name);
+    }));
+    return rows.join('\n');
+  }
+  function multipathLL(st) {
+    const L = st.L, live = scanList(st.ctx, st.d), out = [];
+    if (!isMp(L)) return 'Command \'multipath\' not found, but can be installed with:\nsudo apt install multipath-tools';
+    devTable(L).forEach(x => {
+      const le = live.find(e => e.key === x.e.key), alive = q => !!le && le.paths.some(p => p.hp === q.p.hp && p.sp === q.p.sp), ok = x.paths.filter(alive).length;
+      out.push(`${x.mp} (3600${x.e.key.replace(/\D/g, '').padEnd(4, '0')}a1b2c3d4e5f60718) dm-${x.i} HUAWEI,XSG1`, `size=${gbStr(x.e.gb)} features='1 queue_if_no_path' hwhandler='0' wp=rw`, `\`-+- policy='service-time 0' prio=${ok ? 50 : 0} status=${ok ? 'active' : 'enabled'}`);
+      x.paths.forEach((q, k) => out.push(`  ${k === x.paths.length - 1 ? '`' : '|'}- ${2 + (k % 2)}:0:${k}:${x.i} ${q.name} 8:${(x.i * 16 + k) * 16} ${alive(q) ? 'active ready running' : 'failed faulty running'}`));
+    });
+    return out.length ? out.join('\n') : '(keine Multipath-Geräte: erst LUNs freigeben, zonen und rescannen)';
+  }
+  function mkfs(a, st, fs) {
+    if (!st.root) return `mke2fs: Permission denied while trying to determine filesystem size (versuche: sudo mkfs.${fs} …)`;
+    const dev = a.filter(x => !x.startsWith('-')).pop(); if (!dev) return `Usage: mkfs.${fs} <Gerät>`;
+    const f = findDev(st.L, dev); if (!f) return `The file ${dev} does not exist and no size was specified.`;
+    if (f.kind === 'path' && isMp(st.L)) return `mkfs.${fs}: ${dev} is apparently in use by the system; will not make a filesystem here!\n(Das Gerät gehört zu einem Multipath-Gerät: nimm /dev/mapper/${f.x.mp}.)`;
+    if (Object.values(st.L.mounts).includes(devPath(f))) return `${dev} is mounted; will not make a filesystem here!`;
+    st.L.fmt[devPath(f)] = fs; return `mke2fs 1.46.5\nCreating filesystem with ${f.gb * 262144} 4k blocks and ${f.gb * 65536} inodes\nAllocating group tables: done\nWriting inode tables: done\nCreating journal (262144 blocks): done\nWriting superblocks and filesystem accounting information: done`;
+  }
+  function mount(a, st) {
+    const L = st.L, args = a.filter(x => !x.startsWith('-'));
+    if (!args.length) return ['/dev/sda1 on / type ext4 (rw,relatime)'].concat(Object.keys(L.mounts).map(k => `${L.mounts[k]} on ${k} type ${L.fmt[L.mounts[k]] || 'ext4'} (rw,relatime)`)).join('\n');
+    if (!st.root) return 'mount: only root can do that (versuche: sudo mount …)';
+    if (args.length < 2) return 'mount: Usage: mount <Gerät> <Verzeichnis>';
+    const f = findDev(L, args[0]), mp = resolvePath(L, args[1]); if (!f) return `mount: ${args[1]}: special device ${args[0]} does not exist.`;
+    if (!L.fs[mp] || !L.fs[mp].d) return `mount: ${args[1]}: mount point does not exist.`;
+    if (f.kind === 'path' && isMp(L)) return `mount: ${args[1]}: ${args[0]} already mounted or mount point busy.`;
+    if (!L.fmt[devPath(f)]) return `mount: ${args[1]}: wrong fs type, bad option, bad superblock on ${args[0]}, missing codepage or helper program, or other error.\n(Das Gerät hat noch kein Dateisystem: erst mkfs.ext4.)`;
+    if (L.mounts[mp]) return `mount: ${args[1]}: ${args[0]} already mounted or mount point busy.`;
+    L.mounts[mp] = devPath(f); return '';
+  }
+  function umount(a, st) { if (!st.root) return 'umount: only root can do that (versuche: sudo umount …)'; const mp = resolvePath(st.L, a[0] || ''); if (!st.L.mounts[mp]) return `umount: ${a[0]}: not mounted.`; delete st.L.mounts[mp]; return ''; }
+
   // ---------- Befehle ----------
   const flagsOf = (a) => { const f = new Set(), rest = []; a.forEach(t => { if (/^-[A-Za-z]+$/.test(t)) [...t.slice(1)].forEach(c => f.add(c)); else rest.push(t); }); return { f, rest }; };
   const need = (st, cmd) => st.root ? null : `${cmd}: Permission denied (versuche: sudo ${cmd} …)`;
@@ -196,7 +258,7 @@ const LX = (function () {
       const out = m ? t.split('\n').map(l => l.replace(re, m[3])).join('\n') : t.split('\n').filter(l => !re.test(l)).join('\n');
       if (f.has('i') && file) { if (!canWrite(st.L, st, file)) return `sed: couldn't open temporary file ${dirOf(file)}/sedXXXX: Permission denied`; st.L.fs[file].t = out; return ''; } return out.replace(/\n$/, '');
     },
-    tee: (a, st) => { const { f, rest } = flagsOf(a), t = st.stdin || ''; const e = rest.map(r => writeFile(st.L, st, resolvePath(st.L, r), t + '\n', f.has('a'))).filter(Boolean); return e.length ? e.join('\n') : t; },
+    tee: (a, st) => { const { f, rest } = flagsOf(a), t = st.stdin || ''; const e = rest.map(r => { const p = resolvePath(st.L, r), w = writeFile(st.L, st, p, t + '\n', f.has('a')); return w || afterWrite(st, p); }).filter(Boolean); return e.length ? e.join('\n') : t; },
     truncate: (a, st) => { const i = a.indexOf('-s'), raw = a[a.length - 1], p = resolvePath(st.L, raw), e = st.L.fs[p]; if (i < 0) return 'truncate: you must specify either -s or -r'; if (!e) return `truncate: cannot open '${raw}' for writing: No such file or directory`; if (!canWrite(st.L, st, p)) return `truncate: cannot open '${raw}' for writing: Permission denied`; e.t = ''; delete e.s; return ''; },
     find: (a, st) => {
       const L = st.L, root = resolvePath(L, a[0] && !a[0].startsWith('-') ? a[0] : '.'), ni = a.indexOf('-name'), si = a.indexOf('-size'); let nre = null, min = null;
@@ -205,16 +267,16 @@ const LX = (function () {
       return Object.keys(L.fs).filter(k => (k === root || k.startsWith(root === '/' ? '/' : root + '/')) && canRead(L, st, k) && (!nre || nre.test(baseOf(k))) && (min === null || (!L.fs[k].d && sizeOf(L.fs[k]) > min))).sort().join('\n');
     },
     du: (a, st) => { const { f, rest } = flagsOf(a), out = []; (rest.length ? rest : ['.']).forEach(raw => { const p = resolvePath(st.L, raw), e = st.L.fs[p]; if (!e) { out.push(`du: cannot access '${raw}': No such file or directory`); return; } const sum = Object.keys(st.L.fs).filter(k => k === p || k.startsWith(p + '/')).reduce((s, k) => s + sizeOf(st.L.fs[k]), 0); out.push(`${f.has('h') ? hs(sum) : Math.ceil(sum / 1024)}\t${raw}`); }); return out.join('\n'); },
-    df: (a, st) => { const u = Math.min(used(st.L), TOTAL), p = Math.min(100, Math.ceil(u / TOTAL * 100)); return `Filesystem      Size  Used Avail Use% Mounted on\n/dev/sda2        ${hs(TOTAL)}  ${hs(u).padStart(4)} ${hs(TOTAL - u).padStart(5)} ${String(p).padStart(3)}% /\ntmpfs           1.9G     0  1.9G   0% /dev/shm`; },
+    df: (a, st) => { const u = Math.min(used(st.L), TOTAL), p = Math.min(100, Math.ceil(u / TOTAL * 100)); return `Filesystem      Size  Used Avail Use% Mounted on\n/dev/sda2        ${hs(TOTAL)}  ${hs(u).padStart(4)} ${hs(TOTAL - u).padStart(5)} ${String(p).padStart(3)}% /\ntmpfs           1.9G     0  1.9G   0% /dev/shm` + Object.keys(st.L.mounts).map(mp => { const f = findDev(st.L, st.L.mounts[mp]), gb = f ? f.gb : 0; return `\n${st.L.mounts[mp].padEnd(15)} ${hs(gb * 1024 ** 3 * 0.98).padStart(4)}  ${'24K'.padStart(4)} ${hs(gb * 1024 ** 3 * 0.97).padStart(5)}   1% ${mp}`; }).join(''); },
     free: () => '               total        used        free      shared  buff/cache   available\nMem:           3.8Gi       612Mi       2.4Gi       1.0Mi       812Mi       3.0Gi\nSwap:          2.0Gi          0B       2.0Gi',
     uptime: () => ' 09:00:00 up 2:14,  1 user,  load average: 0.08, 0.03, 0.01', date: () => 'Mon Oct 12 09:00:00 UTC 2026',
     whoami: (a, st) => st.root ? 'root' : st.L.user, id: (a, st) => st.root ? 'uid=0(root) gid=0(root) groups=0(root)' : `uid=1000(${st.L.user}) gid=1000(${st.L.user}) groups=1000(${st.L.user}),27(sudo)`,
     hostname: (a, st) => st.d.cfg.hostname, uname: (a) => a.includes('-a') ? `Linux ${'host'} 5.15.0-91-generic #101-Ubuntu SMP x86_64 GNU/Linux` : 'Linux',
-    which: (a, st) => a.map(b => hasBin(st.L, b) && (C[b] || ['nginx', 'htop', 'vim', 'tree', 'ifconfig', 'dig', 'tcpdump', 'systemctl', 'apt', 'sudo', 'ufw'].includes(b)) ? '/usr/bin/' + b : '').filter(Boolean).join('\n'),
+    which: (a, st) => a.map(b => hasBin(st.L, b) && (Object.prototype.hasOwnProperty.call(C, b) || ['nginx', 'htop', 'vim', 'tree', 'ifconfig', 'dig', 'tcpdump', 'systemctl', 'apt', 'sudo', 'ufw'].includes(b)) ? '/usr/bin/' + b : '').filter(Boolean).join('\n'),
     ps: (a, st) => { const L = st.L, rows = ['root           1  0.0  0.3 168000 11800 ?        Ss   08:46   0:02 /sbin/init', 'root         410  0.0  0.2  50000  8200 ?        Ss   08:46   0:00 /lib/systemd/systemd-journald']; Object.keys(UNITS).forEach(u => { if (L.units[u].active) rows.push(`root         ${400 + u.length * 17}  0.0  0.4 120000 14000 ?        Ss   08:46   0:00 ${UNITS[u].proc}`); }); rows.push(`${L.user}      2210  0.0  0.1  10000  4000 pts/0    Ss   09:00   0:00 -bash`); return 'USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND\n' + rows.join('\n'); },
     ss: (a, st) => ssTable(st), netstat: (a, st) => hasBin(st.L, 'netstat') ? ssTable(st) : 'Command \'netstat\' not found, but can be installed with:\nsudo apt install net-tools',
     history: () => '', clear: () => '',
-    help: () => 'Verfügbare Befehle (Linux-Server):\n  Dateien:   ls cat cd pwd cp mv rm mkdir touch chmod chown head tail grep sed tee find du df truncate\n  System:    systemctl journalctl ps ss free uptime hostname hostnamectl whoami id useradd userdel\n  Pakete:    apt update | apt install <Paket> | apt remove <Paket>\n  Netzwerk:  ip a | ip r | ip addr add <IP>/<Präfix> dev eth0 | ip route add default via <IP> | ping | curl | nslookup | dig | ufw\n  Dateien schreiben: echo "text" > datei   echo "zeile" >> datei   sed -i \'s/alt/neu/\' datei\n  Rechte: Systemdateien brauchen sudo (z. B. sudo systemctl restart nginx).',
+    help: () => 'Verfügbare Befehle (Linux-Server):\n  Dateien:   ls cat cd pwd cp mv rm mkdir touch chmod chown head tail grep sed tee find du df truncate\n  System:    systemctl journalctl ps ss free uptime hostname hostnamectl whoami id useradd userdel\n  Pakete:    apt update | apt install <Paket> | apt remove <Paket>\n  Speicher:  lsblk | multipath -ll | sudo rescan-scsi-bus.sh | sudo mkfs.ext4 <Gerät> | sudo mount <Gerät> <Ordner> | df -h\n  Netzwerk:  ip a | ip r | ip addr add <IP>/<Präfix> dev eth0 | ip route add default via <IP> | ping | curl | nslookup | dig | ufw\n  Dateien schreiben: echo "text" > datei   echo "zeile" >> datei   sed -i \'s/alt/neu/\' datei\n  Rechte: Systemdateien brauchen sudo (z. B. sudo systemctl restart nginx).',
     nano: () => 'Im Simulator gibt es keinen Terminal-Editor. Schreibe Dateien mit echo "text" > datei oder >> datei und ändere mit sed -i \'s/alt/neu/\' datei.', vi: () => C.nano(), vim: () => C.nano(),
     exit: (a, st) => { if (st.L.root) { st.L.root = false; st.L.cwd = '/home/' + st.L.user; return ''; } return 'logout\n(Dies ist die einzige Sitzung – du bleibst angemeldet.)'; }, logout: (a, st) => C.exit(a, st),
     su: (a, st) => { st.L.root = true; st.L.cwd = '/root'; return ''; },
@@ -223,6 +285,9 @@ const LX = (function () {
     userdel: (a, st) => { if (!st.root) return 'userdel: Permission denied.'; const n = a[a.length - 1]; if (!st.L.users.includes(n) || n === 'root') return `userdel: user '${n}' does not exist`; st.L.users = st.L.users.filter(u => u !== n); return ''; },
     passwd: (a, st) => st.root || !a[0] ? 'passwd: password updated successfully' : 'passwd: You may not view or modify password information for ' + a[0] + '.',
     crontab: (a, st) => `no crontab for ${st.root ? 'root' : st.L.user}`,
+    lsblk: (a, st) => lsblk(st), multipath: (a, st) => multipathLL(st), 'rescan-scsi-bus.sh': (a, st) => st.root ? rescan(st) : 'rescan-scsi-bus.sh: Permission denied (versuche: sudo rescan-scsi-bus.sh)',
+    'mkfs.ext4': (a, st) => mkfs(a, st, 'ext4'), 'mkfs.xfs': (a, st) => mkfs(a, st, 'xfs'), mount: (a, st) => mount(a, st), umount: (a, st) => umount(a, st),
+    fdisk: (a, st) => { if (!st.root) return 'fdisk: cannot open /dev/sda: Permission denied (versuche: sudo fdisk -l)'; return ['Disk /dev/sda: 20 GiB'].concat(devTable(st.L).flatMap(x => x.paths.map(q => `Disk /dev/${q.name}: ${x.e.gb} GiB`))).join('\n'); },
     ufw: (a, st) => ufw(a, st), journalctl: (a, st) => journal(a, st), systemctl: (a, st) => systemctl(a, st), apt: (a, st) => apt(a, st), 'apt-get': (a, st) => apt(a, st),
     ip: (a, st) => ipCmd(a, st), ifconfig: (a, st) => hasBin(st.L, 'ifconfig') ? ipCmd(['a'], st) : 'Command \'ifconfig\' not found, but can be installed with:\nsudo apt install net-tools',
     nginx: (a, st) => { if (!hasBin(st.L, 'nginx')) return 'Command \'nginx\' not found'; if (a[0] === '-t') { if (!st.root) return 'nginx: [alert] could not open error log file: open() "/var/log/nginx/error.log" failed (13: Permission denied)\nnginx: [emerg] open() "/etc/nginx/nginx.conf" failed (13: Permission denied)'; const r = nginxCheck(st.L); return r.err ? `${r.err}\nnginx: configuration file /etc/nginx/nginx.conf test failed` : 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nnginx: configuration file /etc/nginx/nginx.conf test is successful'; } return 'nginx version: nginx/1.18.0 (Ubuntu)'; },
@@ -328,13 +393,13 @@ const LX = (function () {
     }
     if (redir) {
       if (!redir.file) return { out: 'bash: syntax error near unexpected token `newline\'' };
-      const p = resolvePath(L, redir.file), e = writeFile(L, st, p, out === '' ? '' : out + '\n', redir.op === '>>'); return { out: e };
+      const p = resolvePath(L, redir.file), e = writeFile(L, st, p, out === '' ? '' : out + '\n', redir.op === '>>'); return { out: e || afterWrite(st, p) };
     }
     return { out };
   }
   function localCurl(d, L) { const sv = d.svc; if (!sv || !L.units.nginx.active || !sv.http.on) return 'curl: (7) Failed to connect to localhost port 80 after 0 ms: Connection refused'; const idx = readFile(L, '/var/www/html/index.html'); return idx === null ? '<html>404 Not Found</html>' : idx.replace(/\n$/, ''); }
   function exec(ctx, d, raw) {
-    const L = init(d); reconcile(d, L); const line = String(raw || '').replace(/\s2>\s*\/dev\/null/g, '').replace(/\s2>&1/g, '').trim(); if (!line) return '';
+    const L = init(d); reconcile(d, L); if (L.scsi === null) L.scsi = scanList(ctx, d); const line = String(raw || '').replace(/\s2>\s*\/dev\/null/g, '').replace(/\s2>&1/g, '').trim(); if (!line) return '';
     const segs = splitTop(line, ['&&', ';']).map(x => x.trim()).filter(Boolean), outs = [];
     for (const seg of segs) {
       const pipe = splitTop(seg, ['|']); let data = null;

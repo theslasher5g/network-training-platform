@@ -626,6 +626,10 @@ table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vert
 .lab-wiki{margin-top:1.2rem;font-size:.9rem}.lab-wiki .wk-chips{margin-top:.4rem}
 @media (max-width:860px){.wiki{grid-template-columns:1fr}.wk-side{position:static}.wk-cats{flex-direction:row;flex-wrap:wrap;gap:.3rem}.wk-cats a{border:1px solid var(--line);background:var(--panel)}}
 
+.lunrow{border:1px solid var(--line);border-radius:12px;padding:.6rem .75rem;margin:.5rem 0;background:var(--panel)}
+.lunh{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.lunm{display:flex;flex-wrap:wrap;gap:.2rem .8rem;align-items:center;margin:.35rem 0}
+.vt th{text-align:left;font-size:.74rem;color:var(--muted);font-weight:600;padding:.2rem .3rem}
 /* Lab-Seitenleiste */
 .side{padding:1.4rem 1.4rem 2rem}
 .ltitle{font-size:1.6rem;letter-spacing:-.025em;font-weight:800}
@@ -2036,7 +2040,8 @@ const LX = (function () {
     'isc-dhcp-server': { d: 'DHCP-Server', units: ['isc-dhcp-server'], bins: ['dhcpd'] }, 'openssh-server': { d: 'SSH-Server', units: ['ssh'], bins: ['sshd'] },
     curl: { d: 'URL-Werkzeug', bins: ['curl'] }, nano: { d: 'Editor', bins: ['nano'] }, ufw: { d: 'Firewall-Frontend', bins: ['ufw'] },
     htop: { d: 'Prozessanzeige', bins: ['htop'] }, vim: { d: 'Editor', bins: ['vim'] }, tree: { d: 'Verzeichnisbaum', bins: ['tree'] },
-    'net-tools': { d: 'ifconfig, netstat', bins: ['ifconfig', 'netstat', 'route', 'arp'] }, dnsutils: { d: 'dig', bins: ['dig'] }, tcpdump: { d: 'Paketmitschnitt', bins: ['tcpdump'] }
+    'net-tools': { d: 'ifconfig, netstat', bins: ['ifconfig', 'netstat', 'route', 'arp'] }, dnsutils: { d: 'dig', bins: ['dig'] }, tcpdump: { d: 'Paketmitschnitt', bins: ['tcpdump'] },
+    'multipath-tools': { d: 'Multipathing für SAN-LUNs', bins: ['multipath', 'multipathd'] }
   };
   const PRE = ['curl', 'nano', 'ufw', 'openssh-server'];
   const UNITS = {
@@ -2057,9 +2062,10 @@ const LX = (function () {
     if (d.lx) return d.lx;
     const sv = d.svc || {}, name = d.cfg.hostname, fs = {};
     const dir = (p, o) => { fs[p] = { d: 1, o: o || 'root' }; }, file = (p, t, o, m) => { fs[p] = { t, o: o || 'root', m: m || '644' }; };
-    ['/', '/bin', '/etc', '/etc/nginx', '/etc/bind', '/etc/dhcp', '/home', '/root', '/tmp', '/usr', '/usr/bin', '/var', '/var/log', '/var/log/nginx', '/var/www', '/var/www/html', '/opt', '/srv', '/dev', '/proc'].forEach(p => dir(p));
+    ['/', '/bin', '/sys', '/sys/class', '/sys/class/scsi_host', '/sys/class/scsi_host/host0', '/sys/class/scsi_host/host1', '/etc', '/etc/nginx', '/etc/bind', '/etc/dhcp', '/home', '/root', '/tmp', '/usr', '/usr/bin', '/var', '/var/log', '/var/log/nginx', '/var/www', '/var/www/html', '/opt', '/srv', '/dev', '/proc'].forEach(p => dir(p));
     dir('/home/admin', 'admin'); dir('/tmp'); fs['/tmp'].m = '777';
     const pk = new Set(PRE); if (sv.http && sv.http.on) pk.add('nginx'); if (sv.dns && sv.dns.on) pk.add('bind9'); if (sv.dhcp && sv.dhcp.on) pk.add('isc-dhcp-server');
+    file('/sys/class/scsi_host/host0/scan', '', 'root', '200'); file('/sys/class/scsi_host/host1/scan', '', 'root', '200');
     file('/etc/hostname', name + '\n'); file('/etc/hosts', `127.0.0.1 localhost\n127.0.1.1 ${name}\n`);
     file('/etc/os-release', 'PRETTY_NAME="Ubuntu 22.04.4 LTS"\nNAME="Ubuntu"\nVERSION_ID="22.04"\n'); file('/etc/shadow', 'root:*:19000:0:99999:7:::\n', 'root', '640');
     file('/var/log/syslog', `${DATE} ${name} systemd[1]: Started Daily apt download activities.\n`, 'syslog', '640'); file('/var/log/auth.log', `${DATE} ${name} sshd[701]: Server listening on 0.0.0.0 port 22.\n`, 'syslog', '640');
@@ -2069,7 +2075,7 @@ const LX = (function () {
     if (pk.has('isc-dhcp-server')) { const p = sv.dhcp || {}; file('/etc/dhcp/dhcpd.conf', p.start && p.mask ? dhcpText(d, p) : DHCP_SAMPLE); }
     const units = {}; Object.keys(UNITS).forEach(u => { units[u] = { enabled: true, active: !UNITS[u].svc, seen: null }; });
     Object.keys(UNITS).forEach(u => { const s = UNITS[u].svc; if (s) { units[u].active = !!(sv[s] && sv[s].on); units[u].seen = units[u].active; units[u].enabled = units[u].active; } });
-    d.lx = { user: 'admin', root: false, cwd: '/home/admin', fs, pkgs: [...pk], units, users: ['root', 'admin'], fail: {}, log: [], ufw: { on: false, allow: [] }, pid: 600 };
+    d.lx = { user: 'admin', root: false, cwd: '/home/admin', fs, pkgs: [...pk], units, users: ['root', 'admin'], fail: {}, log: [], ufw: { on: false, allow: [] }, pid: 600, scsi: null, fmt: {}, mounts: {} };
     return d.lx;
   }
   const esc2 = s => String(s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
@@ -2175,6 +2181,66 @@ const LX = (function () {
     out.push(cur); return out;
   }
 
+  // ---------- SAN-LUNs (lsblk, multipath, mount) ----------
+  const gbStr = gb => gb >= 1024 ? (gb / 1024).toFixed(1).replace(/\.0$/, '') + 'T' : gb + 'G';
+  const scanList = (ctx, d) => (ctx.luns ? ctx.luns(d) : []).map(e => ({ key: e.sto + ':' + e.lun, name: e.name, gb: e.gb, paths: e.paths.map(p => ({ hp: p.hp, sp: p.sp, ctl: p.ctl })) }));
+  const isMp = L => L.pkgs.includes('multipath-tools');
+  function devTable(L) {
+    const out = []; let n = 1; (L.scsi || []).forEach((e, i) => { const paths = e.paths.map(p => ({ name: 'sd' + String.fromCharCode(97 + n++), p })); out.push({ e, i, mp: 'mpath' + String.fromCharCode(97 + i), paths }); }); return out;
+  }
+  function findDev(L, path) {
+    const t = devTable(L), m = path.match(/^\/dev\/(?:mapper\/)?(\w+)$/); if (!m) return null;
+    for (const x of t) { if (isMp(L) && m[1] === x.mp && /mapper/.test(path)) return { kind: 'mpath', x, gb: x.e.gb }; for (const q of x.paths) if (q.name === m[1] && !/mapper/.test(path)) return { kind: 'path', x, q, gb: x.e.gb }; }
+    return null;
+  }
+  const devPath = f => f.kind === 'mpath' ? '/dev/mapper/' + f.x.mp : '/dev/' + f.q.name;
+  function rescan(st) {
+    const L = st.L, before = (L.scsi || []).reduce((s, e) => s + e.paths.length, 0), cur = scanList(st.ctx, st.d), now = cur.reduce((s, e) => s + e.paths.length, 0);
+    const oldKeys = new Set((L.scsi || []).flatMap(e => e.paths.map(p => e.key + p.hp + p.sp))), newKeys = new Set(cur.flatMap(e => e.paths.map(p => e.key + p.hp + p.sp)));
+    const added = [...newKeys].filter(k => !oldKeys.has(k)).length, removed = [...oldKeys].filter(k => !newKeys.has(k)).length; void before; void now;
+    L.scsi = cur; return `Scanning SCSI subsystem for new devices\nScanning host 2 for all SCSI target IDs, all LUNs\n${added} new or changed device(s) found.\n${removed} device(s) removed.`;
+  }
+  const afterWrite = (st, p) => /^\/sys\/class\/scsi_host\/host\d+\/scan$/.test(p) ? rescan(st) : '';
+  function lsblk(st) {
+    const L = st.L, mnt = dev => Object.keys(L.mounts).filter(k => L.mounts[k] === dev).join(','), rows = ['NAME        MAJ:MIN RM   SIZE RO TYPE  MOUNTPOINTS', 'sda           8:0    0    20G  0 disk', '└─sda1        8:1    0    20G  0 part  /'];
+    devTable(L).forEach((x, i) => x.paths.forEach((q, k) => {
+      rows.push(`${q.name.padEnd(13)} 8:${(i * 16 + k) * 16}    0 ${gbStr(x.e.gb).padStart(5)}  0 disk`);
+      if (isMp(L)) rows.push(`└─${x.mp.padEnd(10)} 253:${i}    0 ${gbStr(x.e.gb).padStart(5)}  0 mpath ${mnt('/dev/mapper/' + x.mp)}`.trimEnd()); else if (mnt('/dev/' + q.name)) rows[rows.length - 1] += ' ' + mnt('/dev/' + q.name);
+    }));
+    return rows.join('\n');
+  }
+  function multipathLL(st) {
+    const L = st.L, live = scanList(st.ctx, st.d), out = [];
+    if (!isMp(L)) return 'Command \'multipath\' not found, but can be installed with:\nsudo apt install multipath-tools';
+    devTable(L).forEach(x => {
+      const le = live.find(e => e.key === x.e.key), alive = q => !!le && le.paths.some(p => p.hp === q.p.hp && p.sp === q.p.sp), ok = x.paths.filter(alive).length;
+      out.push(`${x.mp} (3600${x.e.key.replace(/\D/g, '').padEnd(4, '0')}a1b2c3d4e5f60718) dm-${x.i} HUAWEI,XSG1`, `size=${gbStr(x.e.gb)} features='1 queue_if_no_path' hwhandler='0' wp=rw`, `\`-+- policy='service-time 0' prio=${ok ? 50 : 0} status=${ok ? 'active' : 'enabled'}`);
+      x.paths.forEach((q, k) => out.push(`  ${k === x.paths.length - 1 ? '`' : '|'}- ${2 + (k % 2)}:0:${k}:${x.i} ${q.name} 8:${(x.i * 16 + k) * 16} ${alive(q) ? 'active ready running' : 'failed faulty running'}`));
+    });
+    return out.length ? out.join('\n') : '(keine Multipath-Geräte: erst LUNs freigeben, zonen und rescannen)';
+  }
+  function mkfs(a, st, fs) {
+    if (!st.root) return `mke2fs: Permission denied while trying to determine filesystem size (versuche: sudo mkfs.${fs} …)`;
+    const dev = a.filter(x => !x.startsWith('-')).pop(); if (!dev) return `Usage: mkfs.${fs} <Gerät>`;
+    const f = findDev(st.L, dev); if (!f) return `The file ${dev} does not exist and no size was specified.`;
+    if (f.kind === 'path' && isMp(st.L)) return `mkfs.${fs}: ${dev} is apparently in use by the system; will not make a filesystem here!\n(Das Gerät gehört zu einem Multipath-Gerät: nimm /dev/mapper/${f.x.mp}.)`;
+    if (Object.values(st.L.mounts).includes(devPath(f))) return `${dev} is mounted; will not make a filesystem here!`;
+    st.L.fmt[devPath(f)] = fs; return `mke2fs 1.46.5\nCreating filesystem with ${f.gb * 262144} 4k blocks and ${f.gb * 65536} inodes\nAllocating group tables: done\nWriting inode tables: done\nCreating journal (262144 blocks): done\nWriting superblocks and filesystem accounting information: done`;
+  }
+  function mount(a, st) {
+    const L = st.L, args = a.filter(x => !x.startsWith('-'));
+    if (!args.length) return ['/dev/sda1 on / type ext4 (rw,relatime)'].concat(Object.keys(L.mounts).map(k => `${L.mounts[k]} on ${k} type ${L.fmt[L.mounts[k]] || 'ext4'} (rw,relatime)`)).join('\n');
+    if (!st.root) return 'mount: only root can do that (versuche: sudo mount …)';
+    if (args.length < 2) return 'mount: Usage: mount <Gerät> <Verzeichnis>';
+    const f = findDev(L, args[0]), mp = resolvePath(L, args[1]); if (!f) return `mount: ${args[1]}: special device ${args[0]} does not exist.`;
+    if (!L.fs[mp] || !L.fs[mp].d) return `mount: ${args[1]}: mount point does not exist.`;
+    if (f.kind === 'path' && isMp(L)) return `mount: ${args[1]}: ${args[0]} already mounted or mount point busy.`;
+    if (!L.fmt[devPath(f)]) return `mount: ${args[1]}: wrong fs type, bad option, bad superblock on ${args[0]}, missing codepage or helper program, or other error.\n(Das Gerät hat noch kein Dateisystem: erst mkfs.ext4.)`;
+    if (L.mounts[mp]) return `mount: ${args[1]}: ${args[0]} already mounted or mount point busy.`;
+    L.mounts[mp] = devPath(f); return '';
+  }
+  function umount(a, st) { if (!st.root) return 'umount: only root can do that (versuche: sudo umount …)'; const mp = resolvePath(st.L, a[0] || ''); if (!st.L.mounts[mp]) return `umount: ${a[0]}: not mounted.`; delete st.L.mounts[mp]; return ''; }
+
   // ---------- Befehle ----------
   const flagsOf = (a) => { const f = new Set(), rest = []; a.forEach(t => { if (/^-[A-Za-z]+$/.test(t)) [...t.slice(1)].forEach(c => f.add(c)); else rest.push(t); }); return { f, rest }; };
   const need = (st, cmd) => st.root ? null : `${cmd}: Permission denied (versuche: sudo ${cmd} …)`;
@@ -2224,7 +2290,7 @@ const LX = (function () {
       const out = m ? t.split('\n').map(l => l.replace(re, m[3])).join('\n') : t.split('\n').filter(l => !re.test(l)).join('\n');
       if (f.has('i') && file) { if (!canWrite(st.L, st, file)) return `sed: couldn't open temporary file ${dirOf(file)}/sedXXXX: Permission denied`; st.L.fs[file].t = out; return ''; } return out.replace(/\n$/, '');
     },
-    tee: (a, st) => { const { f, rest } = flagsOf(a), t = st.stdin || ''; const e = rest.map(r => writeFile(st.L, st, resolvePath(st.L, r), t + '\n', f.has('a'))).filter(Boolean); return e.length ? e.join('\n') : t; },
+    tee: (a, st) => { const { f, rest } = flagsOf(a), t = st.stdin || ''; const e = rest.map(r => { const p = resolvePath(st.L, r), w = writeFile(st.L, st, p, t + '\n', f.has('a')); return w || afterWrite(st, p); }).filter(Boolean); return e.length ? e.join('\n') : t; },
     truncate: (a, st) => { const i = a.indexOf('-s'), raw = a[a.length - 1], p = resolvePath(st.L, raw), e = st.L.fs[p]; if (i < 0) return 'truncate: you must specify either -s or -r'; if (!e) return `truncate: cannot open '${raw}' for writing: No such file or directory`; if (!canWrite(st.L, st, p)) return `truncate: cannot open '${raw}' for writing: Permission denied`; e.t = ''; delete e.s; return ''; },
     find: (a, st) => {
       const L = st.L, root = resolvePath(L, a[0] && !a[0].startsWith('-') ? a[0] : '.'), ni = a.indexOf('-name'), si = a.indexOf('-size'); let nre = null, min = null;
@@ -2233,16 +2299,16 @@ const LX = (function () {
       return Object.keys(L.fs).filter(k => (k === root || k.startsWith(root === '/' ? '/' : root + '/')) && canRead(L, st, k) && (!nre || nre.test(baseOf(k))) && (min === null || (!L.fs[k].d && sizeOf(L.fs[k]) > min))).sort().join('\n');
     },
     du: (a, st) => { const { f, rest } = flagsOf(a), out = []; (rest.length ? rest : ['.']).forEach(raw => { const p = resolvePath(st.L, raw), e = st.L.fs[p]; if (!e) { out.push(`du: cannot access '${raw}': No such file or directory`); return; } const sum = Object.keys(st.L.fs).filter(k => k === p || k.startsWith(p + '/')).reduce((s, k) => s + sizeOf(st.L.fs[k]), 0); out.push(`${f.has('h') ? hs(sum) : Math.ceil(sum / 1024)}\t${raw}`); }); return out.join('\n'); },
-    df: (a, st) => { const u = Math.min(used(st.L), TOTAL), p = Math.min(100, Math.ceil(u / TOTAL * 100)); return `Filesystem      Size  Used Avail Use% Mounted on\n/dev/sda2        ${hs(TOTAL)}  ${hs(u).padStart(4)} ${hs(TOTAL - u).padStart(5)} ${String(p).padStart(3)}% /\ntmpfs           1.9G     0  1.9G   0% /dev/shm`; },
+    df: (a, st) => { const u = Math.min(used(st.L), TOTAL), p = Math.min(100, Math.ceil(u / TOTAL * 100)); return `Filesystem      Size  Used Avail Use% Mounted on\n/dev/sda2        ${hs(TOTAL)}  ${hs(u).padStart(4)} ${hs(TOTAL - u).padStart(5)} ${String(p).padStart(3)}% /\ntmpfs           1.9G     0  1.9G   0% /dev/shm` + Object.keys(st.L.mounts).map(mp => { const f = findDev(st.L, st.L.mounts[mp]), gb = f ? f.gb : 0; return `\n${st.L.mounts[mp].padEnd(15)} ${hs(gb * 1024 ** 3 * 0.98).padStart(4)}  ${'24K'.padStart(4)} ${hs(gb * 1024 ** 3 * 0.97).padStart(5)}   1% ${mp}`; }).join(''); },
     free: () => '               total        used        free      shared  buff/cache   available\nMem:           3.8Gi       612Mi       2.4Gi       1.0Mi       812Mi       3.0Gi\nSwap:          2.0Gi          0B       2.0Gi',
     uptime: () => ' 09:00:00 up 2:14,  1 user,  load average: 0.08, 0.03, 0.01', date: () => 'Mon Oct 12 09:00:00 UTC 2026',
     whoami: (a, st) => st.root ? 'root' : st.L.user, id: (a, st) => st.root ? 'uid=0(root) gid=0(root) groups=0(root)' : `uid=1000(${st.L.user}) gid=1000(${st.L.user}) groups=1000(${st.L.user}),27(sudo)`,
     hostname: (a, st) => st.d.cfg.hostname, uname: (a) => a.includes('-a') ? `Linux ${'host'} 5.15.0-91-generic #101-Ubuntu SMP x86_64 GNU/Linux` : 'Linux',
-    which: (a, st) => a.map(b => hasBin(st.L, b) && (C[b] || ['nginx', 'htop', 'vim', 'tree', 'ifconfig', 'dig', 'tcpdump', 'systemctl', 'apt', 'sudo', 'ufw'].includes(b)) ? '/usr/bin/' + b : '').filter(Boolean).join('\n'),
+    which: (a, st) => a.map(b => hasBin(st.L, b) && (Object.prototype.hasOwnProperty.call(C, b) || ['nginx', 'htop', 'vim', 'tree', 'ifconfig', 'dig', 'tcpdump', 'systemctl', 'apt', 'sudo', 'ufw'].includes(b)) ? '/usr/bin/' + b : '').filter(Boolean).join('\n'),
     ps: (a, st) => { const L = st.L, rows = ['root           1  0.0  0.3 168000 11800 ?        Ss   08:46   0:02 /sbin/init', 'root         410  0.0  0.2  50000  8200 ?        Ss   08:46   0:00 /lib/systemd/systemd-journald']; Object.keys(UNITS).forEach(u => { if (L.units[u].active) rows.push(`root         ${400 + u.length * 17}  0.0  0.4 120000 14000 ?        Ss   08:46   0:00 ${UNITS[u].proc}`); }); rows.push(`${L.user}      2210  0.0  0.1  10000  4000 pts/0    Ss   09:00   0:00 -bash`); return 'USER         PID %CPU %MEM    VSZ   RSS TTY      STAT START   TIME COMMAND\n' + rows.join('\n'); },
     ss: (a, st) => ssTable(st), netstat: (a, st) => hasBin(st.L, 'netstat') ? ssTable(st) : 'Command \'netstat\' not found, but can be installed with:\nsudo apt install net-tools',
     history: () => '', clear: () => '',
-    help: () => 'Verfügbare Befehle (Linux-Server):\n  Dateien:   ls cat cd pwd cp mv rm mkdir touch chmod chown head tail grep sed tee find du df truncate\n  System:    systemctl journalctl ps ss free uptime hostname hostnamectl whoami id useradd userdel\n  Pakete:    apt update | apt install <Paket> | apt remove <Paket>\n  Netzwerk:  ip a | ip r | ip addr add <IP>/<Präfix> dev eth0 | ip route add default via <IP> | ping | curl | nslookup | dig | ufw\n  Dateien schreiben: echo "text" > datei   echo "zeile" >> datei   sed -i \'s/alt/neu/\' datei\n  Rechte: Systemdateien brauchen sudo (z. B. sudo systemctl restart nginx).',
+    help: () => 'Verfügbare Befehle (Linux-Server):\n  Dateien:   ls cat cd pwd cp mv rm mkdir touch chmod chown head tail grep sed tee find du df truncate\n  System:    systemctl journalctl ps ss free uptime hostname hostnamectl whoami id useradd userdel\n  Pakete:    apt update | apt install <Paket> | apt remove <Paket>\n  Speicher:  lsblk | multipath -ll | sudo rescan-scsi-bus.sh | sudo mkfs.ext4 <Gerät> | sudo mount <Gerät> <Ordner> | df -h\n  Netzwerk:  ip a | ip r | ip addr add <IP>/<Präfix> dev eth0 | ip route add default via <IP> | ping | curl | nslookup | dig | ufw\n  Dateien schreiben: echo "text" > datei   echo "zeile" >> datei   sed -i \'s/alt/neu/\' datei\n  Rechte: Systemdateien brauchen sudo (z. B. sudo systemctl restart nginx).',
     nano: () => 'Im Simulator gibt es keinen Terminal-Editor. Schreibe Dateien mit echo "text" > datei oder >> datei und ändere mit sed -i \'s/alt/neu/\' datei.', vi: () => C.nano(), vim: () => C.nano(),
     exit: (a, st) => { if (st.L.root) { st.L.root = false; st.L.cwd = '/home/' + st.L.user; return ''; } return 'logout\n(Dies ist die einzige Sitzung – du bleibst angemeldet.)'; }, logout: (a, st) => C.exit(a, st),
     su: (a, st) => { st.L.root = true; st.L.cwd = '/root'; return ''; },
@@ -2251,6 +2317,9 @@ const LX = (function () {
     userdel: (a, st) => { if (!st.root) return 'userdel: Permission denied.'; const n = a[a.length - 1]; if (!st.L.users.includes(n) || n === 'root') return `userdel: user '${n}' does not exist`; st.L.users = st.L.users.filter(u => u !== n); return ''; },
     passwd: (a, st) => st.root || !a[0] ? 'passwd: password updated successfully' : 'passwd: You may not view or modify password information for ' + a[0] + '.',
     crontab: (a, st) => `no crontab for ${st.root ? 'root' : st.L.user}`,
+    lsblk: (a, st) => lsblk(st), multipath: (a, st) => multipathLL(st), 'rescan-scsi-bus.sh': (a, st) => st.root ? rescan(st) : 'rescan-scsi-bus.sh: Permission denied (versuche: sudo rescan-scsi-bus.sh)',
+    'mkfs.ext4': (a, st) => mkfs(a, st, 'ext4'), 'mkfs.xfs': (a, st) => mkfs(a, st, 'xfs'), mount: (a, st) => mount(a, st), umount: (a, st) => umount(a, st),
+    fdisk: (a, st) => { if (!st.root) return 'fdisk: cannot open /dev/sda: Permission denied (versuche: sudo fdisk -l)'; return ['Disk /dev/sda: 20 GiB'].concat(devTable(st.L).flatMap(x => x.paths.map(q => `Disk /dev/${q.name}: ${x.e.gb} GiB`))).join('\n'); },
     ufw: (a, st) => ufw(a, st), journalctl: (a, st) => journal(a, st), systemctl: (a, st) => systemctl(a, st), apt: (a, st) => apt(a, st), 'apt-get': (a, st) => apt(a, st),
     ip: (a, st) => ipCmd(a, st), ifconfig: (a, st) => hasBin(st.L, 'ifconfig') ? ipCmd(['a'], st) : 'Command \'ifconfig\' not found, but can be installed with:\nsudo apt install net-tools',
     nginx: (a, st) => { if (!hasBin(st.L, 'nginx')) return 'Command \'nginx\' not found'; if (a[0] === '-t') { if (!st.root) return 'nginx: [alert] could not open error log file: open() "/var/log/nginx/error.log" failed (13: Permission denied)\nnginx: [emerg] open() "/etc/nginx/nginx.conf" failed (13: Permission denied)'; const r = nginxCheck(st.L); return r.err ? `${r.err}\nnginx: configuration file /etc/nginx/nginx.conf test failed` : 'nginx: the configuration file /etc/nginx/nginx.conf syntax is ok\nnginx: configuration file /etc/nginx/nginx.conf test is successful'; } return 'nginx version: nginx/1.18.0 (Ubuntu)'; },
@@ -2356,13 +2425,13 @@ const LX = (function () {
     }
     if (redir) {
       if (!redir.file) return { out: 'bash: syntax error near unexpected token `newline\'' };
-      const p = resolvePath(L, redir.file), e = writeFile(L, st, p, out === '' ? '' : out + '\n', redir.op === '>>'); return { out: e };
+      const p = resolvePath(L, redir.file), e = writeFile(L, st, p, out === '' ? '' : out + '\n', redir.op === '>>'); return { out: e || afterWrite(st, p) };
     }
     return { out };
   }
   function localCurl(d, L) { const sv = d.svc; if (!sv || !L.units.nginx.active || !sv.http.on) return 'curl: (7) Failed to connect to localhost port 80 after 0 ms: Connection refused'; const idx = readFile(L, '/var/www/html/index.html'); return idx === null ? '<html>404 Not Found</html>' : idx.replace(/\n$/, ''); }
   function exec(ctx, d, raw) {
-    const L = init(d); reconcile(d, L); const line = String(raw || '').replace(/\s2>\s*\/dev\/null/g, '').replace(/\s2>&1/g, '').trim(); if (!line) return '';
+    const L = init(d); reconcile(d, L); if (L.scsi === null) L.scsi = scanList(ctx, d); const line = String(raw || '').replace(/\s2>\s*\/dev\/null/g, '').replace(/\s2>&1/g, '').trim(); if (!line) return '';
     const segs = splitTop(line, ['&&', ';']).map(x => x.trim()).filter(Boolean), outs = [];
     for (const seg of segs) {
       const pipe = splitTop(seg, ['|']); let data = null;
@@ -2506,7 +2575,7 @@ const WIKI = (function () {
   art('fc-grundlagen', 'storage', 'Fibre Channel (FC)', 'Verlustfreies Speichernetz mit eigenen Switches.', `<p>FC ist ein eigenes Protokoll für Speichernetze mit garantierter, verlustfreier Übertragung (Buffer-to-Buffer-Credits). Es nutzt <b>HBAs</b> im Server, <b>FC-Switches</b> (Fabric) und Storage-Ports. Geschwindigkeiten: 8/16/32/64 Gbit/s. Die Verkabelung läuft meist über Multimode-Glasfaser mit FC-Transceivern ([[kabel-mmf]]). Üblich sind <b>zwei getrennte Fabrics (A und B)</b> für Redundanz.</p>`, ['wwpn', 'zoning', 'hba', 'typ-fc']);
   art('wwpn', 'storage', 'WWPN und WWNN', 'Die Adresse im Fibre-Channel-Netz.', `<p>Jeder FC-Port hat eine 64-Bit-<b>WWPN</b> (World Wide Port Name, <code>20:00:00:25:b5:aa:00:01</code>). Der <b>WWNN</b> bezeichnet den ganzen Knoten. Zoning und LUN-Masking arbeiten mit WWPNs. Sie entsprechen MAC-Adressen im Ethernet.</p>` + plan('Der Planer erzeugt pro FC-Port eine WWPN. Du findest sie im Hardware-Blatt und im Zoning-Export.'), ['zoning', 'lun-masking']);
   art('zoning', 'storage', 'FC-Zoning', 'Legt fest, welche Ports sich sehen dürfen.', `<p>Ein <b>Zone</b> enthält die WWPNs von Initiatoren (Server-HBA) und Targets (Storage-Ports). Nur Mitglieder derselben Zone sehen sich. Best Practice: <b>Single-Initiator-Zoning</b>, also eine Zone je Server-Port mit den Storage-Ports, die er braucht. Aktiv wird die Konfiguration erst im <b>Zoneset</b>, das du aktivierst.</p><pre class="code">zone name Z_SRV01_A vsan 10\n  member pwwn 20:00:...\n  member pwwn 50:00:...\nzoneset activate name ZS_FAB_A vsan 10</pre>` + plan('Der Export erzeugt für die MDS-Switches ein Zoning-Gerüst aus der Verkabelung.'), ['wwpn', 'lun-masking', 'typ-fc']);
-  art('lun', 'storage', 'LUN', 'Ein Stück Speicher, das der Server als Platte sieht.', `<p>Eine LUN (Logical Unit Number) wird auf dem Storage aus einem <b>Pool</b> oder einer RAID-Gruppe erstellt und einem Host zugewiesen ([[lun-masking]]). Der Server findet sie nach dem Rescan, formatiert sie und mountet sie. <b>Thin Provisioning</b> reserviert nur den tatsächlich genutzten Platz.</p>`, ['lun-masking', 'raid', 'multipath']);
+  art('lun', 'storage', 'LUN', 'Ein Stück Speicher, das der Server als Platte sieht.', `<p>Eine LUN (Logical Unit Number) wird auf dem Storage aus einem <b>Pool</b> oder einer RAID-Gruppe erstellt und einem Host zugewiesen ([[lun-masking]]). Der Server findet sie nach dem Rescan, formatiert sie und mountet sie ([[linux-storage]]). <b>Thin Provisioning</b> reserviert beim Anlegen nur einen kleinen Teil (im Planer 10 %) und belegt den Rest erst beim Schreiben. Dadurch kann ein Pool mehr LUN-Kapazität versprechen, als er hat (<b>Überprovisionierung</b>), was Monitoring braucht.</p>` + plan('Storage anklicken → „Pools und LUNs“: Pool mit RAID anlegen, LUN erzeugen und per Masking einem Server geben.'), ['lun-masking', 'raid', 'multipath', 'linux-storage']);
   art('lun-masking', 'storage', 'LUN-Masking', 'Legt fest, welcher Host welche LUN sieht.', `<p>Zoning entscheidet, welche Ports sich sehen. Masking entscheidet, welche <b>LUNs</b> ein Host über diese Verbindung bekommt. Beides zusammen: Der Server sieht die LUN erst, wenn <b>Zoning und Masking stimmen</b>. Fehlt eins davon, taucht die Platte im Betriebssystem nicht auf.</p>`, ['zoning', 'lun', 'multipath']);
   art('raid', 'storage', 'RAID-Level', 'Platten zusammenfassen für Tempo und Ausfallsicherheit.', tbl(['Level', 'Prinzip', 'Ausfall', 'Nutzbar'], [['RAID 0', 'Striping', 'keiner', '100 %'], ['RAID 1', 'Spiegel', '1 Platte', '50 %'], ['RAID 5', 'Striping + 1 Parität', '1 Platte', '(n−1)/n'], ['RAID 6', 'Striping + 2 Paritäten', '2 Platten', '(n−2)/n'], ['RAID 10', 'Spiegel + Striping', '1 je Spiegel', '50 %']]) + `<p>RAID ersetzt kein Backup. Große Platten rebuilden lange, deshalb ist RAID 6 oder 10 bei großen Platten üblicher als RAID 5. Moderne All-Flash-Systeme nutzen oft eigene Schutzverfahren (Erasure Coding).</p>`, ['lun', 'controller-ha']);
   art('iscsi', 'storage', 'iSCSI', 'Block-Speicher über normales Ethernet.', `<p>iSCSI transportiert SCSI-Befehle über TCP/IP (Port 3260). Es braucht kein eigenes FC-Netz, sondern ein Ethernet mit eigenem VLAN, Jumbo Frames (MTU 9000) und getrennten Pfaden. Ein <b>Initiator</b> (Server) verbindet sich mit einem <b>Target</b> (Storage), identifiziert durch einen IQN-Namen.</p>`, ['san-nas-das', 'mtu', 'multipath']);
@@ -2527,6 +2596,7 @@ const WIKI = (function () {
   art('linux-dhcp', 'server', 'isc-dhcp-server: DHCP unter Linux', 'dhcpd.conf und Start.', `<p>Die Konfiguration steht in <code>/etc/dhcp/dhcpd.conf</code>:</p><pre class="code">subnet 10.0.0.0 netmask 255.255.255.0 {\n  range 10.0.0.100 10.0.0.150;\n  option routers 10.0.0.1;\n  option domain-name-servers 10.0.0.10;\n}</pre><p>Das <b>subnet</b> muss das Netz der Server-Schnittstelle enthalten, sonst meldet der Dienst „Not configured to listen on any interfaces“. Danach <code>sudo systemctl restart isc-dhcp-server</code>. Auf dem Client: <code>ipconfig /renew</code>.</p>`, ['dhcp', 'linux-systemd']);
   art('linux-ufw', 'server', 'ufw: Host-Firewall', 'Ports auf dem Server freigeben.', `<p><code>sudo ufw allow 22</code> erlaubt SSH, <code>sudo ufw allow 80</code> HTTP, <code>sudo ufw enable</code> aktiviert die Firewall, <code>sudo ufw status</code> zeigt Regeln. Wichtig: <b>erst SSH erlauben, dann aktivieren</b>, sonst sperrst du dich aus. Ist ufw aktiv und der Port nicht erlaubt, läuft der Dienst zwar, aber Clients bekommen eine Zeitüberschreitung.</p>`, ['linux-nginx', 'firewall-stateful']);
   art('linux-platte', 'server', 'Festplatte voll', 'Platz finden und schaffen.', `<p><code>df -h</code> zeigt die Belegung. Den Verursacher findest du mit <code>sudo du -sh /var/log/*</code> oder <code>sudo find / -size +1G</code>. Eine Logdatei, die ein Prozess offen hält, leerst du mit <code>sudo truncate -s 0 datei</code> und löschst sie nicht (der Platz würde sonst erst nach einem Dienstneustart frei). Bei voller Platte starten Dienste nicht mehr, weil sie nicht schreiben können. Vorbeugen: <code>logrotate</code>, Monitoring und Alarm ab 80 %.</p>`, ['linux-systemd', 'linux-grundlagen']);
+  art('linux-storage', 'server', 'SAN-LUN am Linux-Server nutzen', 'Rescan, lsblk, multipath, Dateisystem und Mount.', `<p>Eine LUN erscheint am Server erst, wenn <b>Zoning, Masking und Verkabelung</b> stimmen ([[zoning]], [[lun-masking]]) und das Betriebssystem neu gescannt hat. Der Weg im Terminal:</p>` + tbl(['Schritt', 'Befehl'], [['1. Neu scannen', '<code>sudo rescan-scsi-bus.sh</code> oder <code>echo "- - -" | sudo tee /sys/class/scsi_host/host0/scan</code>'], ['2. Platten ansehen', '<code>lsblk</code>. Jeder Pfad ist ein eigenes <code>sdX</code>-Gerät.'], ['3. Pfade bündeln', '<code>sudo apt install multipath-tools</code>, dann <code>multipath -ll</code> (ein <code>mpatha</code> mit allen Pfaden)'], ['4. Dateisystem anlegen', '<code>sudo mkfs.ext4 /dev/mapper/mpatha</code> (nicht auf <code>sdb</code>!)'], ['5. Einbinden', '<code>sudo mkdir /data</code>, <code>sudo mount /dev/mapper/mpatha /data</code>, <code>df -h</code>']]) + `<p>Ohne Multipath-Treiber sieht der Server dieselbe LUN <b>mehrfach</b> (ein Gerät je Pfad). Schreibst du auf zwei davon, zerstörst du das Dateisystem. Deshalb verweigert <code>mkfs</code> die Pfad-Geräte, sobald Multipath aktiv ist. Fällt ein Pfad aus, zeigt <code>multipath -ll</code> ihn als <code>failed faulty</code>, der Betrieb läuft über die übrigen weiter.</p>` + plan('Vier Storage-Szenarien unter „Aufgaben“: LUN einrichten, Server sieht LUN nicht, RAID dimensionieren, fehlende Pfade.'), ['lun', 'multipath', 'zoning', 'linux-grundlagen']);
   art('syslog', 'server', 'Syslog und Journal', 'Wo Meldungen landen.', `<p>Geräte und Dienste melden Ereignisse an einen Logserver (UDP 514). Cisco-Meldungen haben einen Schweregrad von 0 (Notfall) bis 7 (Debug), zum Beispiel <code>%LINK-3-UPDOWN</code> (Level 3 = Error). Unter Linux sammelt <b>journald</b> die Dienstlogs (<code>journalctl</code>), klassische Dateien liegen in <code>/var/log</code>.</p>`, ['linux-systemd']);
 
   // ---------------------------------------------------------------- IOS
@@ -2617,6 +2687,122 @@ if (typeof module !== 'undefined') module.exports = WIKI;
 
 </script>
 <script>
+// ===================== NetLab Storage-Modell =====================
+// Pools (RAID), LUNs, LUN-Masking (Storage) und Zoning (FC-Switch). Reine Logik auf dem Netz-JSON.
+const STOR = (function () {
+  const N = typeof NL !== 'undefined' ? NL : require('./engine.js');
+  const RAID = {
+    raid0: { name: 'RAID 0', min: 2, fault: 0, usable: n => n, note: 'Striping, keine Ausfallsicherheit' },
+    raid1: { name: 'RAID 1', min: 2, even: true, fault: 1, usable: n => n / 2, note: 'Spiegel' },
+    raid5: { name: 'RAID 5', min: 3, fault: 1, usable: n => n - 1, note: 'eine Parität, 1 Platte darf ausfallen' },
+    raid6: { name: 'RAID 6', min: 4, fault: 2, usable: n => n - 2, note: 'zwei Paritäten, 2 Platten dürfen ausfallen' },
+    raid10: { name: 'RAID 10', min: 4, even: true, fault: 1, usable: n => n / 2, note: 'Spiegel mit Striping, je Spiegel 1 Platte' }
+  };
+  const DISKS = [600, 1200, 1800, 3840];
+  const THIN_INITIAL = 0.1;
+
+  const st = d => d.stor || (d.stor = { pools: [], luns: [], seq: 0 });
+  const poolOf = (d, name) => st(d).pools.find(p => p.name === name);
+  const lunSize = l => l.gb;
+  const lunAlloc = l => l.thin ? Math.ceil(l.gb * THIN_INITIAL) : l.gb;
+  function poolInfo(d, p) {
+    const r = RAID[p.raid], raw = p.disks * p.diskGb, usable = r.usable(p.disks) * p.diskGb;
+    const luns = st(d).luns.filter(l => l.pool === p.name), alloc = luns.reduce((s, l) => s + lunAlloc(l), 0), prov = luns.reduce((s, l) => s + l.gb, 0);
+    return { raw, usable, alloc, free: usable - alloc, prov, over: prov > usable, fault: r.fault, luns };
+  }
+  function createPool(d, o) {
+    const S = st(d), name = String(o.name || '').trim(), r = RAID[o.raid], n = +o.disks, gb = +o.diskGb;
+    if (!/^[A-Za-z][\w-]{0,23}$/.test(name)) return { err: 'Poolname: Buchstaben, Ziffern, - und _ (max. 24 Zeichen, beginnt mit Buchstabe).' };
+    if (S.pools.some(p => p.name === name)) return { err: `Einen Pool „${name}“ gibt es schon.` };
+    if (!r) return { err: 'Unbekannter RAID-Level.' };
+    if (!(n >= r.min)) return { err: `${r.name} braucht mindestens ${r.min} Platten.` };
+    if (r.even && n % 2) return { err: `${r.name} braucht eine gerade Plattenzahl.` };
+    if (n > 24) return { err: 'Höchstens 24 Platten pro Pool.' };
+    if (!DISKS.includes(gb)) return { err: 'Unbekannte Plattengröße.' };
+    S.pools.push({ name, raid: o.raid, disks: n, diskGb: gb }); return { ok: true };
+  }
+  function deletePool(d, name) { const S = st(d); if (S.luns.some(l => l.pool === name)) return { err: `Im Pool „${name}“ liegen noch LUNs. Erst die LUNs löschen.` }; S.pools = S.pools.filter(p => p.name !== name); return { ok: true }; }
+  function createLun(d, o) {
+    const S = st(d), name = String(o.name || '').trim(), p = poolOf(d, o.pool), gb = Math.round(+o.gb);
+    if (!/^[A-Za-z][\w-]{0,23}$/.test(name)) return { err: 'LUN-Name: Buchstaben, Ziffern, - und _ (max. 24 Zeichen).' };
+    if (S.luns.some(l => l.name === name)) return { err: `Eine LUN „${name}“ gibt es schon.` };
+    if (!p) return { err: 'Wähle einen Pool (erst einen Pool anlegen).' };
+    if (!(gb >= 1 && gb <= 100000)) return { err: 'Größe in GB zwischen 1 und 100000.' };
+    const need = o.thin ? Math.ceil(gb * THIN_INITIAL) : gb, info = poolInfo(d, p);
+    if (need > info.free) return { err: `Im Pool „${p.name}“ sind nur ${info.free} GB frei, die LUN braucht ${need} GB${o.thin ? ' (Thin: Startbelegung)' : ''}. Pool erweitern oder LUN kleiner wählen.` };
+    const id = S.seq++; S.luns.push({ id, name, pool: p.name, gb, thin: !!o.thin, hosts: [] }); return { ok: true, id };
+  }
+  function deleteLun(d, id) { const S = st(d); S.luns = S.luns.filter(l => l.id !== id); return { ok: true }; }
+  function maskLun(d, id, hostId, on) { const l = st(d).luns.find(x => x.id === id); if (!l) return { err: 'LUN nicht gefunden.' }; l.hosts = l.hosts.filter(h => h !== hostId); if (on) l.hosts.push(hostId); return { ok: true }; }
+
+  // ----- Zoning (FC-Switch) -----
+  const zs = m => m.zset || (m.zset = { zones: [], active: false });
+  const fcPorts = d => d.ports.filter(p => d.pk[p] === 'fc');
+  function zoneAdd(m, name, members) {
+    const Z = zs(m); name = String(name || '').trim();
+    if (!/^[A-Za-z][\w-]{0,40}$/.test(name)) return { err: 'Zonenname: Buchstaben, Ziffern, - und _ .' };
+    if (Z.zones.some(z => z.name === name)) return { err: `Eine Zone „${name}“ gibt es schon.` };
+    const mem = [...new Set((members || []).filter(Boolean))]; if (mem.length < 2) return { err: 'Eine Zone braucht mindestens zwei verschiedene Mitglieder.' };
+    Z.zones.push({ name, members: mem }); return { ok: true };
+  }
+  function zoneDel(m, name) { const Z = zs(m); Z.zones = Z.zones.filter(z => z.name !== name); return { ok: true }; }
+  function zoneActive(m, on) { const Z = zs(m); if (on && !Z.zones.length) return { err: 'Es gibt noch keine Zonen, die ein Zoneset aktivieren könnte.' }; Z.active = !!on; return { ok: true }; }
+  // Mitglieder: WWPNs aller FC-Geräte-Ports, die an diesem Switch hängen
+  function attached(net, m) {
+    const out = [];
+    for (const p of m.ports) { const s = N.portStatus(net, m.id, p); if (s.st !== 'connected') continue; const pd = net.devs[s.peer.dev]; if (pd && (pd.type === 'server' || pd.type === 'storage')) out.push({ swPort: p, dev: pd, port: s.peer.port, wwpn: N.wwpn(pd, s.peer.port), role: pd.type === 'server' ? 'initiator' : 'target' }); }
+    return out;
+  }
+  function autoZones(net, m) {
+    const a = attached(net, m), ini = a.filter(x => x.role === 'initiator'), tgt = a.filter(x => x.role === 'target'), Z = zs(m); let n = 0;
+    for (const i of ini) for (const t of tgt) {
+      if (Z.zones.some(z => z.members.includes(i.wwpn) && z.members.includes(t.wwpn))) continue;
+      const nm = (`${i.dev.cfg.hostname}_${i.port}__${t.dev.cfg.hostname}_${t.port}`).replace(/[^A-Za-z0-9_-]+/g, '_').slice(0, 40); let k = nm, c = 2; while (Z.zones.some(z => z.name === k)) k = nm + '_' + c++;
+      Z.zones.push({ name: k, members: [i.wwpn, t.wwpn] }); n++;
+    }
+    return { ok: true, n };
+  }
+  const zoned = (m, a, b) => { const Z = zs(m); return Z.active && Z.zones.some(z => z.members.includes(a) && z.members.includes(b)); };
+
+  // ----- Pfade und Sichtbarkeit -----
+  function paths(net, host) {
+    const out = [];
+    for (const hp of fcPorts(host)) {
+      const s = N.portStatus(net, host.id, hp); if (s.st !== 'connected') continue; const pd = net.devs[s.peer.dev]; if (!pd) continue;
+      if (pd.type === 'storage') { out.push({ hp, sto: pd.id, sp: s.peer.port, ctl: s.peer.port[0], sw: null }); continue; }
+      if (pd.type !== 'fc') continue;
+      for (const q of fcPorts(pd)) {
+        if (q === s.peer.port) continue; const t = N.portStatus(net, pd.id, q); if (t.st !== 'connected') continue; const td = net.devs[t.peer.dev]; if (!td || td.type !== 'storage') continue;
+        if (!zoned(pd, N.wwpn(host, hp), N.wwpn(td, t.peer.port))) continue;
+        out.push({ hp, sto: td.id, sp: t.peer.port, ctl: t.peer.port[0], sw: pd.id });
+      }
+    }
+    return out;
+  }
+  function hostLuns(net, host) {
+    const P = paths(net, host), res = [];
+    for (const sto of Object.values(net.devs)) {
+      if (sto.type !== 'storage' || !sto.stor) continue;
+      const mine = P.filter(p => p.sto === sto.id); if (!mine.length) continue;
+      for (const l of sto.stor.luns) if (l.hosts.includes(host.id)) res.push({ sto: sto.id, stoName: sto.cfg.hostname, lun: l.id, name: l.name, gb: l.gb, thin: l.thin, paths: mine });
+    }
+    return res.sort((a, b) => (a.sto + a.lun).localeCompare(b.sto + b.lun, 'de', { numeric: true }));
+  }
+  // Erklärung, warum eine maskierte LUN nicht sichtbar ist
+  function why(net, host, sto, lun) {
+    const l = sto.stor && sto.stor.luns.find(x => x.id === lun); if (!l) return 'LUN existiert nicht.';
+    if (!l.hosts.includes(host.id)) return `LUN-Masking: ${l.name} ist nicht für ${host.cfg.hostname} freigegeben.`;
+    const hs = fcPorts(host); if (!hs.length) return `${host.cfg.hostname} hat keinen FC-Port (HBA fehlt).`;
+    if (!hs.some(p => N.portStatus(net, host.id, p).st === 'connected')) return `Kein FC-Link am HBA von ${host.cfg.hostname}: Kabel, Transceiver und Port prüfen.`;
+    if (!paths(net, host).some(p => p.sto === sto.id)) return `Kein Pfad von ${host.cfg.hostname} zu ${sto.cfg.hostname}: Zoning (aktives Zoneset mit Initiator und Target) oder Storage-Verkabelung prüfen.`;
+    return null;
+  }
+  return { RAID, DISKS, st, poolInfo, createPool, deletePool, createLun, deleteLun, maskLun, zs, zoneAdd, zoneDel, zoneActive, autoZones, attached, zoned, paths, hostLuns, why, lunAlloc, lunSize, poolOf };
+})();
+if (typeof module !== 'undefined') module.exports = STOR;
+
+</script>
+<script>
 // ===================== NetLab Netzplaner (Sandbox) =====================
 const Sandbox = (function () {
   const $ = (s, r = document) => r.querySelector(s);
@@ -2627,6 +2813,7 @@ const Sandbox = (function () {
     set(k, v) { try { localStorage.setItem('netlab.' + k, JSON.stringify(v)); } catch (e) { } }
   };
   const LXN = typeof LX !== 'undefined' ? LX : require('./linux.js');
+  const STORN = typeof STOR !== 'undefined' ? STOR : require('./storage.js');
   const SH = NL.sh, MODELS = NL.MODELS, CARDS = NL.CARDS, XCVR = NL.XCVR, KIND = NL.KIND, hip = NL.hip;
   const RU = 42, UH = 30, RX = 46, RW = 470, VW = 1200, VH = 640;
   const VCOL = ['#2B66C8', '#1E8A57', '#8E44AD', '#D35400', '#16A085', '#C0392B', '#7F8C2D', '#2C7BB6', '#B5487E', '#5D6D7E'];
@@ -3310,9 +3497,28 @@ const Sandbox = (function () {
         <div class="f"><label for="mgw">Default-Gateway</label><input id="mgw" value="${esc(d.cfg.gw || '')}" placeholder="z. B. 10.99.0.1"></div><label class="ck"><input type="checkbox" id="mrt" ${d.cfg.ipRouting ? 'checked' : ''}> Layer-3-Routing aktiv (ip routing)</label><button class="btn small" id="mgo">Übernehmen</button>`, false);
     }
     if (d.fw) h += acc('Firewall-Richtlinien', `<p class="muted small">${Object.values(d.cfg.acls).reduce((n, a) => n + a.length, 0)} ACL-Regeln, ${d.cfg.nat.length} NAT-Regeln, ${d.cfg.routes.length} Routen</p><button class="btn small" id="fwBtn">Regelwerk, NAT und Routen bearbeiten</button>`, true);
-    if (d.type === 'fc') h += acc('Fabric', `<div class="f"><label for="vsan">VSAN</label><input id="vsan" inputmode="numeric" value="${d.cfg.vsan || 10}"></div>`, true);
+    if (d.type === 'fc') h += acc('Fabric', `<div class="f"><label for="vsan">VSAN</label><input id="vsan" inputmode="numeric" value="${d.cfg.vsan || 10}"></div>`, false) + acc('Zoning', zoningHtml(d), true);
+    if (d.type === 'storage') h += acc('Pools und LUNs', storageHtml(d), true);
     if (u) h += acc('Rack', `<div class="f2"><div class="f"><label for="rpos">Unterste HE (1–${RU})</label><input id="rpos" inputmode="numeric" value="${d.rack || ''}" placeholder="nicht eingebaut"></div><div class="f"><label>Höhe</label><span class="hv">${u} HE</span></div></div><div class="irow"><button class="btn small" id="rset">${d.rack ? 'Verschieben' : 'Einbauen'}</button>${d.rack ? '<button class="btn small ghost" id="runset">Ausbauen</button>' : ''}</div>`, false);
     return h + `<div class="drow"><button class="btn ghost small danger" id="ddel">Gerät löschen</button></div></section>`;
+  }
+  // ---------------- Storage: Pools, LUNs, Zoning ----------------
+  const fcLabel = () => { const m = {}; Object.values(S.net.devs).forEach(x => (x.type === 'server' || x.type === 'storage') && x.ports.filter(q => x.pk[q] === 'fc').forEach(q => { m[NL.wwpn(x, q)] = `${x.cfg.hostname} ${q}`; })); return m; };
+  function storageHtml(d) {
+    const T = STORN.st(d), servers = Object.values(S.net.devs).filter(x => x.type === 'server');
+    const pools = T.pools.length ? `<table class="vt"><tr><th>Pool</th><th>RAID</th><th>Platten</th><th>Nutzbar</th><th></th></tr>${T.pools.map(p => { const i = STORN.poolInfo(d, p); return `<tr><td>${esc(p.name)}</td><td>${STORN.RAID[p.raid].name}</td><td>${p.disks}× ${p.diskGb} GB</td><td>${i.usable} GB<br><span class="${i.over ? 'neg' : 'muted'} small">frei ${i.free} GB${i.over ? ', überprovisioniert' : ''}</span></td><td><button class="lnkbtn" data-delpool="${esc(p.name)}" aria-label="Pool ${esc(p.name)} löschen">löschen</button></td></tr>`; }).join('')}</table>` : '<p class="muted small">Noch kein Pool. Ein Pool fasst Platten zu einer RAID-Gruppe zusammen.</p>';
+    const poolForm = `<div class="f2"><div class="f"><label for="npn">Poolname</label><input id="npn" placeholder="POOL1" maxlength="24"></div><div class="f"><label for="npr">RAID-Level</label><select id="npr">${Object.entries(STORN.RAID).map(([k, r]) => `<option value="${k}" ${k === 'raid5' ? 'selected' : ''}>${r.name}</option>`).join('')}</select></div></div><div class="f2"><div class="f"><label for="npd">Platten</label><input id="npd" type="number" min="2" max="24" value="6"></div><div class="f"><label for="npg">Größe je Platte</label><select id="npg">${STORN.DISKS.map(g => `<option value="${g}">${g} GB</option>`).join('')}</select></div></div><button class="btn small" id="npgo">Pool anlegen</button>`;
+    const luns = T.luns.length ? T.luns.map(l => `<div class="lunrow"><div class="lunh"><b>LUN ${l.id}: ${esc(l.name)}</b><button class="lnkbtn" data-dellun="${l.id}" aria-label="LUN ${esc(l.name)} löschen">löschen</button></div><div class="muted small">${l.gb} GB, ${l.thin ? 'Thin' : 'Thick'}, Pool ${esc(l.pool)}</div><div class="small lunm"><b>Freigabe (LUN-Masking):</b>${servers.length ? servers.map(h => `<label class="ck"><input type="checkbox" data-mask="${l.id}|${h.id}" ${l.hosts.includes(h.id) ? 'checked' : ''}> ${esc(h.cfg.hostname)}</label>`).join('') : ' <span class="muted">Kein Server im Plan.</span>'}</div>${l.hosts.map(hid => { const h = S.net.devs[hid]; if (!h) return ''; const w = STORN.why(S.net, h, d, l.id), n = STORN.hostLuns(S.net, h).filter(x => x.sto === d.id && x.lun === l.id).map(x => x.paths.length)[0]; return w ? `<div class="small neg">${esc(h.cfg.hostname)}: ${esc(w)}</div>` : `<div class="small okmsg">${esc(h.cfg.hostname)} sieht die LUN über ${n} Pfad${n > 1 ? 'e' : ''}.</div>`; }).join('')}</div>`).join('') : '<p class="muted small">Noch keine LUN.</p>';
+    const lunForm = `<div class="f2"><div class="f"><label for="nln">LUN-Name</label><input id="nln" placeholder="DB01" maxlength="24"></div><div class="f"><label for="nlp">Pool</label><select id="nlp">${T.pools.map(p => `<option>${esc(p.name)}</option>`).join('') || '<option value="">– kein Pool –</option>'}</select></div></div><div class="f2"><div class="f"><label for="nlg">Größe (GB)</label><input id="nlg" type="number" min="1" value="100"></div><label class="ck"><input type="checkbox" id="nlt"> Thin Provisioning</label></div><button class="btn small" id="nlgo">LUN anlegen</button>`;
+    return `<h4>Pools</h4>${pools}${poolForm}<h4>LUNs</h4>${luns}${lunForm}<p class="muted small">Ein Server sieht eine LUN, wenn Masking, Zoning und Verkabelung stimmen. Danach braucht er einen Rescan.</p>`;
+  }
+  function zoningHtml(m) {
+    const Z = STORN.zs(m), att = STORN.attached(S.net, m), lab = fcLabel(), mem = w => esc(lab[w] || w);
+    const ini = att.filter(x => x.role === 'initiator'), tgt = att.filter(x => x.role === 'target'), o = list => list.map(x => `<option value="${x.wwpn}">${esc(x.dev.cfg.hostname)} ${esc(x.port)}</option>`).join('');
+    return `<p class="pst ${Z.active ? 's-connected' : 's-notconnect'}">Zoneset: <b>${Z.active ? 'aktiv' : 'nicht aktiv'}</b>${Z.active ? '' : ' (ohne aktives Zoneset gilt „deny“: keine Verbindung)'}</p>
+      <div class="appbtns"><button class="btn small" id="zAuto" ${att.length < 2 ? 'disabled' : ''}>Auto-Zoning aus Verkabelung</button><button class="btn small ${Z.active ? '' : 'primary'}" id="zAct">${Z.active ? 'Zoneset deaktivieren' : 'Zoneset aktivieren'}</button></div>
+      ${Z.zones.length ? `<table class="vt">${Z.zones.map(z => `<tr><td><b>${esc(z.name)}</b><br><span class="muted small">${z.members.map(mem).join('<br>')}</span></td><td><button class="lnkbtn" data-delzone="${esc(z.name)}" aria-label="Zone ${esc(z.name)} löschen">löschen</button></td></tr>`).join('')}</table>` : '<p class="muted small">Noch keine Zone. Angeschlossen: ' + (att.length ? att.map(x => esc(x.dev.cfg.hostname + ' ' + x.port)).join(', ') : 'nichts') + '.</p>'}
+      <h4>Neue Zone</h4><div class="f"><label for="znn">Zonenname</label><input id="znn" placeholder="Z_SRV01_STO01" maxlength="40"></div><div class="f2"><div class="f"><label for="zni">Initiator (Server)</label><select id="zni">${o(ini) || '<option value="">– keiner –</option>'}</select></div><div class="f"><label for="znt">Target (Storage)</label><select id="znt">${o(tgt) || '<option value="">– keiner –</option>'}</select></div></div><button class="btn small" id="zngo">Zone anlegen</button>`;
   }
   function runOn(id, lines, label) {
     const d = S.net.devs[id];
@@ -3370,6 +3576,16 @@ const Sandbox = (function () {
       if (gw !== (d.cfg.gw || '')) c.push(gw ? 'ip default-gateway ' + gw : 'no ip default-gateway'); if (g('mrt').checked !== d.cfg.ipRouting) c.push(g('mrt').checked ? 'ip routing' : 'no ip routing');
       if (c.length) runOn(d.id, c, 'Management aus der Oberfläche');
     };
+    const res = (r, ok) => toast(r.err ? `<span class="neg">${esc(r.err)}</span>` : ok);
+    if (g('npgo')) g('npgo').onclick = () => act(() => { res(STORN.createPool(d, { name: g('npn').value, raid: g('npr').value, disks: g('npd').value, diskGb: g('npg').value }), 'Pool angelegt.'); });
+    $$('[data-delpool]').forEach(b => b.onclick = () => act(() => { res(STORN.deletePool(d, b.dataset.delpool), 'Pool gelöscht.'); }));
+    if (g('nlgo')) g('nlgo').onclick = () => act(() => { res(STORN.createLun(d, { name: g('nln').value, pool: g('nlp').value, gb: g('nlg').value, thin: g('nlt').checked }), 'LUN angelegt. Gib sie jetzt einem Server frei (Masking).'); });
+    $$('[data-dellun]').forEach(b => b.onclick = () => act(() => { STORN.deleteLun(d, +b.dataset.dellun); toast('LUN gelöscht.'); }));
+    $$('[data-mask]').forEach(c => c.onchange = () => act(() => { const [l, h] = c.dataset.mask.split('|'); STORN.maskLun(d, +l, h, c.checked); }));
+    if (g('zAuto')) g('zAuto').onclick = () => act(() => { const r = STORN.autoZones(S.net, d); toast(r.n ? `${r.n} Zone${r.n > 1 ? 'n' : ''} angelegt (je ein Initiator und ein Target). Zoneset noch aktivieren.` : 'Keine neuen Zonen nötig.'); });
+    if (g('zAct')) g('zAct').onclick = () => act(() => { const r = STORN.zoneActive(d, !STORN.zs(d).active); res(r, STORN.zs(d).active ? 'Zoneset aktiviert.' : 'Zoneset deaktiviert: keine Verbindungen mehr.'); });
+    $$('[data-delzone]').forEach(b => b.onclick = () => act(() => { STORN.zoneDel(d, b.dataset.delzone); toast('Zone gelöscht.'); }));
+    if (g('zngo')) g('zngo').onclick = () => act(() => { res(STORN.zoneAdd(d, g('znn').value, [g('zni').value, g('znt').value]), 'Zone angelegt. Zoneset aktivieren, damit sie gilt.'); });
     if (g('appDesk')) g('appDesk').onclick = () => openApps(d.id, 'home');
     if (g('appSvc')) g('appSvc').onclick = () => openApps(d.id, 'svc');
     if (g('fwBtn')) g('fwBtn').onclick = () => fwModal(d);
@@ -3547,6 +3763,7 @@ const Sandbox = (function () {
       o.push(padR(p, 16) + padR(KIND[d.pk[p]].label, 9) + padR(d.xcvr[p] || (st.link && st.link.cable === 'dac' ? 'DAC' : '–'), 17) + padR(d.pk[p] === 'fc' ? NL.wwpn(d, p) : (h && h.ip ? h.ip + '/' + NL.maskLen(h.mask) : '–'), 26) + padR(d.use[p] || (isMg(p) ? 'Management' : d.pk[p] === 'fc' ? 'SAN (FC)' : 'Daten'), 25) + peer);
     }
     if (d.cfg.gw) o.push('', 'Default-Gateway: ' + d.cfg.gw);
+    if (d.type === 'storage' && d.stor && (d.stor.pools.length || d.stor.luns.length)) { o.push('', 'Pools:'); d.stor.pools.forEach(p => { const i = STORN.poolInfo(d, p); o.push(`  ${p.name}: ${STORN.RAID[p.raid].name}, ${p.disks}× ${p.diskGb} GB, nutzbar ${i.usable} GB, frei ${i.free} GB`); }); o.push('LUNs:'); d.stor.luns.forEach(l => o.push(`  LUN ${l.id} ${l.name}: ${l.gb} GB (${l.thin ? 'Thin' : 'Thick'}), Pool ${l.pool}, freigegeben für: ${l.hosts.map(h => (S.net.devs[h] || { cfg: { hostname: h } }).cfg.hostname).join(', ') || '–'}`)); }
     if (d.pcard && Object.values(d.pcard).some(k => CARDS[k].roce)) o.push('', 'RoCE v2: verlustfreies Netz (PFC/ECN), durchgängig einheitliche MTU (z. B. 9000 am Host, 9216 am Switch) und DSCP/CoS-Zuordnung mit dem Netzwerk abstimmen.');
     return o.join('\n') + '\n';
   }
@@ -3558,7 +3775,8 @@ const Sandbox = (function () {
     c.forEach(x => o.push('interface ' + x.p, ` switchport description ${x.pd.cfg.hostname} ${x.pp}`, ' switchport mode F', ' no shutdown', '!'));
     const ini = c.filter(x => x.pd.type === 'server'), tgt = c.filter(x => x.pd.type === 'storage'), zn = [];
     o.push('! Zoning: Single-Initiator-Single-Target (Default-Zone bleibt deny)');
-    for (const i of ini) for (const t of tgt) { const n = safe(`${i.pd.cfg.hostname}_${i.pp}__${t.pd.cfg.hostname}_${t.pp}`).slice(0, 64); zn.push(n); o.push(`zone name ${n} vsan ${v}`, ` member pwwn ${NL.wwpn(i.pd, i.pp)}`, ` member pwwn ${NL.wwpn(t.pd, t.pp)}`, '!'); }
+    if (d.zset && d.zset.zones.length) d.zset.zones.forEach(z => { zn.push(z.name); o.push(`zone name ${safe(z.name)} vsan ${v}`, ...z.members.map(w => ` member pwwn ${w}`), '!'); });
+    else for (const i of ini) for (const t of tgt) { const n = safe(`${i.pd.cfg.hostname}_${i.pp}__${t.pd.cfg.hostname}_${t.pp}`).slice(0, 64); zn.push(n); o.push(`zone name ${n} vsan ${v}`, ` member pwwn ${NL.wwpn(i.pd, i.pp)}`, ` member pwwn ${NL.wwpn(t.pd, t.pp)}`, '!'); }
     if (zn.length) { const zs = 'ZS-' + safe(d.cfg.hostname); o.push(`zoneset name ${zs} vsan ${v}`); zn.forEach(n => o.push(' member ' + n)); o.push('!', `zoneset activate name ${zs} vsan ${v}`); } else o.push('! (Noch keine Server/Storage-Paare verkabelt – keine Zonen erzeugt)');
     return o.join('\n') + '\n';
   }
@@ -3665,7 +3883,7 @@ const Sandbox = (function () {
     net = net || S.net;
     return {
       net, ifaces: d => d.ports.filter(p => !isMg(p)).map((p, i) => { const h = hip(d, p) || {}; return { lin: 'eth' + i, port: p, ip: h.ip || null, mask: h.mask || null, up: NL.portStatus(net, d.id, p).st === 'connected' }; }),
-      setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => resolve(d, n), reach: (d, ip) => NL.ping(net, d.id, ip).ok,
+      luns: d => STORN.hostLuns(net, d), setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => resolve(d, n), reach: (d, ip) => NL.ping(net, d.id, ip).ok,
       fallback: (d, line) => hostLine(d, (S && S.sess && S.sess[d.id]) || NL.newSess(), line)
     };
   }
@@ -3749,6 +3967,20 @@ const Sandbox = (function () {
   const rn = (net, h, lines) => run(net, hd(net, h).id, lines);
   const mk = (net, m, x, y, h) => addDev(net, m, x, y, h);
   const G = 'GigabitEthernet1/0/';
+  // SAN-Grundaufbau: Server mit HBA, MDS, Storage-Controller A/B, Management-LAN mit Gateway
+  const FCX = 'DS-SFP-FC32G-SW';
+  function stBase(net, servers, o = {}) {
+    mk(net, 'C9200L-24P-4X', 200, 70, 'SW'); mk(net, 'ISR4331', 520, 70, 'R-GW'); lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24);
+    rn(net, 'R-GW', ['interface g0/0/1', 'ip address 10.0.0.1 255.255.255.0', 'no shutdown']);
+    if (!o.noStorage) { mk(net, 'MDS-9132T', 640, 360, 'MDS-A'); mk(net, 'HW-Dorado-5000V6', 1040, 360, 'STO-01'); NL.setCard(net, hd(net, 'STO-01').id, 1, 'IO-4x32G-FC'); }
+    servers.forEach((h, i) => {
+      mk(net, 'HW-2288H-V5', 220, 330 + i * 230, h); const sd = hd(net, h); NL.setCard(net, sd.id, 1, 'HBA-2x32G-FC'); lk(net, h, 'eth0', 'SW', G + (i + 1));
+      rn(net, h, [`ip 10.0.0.${10 + i}/24 10.0.0.1`]);
+      if (!o.noStorage) ['slot2/1', 'slot2/2'].forEach((q, k) => { lk(net, h, q, 'MDS-A', 'fc1/' + (i * 2 + k + 1), 'mmf'); sd.xcvr[q] = FCX; hd(net, 'MDS-A').xcvr['fc1/' + (i * 2 + k + 1)] = FCX; });
+      LXN.init(sd).scsi = [];
+    });
+    if (!o.noStorage) { const t = hd(net, 'STO-01'); [['A-slot2/1', 'fc1/9'], ['B-slot2/1', 'fc1/10']].forEach(([q, w]) => { lk(net, 'STO-01', q, 'MDS-A', w, 'mmf'); t.xcvr[q] = FCX; hd(net, 'MDS-A').xcvr[w] = FCX; }); }
+  }
   function lxBase(net, srv, bare) {
     mk(net, 'C9200L-24P-4X', 450, 190, 'SW'); mk(net, 'ISR4331', 450, 50, 'R-GW'); mk(net, 'PC', 170, 320, 'PC-1'); mk(net, 'Server', 740, 320, srv); if (bare) hd(net, srv).svc.http.on = false;
     lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24); lk(net, 'PC-1', 'eth0', 'SW', G + 1); lk(net, srv, 'eth0', 'SW', G + 2);
@@ -3873,6 +4105,52 @@ const Sandbox = (function () {
         { t: 'PC-1 lädt <code>http://10.0.0.10</code>', c: n => { const d = hd(n, 'PC-1'); return !!d && !!httpGet(d, 'http://10.0.0.10').ok; } }],
       hints: ['<code>sudo ufw status</code> zeigt die Regeln. Der Dienst läuft, also liegt das Problem davor.', 'Mit <code>sudo ufw allow 80</code> gibst du den Webport frei. <code>ufw disable</code> wäre die falsche Abkürzung: Die Firewall soll an bleiben.'],
       sol(net) { lxr(net, 'WEB-01', 'sudo ufw allow 80'); } }
+    ,
+    // ---- System Engineer: Storage ----
+    { id: 'sc-st-lun', kind: 'Aufbau', title: 'Storage: LUN für den Datenbankserver', est: '25 min',
+      intro: 'SRV-DB (Ubuntu, 2× FC-HBA) soll 200 GB Speicher auf dem Storage STO-01 bekommen. Verkabelung und Netz stehen. Lege auf STO-01 einen RAID-Pool und die LUN <code>DB01</code> an, gib sie SRV-DB frei, richte auf MDS-A das Zoning ein und binde die LUN auf SRV-DB mit Multipath unter <code>/data</code> ein.',
+      build(net) { stBase(net, ['SRV-DB']); },
+      goals: [
+        { t: 'STO-01 hat einen Pool mit RAID 5 oder RAID 6 und mindestens 1000 GB nutzbar', c: n => { const t = hd(n, 'STO-01'); return STORN.st(t).pools.some(p => ['raid5', 'raid6'].includes(p.raid) && STORN.poolInfo(t, p).usable >= 1000); } },
+        { t: 'Die LUN <code>DB01</code> (mindestens 200 GB) liegt im Pool', c: n => STORN.st(hd(n, 'STO-01')).luns.some(l => l.name === 'DB01' && l.gb >= 200) },
+        { t: 'DB01 ist für SRV-DB freigegeben (LUN-Masking)', c: n => STORN.st(hd(n, 'STO-01')).luns.some(l => l.name === 'DB01' && l.hosts.includes(hd(n, 'SRV-DB').id)) },
+        { t: 'Das Zoneset auf MDS-A ist aktiv, SRV-DB erreicht den Storage über 4 Pfade', c: n => STORN.paths(n, hd(n, 'SRV-DB')).length === 4 },
+        { t: 'SRV-DB hat die LUN gescannt und <code>multipath-tools</code> installiert', c: n => { const L = hd(n, 'SRV-DB').lx; return L.scsi.length === 1 && L.pkgs.includes('multipath-tools'); } },
+        { t: 'Das Multipath-Gerät ist mit einem Dateisystem unter <code>/data</code> eingebunden', c: n => { const L = hd(n, 'SRV-DB').lx; return L.mounts['/data'] === '/dev/mapper/mpatha' && !!L.fmt['/dev/mapper/mpatha']; } }],
+      hints: ['Klicke STO-01 an: Im Inspektor findest du „Pools und LUNs“. Ein Pool aus 6× 600 GB mit RAID 5 liefert 3000 GB nutzbar.', 'Ohne Zoning sieht der Server nichts: Klicke MDS-A an → „Zoning“ → „Auto-Zoning aus Verkabelung“ → „Zoneset aktivieren“. Der Server hat zwei HBA-Ports und der Storage zwei Controller, deshalb entstehen 4 Pfade.', 'Terminal von SRV-DB: <code>sudo rescan-scsi-bus.sh</code>, dann <code>lsblk</code>. Dieselbe LUN taucht viermal auf, bis <code>sudo apt install multipath-tools</code> sie zu <code>mpatha</code> zusammenfasst. Danach <code>sudo mkdir /data</code>, <code>sudo mkfs.ext4 /dev/mapper/mpatha</code>, <code>sudo mount /dev/mapper/mpatha /data</code>.'],
+      sol(net) { const t = hd(net, 'STO-01'), srv = hd(net, 'SRV-DB'), m = hd(net, 'MDS-A'); STORN.createPool(t, { name: 'POOL1', raid: 'raid5', disks: 6, diskGb: 600 }); STORN.createLun(t, { name: 'DB01', pool: 'POOL1', gb: 200 }); STORN.maskLun(t, 0, srv.id, true); STORN.autoZones(net, m); STORN.zoneActive(m, true); lxr(net, 'SRV-DB', ['sudo rescan-scsi-bus.sh', 'sudo apt install multipath-tools', 'sudo rescan-scsi-bus.sh', 'sudo mkdir /data', 'sudo mkfs.ext4 /dev/mapper/mpatha', 'sudo mount /dev/mapper/mpatha /data']); } },
+    { id: 'sc-st-zone', kind: 'Fehlersuche', title: 'Storage: Server sieht die LUN nicht', est: '15 min',
+      intro: 'Die LUN <code>APP01</code> auf STO-01 soll SRV-APP bekommen, aber <code>lsblk</code> zeigt dort keine neue Platte. Verkabelung, Pool und LUN sind in Ordnung. Es stecken drei Fehler in Masking, Zoning und Betriebssystem.',
+      build(net) { stBase(net, ['SRV-APP', 'SRV-DB']); const t = hd(net, 'STO-01'), a = hd(net, 'SRV-APP'), db = hd(net, 'SRV-DB'), m = hd(net, 'MDS-A'); STORN.createPool(t, { name: 'POOL1', raid: 'raid5', disks: 6, diskGb: 600 }); STORN.createLun(t, { name: 'APP01', pool: 'POOL1', gb: 100 }); STORN.maskLun(t, 0, db.id, true); STORN.autoZones(net, m); void a; },
+      goals: [
+        { t: 'APP01 ist für SRV-APP freigegeben (LUN-Masking)', c: n => STORN.st(hd(n, 'STO-01')).luns.some(l => l.name === 'APP01' && l.hosts.includes(hd(n, 'SRV-APP').id)) },
+        { t: 'APP01 ist <b>nicht</b> für SRV-DB freigegeben', c: n => STORN.st(hd(n, 'STO-01')).luns.some(l => l.name === 'APP01' && !l.hosts.includes(hd(n, 'SRV-DB').id)) },
+        { t: 'Das Zoneset auf MDS-A ist aktiv', c: n => !!STORN.zs(hd(n, 'MDS-A')).active },
+        { t: 'SRV-APP erreicht APP01 über mindestens 2 Pfade', c: n => STORN.hostLuns(n, hd(n, 'SRV-APP')).some(x => x.name === 'APP01' && x.paths.length >= 2) },
+        { t: 'SRV-APP hat neu gescannt und sieht die Platte (<code>lsblk</code>)', c: n => hd(n, 'SRV-APP').lx.scsi.length > 0 }],
+      hints: ['Klicke STO-01 an: Unter der LUN steht pro Server, ob er sie sieht und wenn nicht, warum. Die Freigabe geht an den falschen Server.', 'Zonen allein reichen nicht: MDS-A → „Zoning“. Es gibt Zonen, aber das Zoneset ist nicht aktiv (ohne aktives Zoneset gilt deny).', 'Neue LUNs erscheinen im Betriebssystem erst nach einem Rescan: <code>sudo rescan-scsi-bus.sh</code>.'],
+      sol(net) { const t = hd(net, 'STO-01'); STORN.maskLun(t, 0, hd(net, 'SRV-DB').id, false); STORN.maskLun(t, 0, hd(net, 'SRV-APP').id, true); STORN.zoneActive(hd(net, 'MDS-A'), true); lxr(net, 'SRV-APP', 'sudo rescan-scsi-bus.sh'); } },
+    { id: 'sc-st-raid', kind: 'Aufbau', title: 'Storage: RAID-Pool dimensionieren', est: '10 min',
+      intro: 'Das Archiv braucht <b>mindestens 5000 GB nutzbaren Speicher</b> und muss <b>zwei gleichzeitige Plattenausfälle</b> überstehen. Verfügbar sind höchstens 12 Platten mit je 600 GB im STO-01. Wähle den passenden RAID-Level und lege die LUN <code>ARCHIV</code> mit 4800 GB an.',
+      build(net) { mk(net, 'HW-Dorado-5000V6', 400, 220, 'STO-01'); },
+      goals: [
+        { t: 'Es gibt einen Pool, der zwei Plattenausfälle übersteht (RAID 6)', c: n => STORN.st(hd(n, 'STO-01')).pools.some(p => STORN.RAID[p.raid].fault >= 2) },
+        { t: 'Der Pool nutzt höchstens 12 Platten à 600 GB und bietet mindestens 5000 GB', c: n => { const t = hd(n, 'STO-01'); return STORN.st(t).pools.some(p => p.diskGb === 600 && p.disks <= 12 && STORN.poolInfo(t, p).usable >= 5000); } },
+        { t: 'Die LUN <code>ARCHIV</code> (4800 GB, Thick) liegt im Pool', c: n => STORN.st(hd(n, 'STO-01')).luns.some(l => l.name === 'ARCHIV' && l.gb === 4800 && !l.thin) }],
+      hints: ['RAID 5 verträgt nur eine Platte, RAID 10 liefert nur die Hälfte (12× 600 GB = 3600 GB), RAID 6 verliert zwei Platten an Parität: (12 − 2) × 600 = 6000 GB.', 'Klicke STO-01 an → „Pools und LUNs“ → Pool mit RAID 6, 12 Platten, 600 GB.'],
+      sol(net) { const t = hd(net, 'STO-01'); STORN.createPool(t, { name: 'ARCHIV-POOL', raid: 'raid6', disks: 12, diskGb: 600 }); STORN.createLun(t, { name: 'ARCHIV', pool: 'ARCHIV-POOL', gb: 4800 }); } },
+    { id: 'sc-st-mpath', kind: 'Fehlersuche', title: 'Storage: Pfade fehlen', est: '15 min',
+      intro: 'SRV-DB nutzt die LUN <code>DB01</code> über Multipath, aber <code>multipath -ll</code> zeigt statt vier nur noch zwei Pfade. Das System läuft noch, hat aber keine Redundanz mehr. Finde die zwei Ursachen im Fibre-Channel-Netz.',
+      build(net) { stBase(net, ['SRV-DB']); const t = hd(net, 'STO-01'), srv = hd(net, 'SRV-DB'), m = hd(net, 'MDS-A');
+        STORN.createPool(t, { name: 'POOL1', raid: 'raid5', disks: 6, diskGb: 600 }); STORN.createLun(t, { name: 'DB01', pool: 'POOL1', gb: 200 }); STORN.maskLun(t, 0, srv.id, true); STORN.autoZones(net, m); STORN.zoneActive(m, true);
+        lxr(net, 'SRV-DB', ['sudo rescan-scsi-bus.sh', 'sudo apt install multipath-tools', 'sudo rescan-scsi-bus.sh', 'sudo mkdir /data', 'sudo mkfs.ext4 /dev/mapper/mpatha', 'sudo mount /dev/mapper/mpatha /data']);
+        delete srv.xcvr['slot2/2']; m.zset.zones = m.zset.zones.filter(z => !z.name.includes('STO-01_B')); },
+      goals: [
+        { t: 'Der zweite HBA-Port von SRV-DB hat wieder einen Link (<code>slot2/2</code>)', c: n => NL.portStatus(n, hd(n, 'SRV-DB').id, 'slot2/2').st === 'connected' },
+        { t: 'Beide Controller (A und B) sind für SRV-DB gezont', c: n => { const p = STORN.paths(n, hd(n, 'SRV-DB')); return ['A', 'B'].every(c => p.some(x => x.ctl === c)); } },
+        { t: 'SRV-DB hat vier Pfade und <code>multipath -ll</code> zeigt nach dem Rescan vier aktive Pfade', c: n => STORN.paths(n, hd(n, 'SRV-DB')).length === 4 && hd(n, 'SRV-DB').lx.scsi[0].paths.length === 4 }],
+      hints: ['Zwei HBA-Ports × zwei Controller = 4 Pfade. Klicke SRV-DB an → Port-Reiter: Ein HBA-Port hat keinen Link (rot). Welcher Transceiver fehlt?', 'Der zweite Fehler liegt im Zoning: MDS-A → „Zoning“. Eine Zone ist weggefallen. „Auto-Zoning aus Verkabelung“ ergänzt sie.', 'Danach auf SRV-DB: <code>sudo rescan-scsi-bus.sh</code> und <code>multipath -ll</code>.'],
+      sol(net) { const srv = hd(net, 'SRV-DB'), m = hd(net, 'MDS-A'); srv.xcvr['slot2/2'] = FCX; STORN.autoZones(net, m); lxr(net, 'SRV-DB', 'sudo rescan-scsi-bus.sh'); } }
   ];
   function buildScen(id) { const sc = SC.find(x => x.id === id), net = newNet(); sc.build(net); return net; }
   const sdone = () => store.get('scendone', []);
@@ -4128,7 +4406,7 @@ const Sandbox = (function () {
 
   function close() { document.removeEventListener('keydown', escKey); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), STOR: STORN }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;
