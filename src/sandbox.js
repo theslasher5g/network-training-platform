@@ -9,6 +9,7 @@ const Sandbox = (function () {
   };
   const LXN = typeof LX !== 'undefined' ? LX : require('./linux.js');
   const STORN = typeof STOR !== 'undefined' ? STOR : require('./storage.js');
+  const WINN = typeof WIN !== 'undefined' ? WIN : require('./windows.js');
   const SH = NL.sh, MODELS = NL.MODELS, CARDS = NL.CARDS, XCVR = NL.XCVR, KIND = NL.KIND, hip = NL.hip;
   const RU = 42, UH = 30, RX = 46, RW = 470, VW = 1200, VH = 640;
   const VCOL = ['#2B66C8', '#1E8A57', '#8E44AD', '#D35400', '#16A085', '#C0392B', '#7F8C2D', '#2C7BB6', '#B5487E', '#5D6D7E'];
@@ -682,6 +683,7 @@ const Sandbox = (function () {
   function devCard(d) {
     const M = MODELS[d.model] || {}, u = uOf(d);
     let h = `<section class="card"><h3 class="hid">${esc(d.cfg.hostname)}</h3><div class="f"><label for="dhost">Hostname</label><div class="irow"><input id="dhost" value="${esc(d.cfg.hostname)}"><button class="btn small" id="dhostGo">Setzen</button></div></div>`;
+    if (d.type === 'server' && !(MODELS[d.model] && MODELS[d.model].cloud)) h += `<div class="f"><label for="dos">Betriebssystem</label><select id="dos"><option value="linux" ${d.os === 'windows' ? '' : 'selected'}>Ubuntu Linux 22.04</option><option value="windows" ${d.os === 'windows' ? 'selected' : ''}>Windows Server 2022</option></select></div>`;
     if (canApps(d)) h += `<div class="appbtns"><button class="btn small" id="appDesk">Desktop öffnen</button>${d.type === 'server' ? '<button class="btn small" id="appSvc">Dienste</button>' : ''}</div>`;
     if (NL.isHost(d)) h += `<div class="f"><label for="hgw">Default-Gateway</label><div class="irow"><input id="hgw" value="${esc(d.cfg.gw || '')}" placeholder="z. B. 10.10.0.1"><button class="btn small" id="hgwGo">Setzen</button></div></div>`;
     if (d.cards) h += acc(`Steckplätze${d.type === 'storage' ? ' (je Controller)' : ''}`, d.cards.map((ck, i) => `<div class="f"><label for="sl${i}">Slot ${i + 1}</label><select id="sl${i}" data-slot="${i}">${opt('', ck || '', '– frei –')}${Object.entries(CARDS).filter(([k, C]) => C.for === d.type).map(([k, C]) => opt(k, ck || '', C.label)).join('')}</select></div>`).join(''), true);
@@ -781,6 +783,7 @@ const Sandbox = (function () {
     if (g('zAct')) g('zAct').onclick = () => act(() => { const r = STORN.zoneActive(d, !STORN.zs(d).active); res(r, STORN.zs(d).active ? 'Zoneset aktiviert.' : 'Zoneset deaktiviert: keine Verbindungen mehr.'); });
     $$('[data-delzone]').forEach(b => b.onclick = () => act(() => { STORN.zoneDel(d, b.dataset.delzone); toast('Zone gelöscht.'); }));
     if (g('zngo')) g('zngo').onclick = () => act(() => { res(STORN.zoneAdd(d, g('znn').value, [g('zni').value, g('znt').value]), 'Zone angelegt. Zoneset aktivieren, damit sie gilt.'); });
+    if (g('dos')) g('dos').onchange = () => act(() => { d.os = g('dos').value; delete S.out[d.id]; delete S.sess[d.id]; toast(`Betriebssystem: ${d.os === 'windows' ? 'Windows Server 2022' : 'Ubuntu Linux'}. Das Terminal startet neu (Konsole öffnen).`); });
     if (g('appDesk')) g('appDesk').onclick = () => openApps(d.id, 'home');
     if (g('appSvc')) g('appSvc').onclick = () => openApps(d.id, 'svc');
     if (g('fwBtn')) g('fwBtn').onclick = () => fwModal(d);
@@ -833,7 +836,7 @@ const Sandbox = (function () {
     const id = S.sel, d = id && S.net.devs[id];
     if (!d) { $('#out').innerHTML = ''; $('#prompt').textContent = ''; $('#tname').textContent = 'Konsole'; return; }
     if (!S.sess[id]) S.sess[id] = NL.newSess();
-    if (!S.out[id]) push(id, 'sys', isLx(d) ? `${d.cfg.hostname} – Ubuntu 22.04 LTS (Terminal). Hilfe mit help. Dienste: systemctl, Pakete: apt, Dateien: ls cat echo sed. Systemdateien brauchen sudo.` : NL.isHost(d) ? `${d.cfg.hostname} – Konsole. Befehle: ip [Port] <IP>/<Präfix> [Gateway], show ip, ping, nc <IP> <Port>, trace.` : d.type === 'fc' ? `${d.cfg.hostname} – FC-Switch: Konfiguration über die Oberfläche, Zoning im Export.` : d.fw ? `${d.cfg.hostname} – ASA-Konsole. Einrichten über die Port-Karte oder per CLI (nameif, security-level, access-list, nat, route).` : `${d.cfg.hostname} – Konsole. ? zeigt Befehle. Auch: show interfaces status, show cdp neighbors, show inventory.`);
+    if (!S.out[id]) push(id, 'sys', isWn(d) ? `${d.cfg.hostname} – ${d.type === 'pc' ? 'Windows 11' : 'Windows Server 2022'} (PowerShell). Beispiele: Get-NetIPAddress, ipconfig /all, Get-Service. Hilfe: Get-Command.` : isLx(d) ? `${d.cfg.hostname} – Ubuntu 22.04 LTS (Terminal). Hilfe mit help. Dienste: systemctl, Pakete: apt, Dateien: ls cat echo sed. Systemdateien brauchen sudo.` : NL.isHost(d) ? `${d.cfg.hostname} – Konsole. Befehle: ip [Port] <IP>/<Präfix> [Gateway], show ip, ping, nc <IP> <Port>, trace.` : d.type === 'fc' ? `${d.cfg.hostname} – FC-Switch: Konfiguration über die Oberfläche, Zoning im Export.` : d.fw ? `${d.cfg.hostname} – ASA-Konsole. Einrichten über die Port-Karte oder per CLI (nameif, security-level, access-list, nat, route).` : `${d.cfg.hostname} – Konsole. ? zeigt Befehle. Auch: show interfaces status, show cdp neighbors, show inventory.`);
     $('#tname').textContent = 'Konsole: ' + d.cfg.hostname;
     $('#out').innerHTML = S.out[id].map(o => `<div class="ln k-${o.c}">${esc(o.t) || '&nbsp;'}</div>`).join(''); $('#out').scrollTop = 1e9; $('#prompt').textContent = promptOf(d, S.sess[id]).trim();
   }
@@ -1050,6 +1053,7 @@ const Sandbox = (function () {
     if (!NL.validIp(host)) { const r = resolve(c, host); if (r.err) return { err: r.err }; ip = r.ip; }
     const r = NL.ping(S.net, c.id, ip, { proto: 'tcp', port }); if (!r.ok) return { err: `Zeitüberschreitung: ${ip}:${port} ist nicht erreichbar.`, why: r.reason };
     const srv = allIps()[ip], sv = srv && srv.svc;
+    if (srv && srv.win && srv.win.fwOn && srv.win.feats['Web-Server'] && !srv.win.fw.some(r => r.on && r.port === port && r.proto === 'TCP')) return { err: `Zeitüberschreitung: ${ip}:${port} antwortet nicht.`, why: `Die Windows-Firewall auf ${srv.cfg.hostname} blockiert Port ${port}. Auf dem Server: New-NetFirewallRule oder Enable-NetFirewallRule` };
     if (srv && srv.lx && srv.lx.ufw && srv.lx.ufw.on && !srv.lx.ufw.allow.includes(String(port))) return { err: `Zeitüberschreitung: ${ip}:${port} antwortet nicht.`, why: `Die Firewall (ufw) auf ${srv.cfg.hostname} blockiert Port ${port}. Auf dem Server: sudo ufw allow ${port}` };
     if (!sv || !((port === 80 && sv.http.on) || (port === 443 && sv.http.on && sv.http.https))) return { err: `Verbindung abgelehnt: Auf ${srv ? srv.cfg.hostname : ip} lauscht kein ${port === 443 ? 'HTTPS' : 'HTTP'}-Server auf Port ${port}.` };
     return { ok: true, ip, host, scheme, port, title: sv.http.title || srv.cfg.hostname, body: sv.http.body };
@@ -1073,16 +1077,20 @@ const Sandbox = (function () {
   }
   // Linux-Terminal für Server (siehe linux.js)
   const isLx = d => !!d && LXN.isLinux(d) && !(MODELS[d.model] && MODELS[d.model].cloud);
-  const promptOf = (d, s) => isLx(d) ? LXN.prompt(d) : NL.prompt(d, s);
+  const isWn = d => !!d && WINN.isWin(d) && !(MODELS[d.model] && MODELS[d.model].cloud);
+  const promptOf = (d, s) => isLx(d) ? LXN.prompt(d) : isWn(d) ? WINN.prompt(d) : NL.prompt(d, s);
+  // Führt fn gegen ein bestimmtes Netz aus (auch beim Aufbau von Szenarien, wenn S.net ein anderes ist)
+  function withNet(net, fn) { const keep = S; S = Object.assign({ sess: {}, out: {} }, S || {}, { net }); try { return fn(); } finally { S = keep; } }
   function lxCtx(net) {
     net = net || S.net;
     return {
-      net, ifaces: d => d.ports.filter(p => !isMg(p)).map((p, i) => { const h = hip(d, p) || {}; return { lin: 'eth' + i, port: p, ip: h.ip || null, mask: h.mask || null, up: NL.portStatus(net, d.id, p).st === 'connected' }; }),
-      luns: d => STORN.hostLuns(net, d), setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => resolve(d, n), reach: (d, ip) => NL.ping(net, d.id, ip).ok,
-      fallback: (d, line) => hostLine(d, (S && S.sess && S.sess[d.id]) || NL.newSess(), line)
+      net, ifaces: d => d.ports.filter(p => !isMg(p)).map((p, i) => { const h = hip(d, p) || {}; return { lin: 'eth' + i, alias: 'Ethernet' + i, port: p, ip: h.ip || null, mask: h.mask || null, up: NL.portStatus(net, d.id, p).st === 'connected' }; }),
+      luns: d => STORN.hostLuns(net, d), setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => withNet(net, () => resolve(d, n)), reach: (d, ip) => NL.ping(net, d.id, ip).ok, ping: (d, ip, flow) => NL.ping(net, d.id, ip, flow), net,
+      fallback: (d, line) => withNet(net, () => hostLine(d, (S && S.sess && S.sess[d.id]) || NL.newSess(), line))
     };
   }
-  const hostRun = (d, s, v) => isLx(d) ? LXN.exec(lxCtx(), d, v) : hostLine(d, s, v);
+  const hostRun = (d, s, v) => isLx(d) ? LXN.exec(lxCtx(), d, v) : isWn(d) ? WINN.exec(lxCtx(), d, v) : hostLine(d, s, v);
+  const wxr = (net, h, lines) => { const d = hd(net, h); [].concat(lines).forEach(l => WINN.exec(lxCtx(net), d, l)); };
   const lxr = (net, h, lines) => { const d = hd(net, h); [].concat(lines).forEach(l => LXN.exec(lxCtx(net), d, l)); };
   function hostLine(d, s, raw) {
     const line = raw.trim().replace(/\s+/g, ' '), t = line.split(' '), c0 = (t[0] || '').toLowerCase(), ex = l => NL.exec(S.net, d.id, s, l);
@@ -1176,6 +1184,16 @@ const Sandbox = (function () {
     });
     if (!o.noStorage) { const t = hd(net, 'STO-01'); [['A-slot2/1', 'fc1/9'], ['B-slot2/1', 'fc1/10']].forEach(([q, w]) => { lk(net, 'STO-01', q, 'MDS-A', w, 'mmf'); t.xcvr[q] = FCX; hd(net, 'MDS-A').xcvr[w] = FCX; }); }
   }
+  // Windows-Grundaufbau: Switch, Router-Gateway, Windows-Server und Client im 10.0.0.0/24
+  function winBase(net, servers, o = {}) {
+    mk(net, 'C9200L-24P-4X', 460, 200, 'SW'); mk(net, 'ISR4331', 460, 50, 'R-GW'); lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24); rn(net, 'R-GW', ['interface g0/0/1', 'ip address 10.0.0.1 255.255.255.0', 'no shutdown']);
+    servers.forEach(([h, ip], i) => { mk(net, 'Server', 200 + i * 300, 380, h); hd(net, h).os = 'windows'; lk(net, h, 'eth0', 'SW', G + (i + 1)); rn(net, h, [`ip ${ip}/24 10.0.0.1`]); WINN.init(hd(net, h)); });
+    mk(net, 'PC', 200, 530, 'PC-1'); lk(net, 'PC-1', 'eth0', 'SW', G + 10); rn(net, 'PC-1', ['ip 10.0.0.20/24 10.0.0.1']);
+    if (o.pc2) { mk(net, 'PC', 520, 530, 'PC-2'); lk(net, 'PC-2', 'eth0', 'SW', G + 11); hd(net, 'PC-2').cfg.dhcp = true; }
+  }
+  const PWD = '(ConvertTo-SecureString "Sommer2026!" -AsPlainText -Force)';
+  const dcSetup = (net, withUsers) => wxr(net, 'DC01', ['Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools', 'Install-ADDSForest -DomainName lab.local -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssw0rd123" -AsPlainText -Force) -Force'].concat(withUsers ? ['New-ADGroup -Name Vertrieb -GroupScope Global', `New-ADUser -Name "Max Muster" -SamAccountName mmuster -AccountPassword ${PWD} -Enabled $true`, 'Add-ADGroupMember -Identity Vertrieb -Members mmuster'] : []));
+  const joinDomain = (net, h) => { hd(net, h).cfg.dns = '10.0.0.10'; wxr(net, h, 'Add-Computer -DomainName lab.local -Credential lab\\administrator'); };
   function lxBase(net, srv, bare) {
     mk(net, 'C9200L-24P-4X', 450, 190, 'SW'); mk(net, 'ISR4331', 450, 50, 'R-GW'); mk(net, 'PC', 170, 320, 'PC-1'); mk(net, 'Server', 740, 320, srv); if (bare) hd(net, srv).svc.http.on = false;
     lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24); lk(net, 'PC-1', 'eth0', 'SW', G + 1); lk(net, srv, 'eth0', 'SW', G + 2);
@@ -1346,6 +1364,60 @@ const Sandbox = (function () {
         { t: 'SRV-DB hat vier Pfade und <code>multipath -ll</code> zeigt nach dem Rescan vier aktive Pfade', c: n => STORN.paths(n, hd(n, 'SRV-DB')).length === 4 && hd(n, 'SRV-DB').lx.scsi[0].paths.length === 4 }],
       hints: ['Zwei HBA-Ports × zwei Controller = 4 Pfade. Klicke SRV-DB an → Port-Reiter: Ein HBA-Port hat keinen Link (rot). Welcher Transceiver fehlt?', 'Der zweite Fehler liegt im Zoning: MDS-A → „Zoning“. Eine Zone ist weggefallen. „Auto-Zoning aus Verkabelung“ ergänzt sie.', 'Danach auf SRV-DB: <code>sudo rescan-scsi-bus.sh</code> und <code>multipath -ll</code>.'],
       sol(net) { const srv = hd(net, 'SRV-DB'), m = hd(net, 'MDS-A'); srv.xcvr['slot2/2'] = FCX; STORN.autoZones(net, m); lxr(net, 'SRV-DB', 'sudo rescan-scsi-bus.sh'); } }
+    ,
+    // ---- System Engineer: Windows Server und Active Directory ----
+    { id: 'sc-win-ad', kind: 'Aufbau', title: 'Windows: Active Directory aufbauen', est: '25 min',
+      intro: 'DC01 ist ein frischer Windows Server 2022 mit fester IP-Adresse. Baue die Domäne <code>lab.local</code> auf: Rolle installieren, Gesamtstruktur anlegen, die Organisationseinheit <code>Sales</code>, die Benutzer <code>mmuster</code> und <code>abeispiel</code> in der Gruppe <code>Vertrieb</code> – und nimm PC-1 in die Domäne auf. Öffne dazu das Terminal von DC01 (PowerShell) und von PC-1.',
+      build(net) { winBase(net, [['DC01', '10.0.0.10']]); },
+      goals: [
+        { t: 'DC01 ist Domänencontroller der Gesamtstruktur <code>lab.local</code>', c: n => { const w = hd(n, 'DC01').win; return !!w && !!w.domain && w.domain.role === 'dc' && w.domain.name === 'lab.local'; } },
+        { t: 'Die Organisationseinheit <code>Sales</code> existiert', c: n => { const w = hd(n, 'DC01').win; return !!w && !!w.ad && w.ad.ous.includes('Sales'); } },
+        { t: 'Die Benutzer <code>mmuster</code> und <code>abeispiel</code> sind angelegt und aktiviert', c: n => { const w = hd(n, 'DC01').win, u = w && w.ad ? w.ad.users : []; return ['mmuster', 'abeispiel'].every(s => u.some(x => x.sam === s && x.enabled)); } },
+        { t: 'Die Gruppe <code>Vertrieb</code> (Global) enthält beide Benutzer', c: n => { const w = hd(n, 'DC01').win, g = w && w.ad && w.ad.groups.find(x => x.name === 'Vertrieb'); return !!g && ['mmuster', 'abeispiel'].every(s => g.members.includes(s)); } },
+        { t: 'PC-1 nutzt DC01 als DNS-Server (<code>10.0.0.10</code>)', c: n => hd(n, 'PC-1').cfg.dns === '10.0.0.10' },
+        { t: 'PC-1 ist Mitglied der Domäne <code>lab.local</code>', c: n => { const w = hd(n, 'PC-1').win; return !!w && !!w.domain && w.domain.name === 'lab.local'; } }],
+      hints: ['Auf DC01: <code>Install-WindowsFeature -Name AD-Domain-Services -IncludeManagementTools</code>, dann <code>Install-ADDSForest -DomainName lab.local -SafeModeAdministratorPassword (ConvertTo-SecureString "P@ssw0rd123" -AsPlainText -Force) -Force</code>.', 'Benutzer: <code>New-ADUser -Name "Max Muster" -SamAccountName mmuster -AccountPassword (ConvertTo-SecureString "Sommer2026!" -AsPlainText -Force) -Enabled $true</code>. Das Kennwort muss komplex sein (Groß-/Kleinbuchstaben, Ziffer, Sonderzeichen). Gruppe: <code>New-ADGroup -Name Vertrieb -GroupScope Global</code>, <code>Add-ADGroupMember -Identity Vertrieb -Members mmuster,abeispiel</code>.', 'Auf PC-1: erst <code>Set-DnsClientServerAddress -InterfaceAlias Ethernet0 -ServerAddresses 10.0.0.10</code> (der Client findet die Domäne über DNS), dann <code>Add-Computer -DomainName lab.local -Credential lab\\administrator</code>.'],
+      sol(net) { dcSetup(net, false); wxr(net, 'DC01', ['New-ADOrganizationalUnit -Name Sales', 'New-ADGroup -Name Vertrieb -GroupScope Global', `New-ADUser -Name "Max Muster" -SamAccountName mmuster -AccountPassword ${PWD} -Enabled $true`, `New-ADUser -Name "Anna Beispiel" -SamAccountName abeispiel -AccountPassword ${PWD} -Enabled $true`, 'Add-ADGroupMember -Identity Vertrieb -Members mmuster,abeispiel']); wxr(net, 'PC-1', 'Set-DnsClientServerAddress -InterfaceAlias Ethernet0 -ServerAddresses 10.0.0.10'); joinDomain(net, 'PC-1'); } },
+    { id: 'sc-win-join', kind: 'Fehlersuche', title: 'Windows: Domänenbeitritt schlägt fehl', est: '15 min',
+      intro: 'Die Domäne <code>lab.local</code> steht auf DC01. PC-1 meldet beim Beitritt: „Die angegebene Domäne ist nicht vorhanden oder konnte nicht kontaktiert werden.“ Netz und Kabel sind in Ordnung. Es sind drei Fehler eingebaut, die der Reihe nach auftreten.',
+      build(net) { winBase(net, [['DC01', '10.0.0.10']]); dcSetup(net, true); hd(net, 'PC-1').cfg.dns = '10.0.0.1'; wxr(net, 'DC01', ['Stop-Service DNS', 'Stop-Service NTDS']); },
+      goals: [
+        { t: 'PC-1 nutzt den Domänencontroller als DNS-Server', c: n => hd(n, 'PC-1').cfg.dns === '10.0.0.10' },
+        { t: 'Der Dienst DNS auf DC01 läuft', c: n => hd(n, 'DC01').win.svc.DNS === 'Running' },
+        { t: 'Der Dienst NTDS (Active Directory) auf DC01 läuft', c: n => hd(n, 'DC01').win.svc.NTDS === 'Running' },
+        { t: 'PC-1 ist Mitglied der Domäne <code>lab.local</code>', c: n => { const w = hd(n, 'PC-1').win; return !!w && !!w.domain && w.domain.name === 'lab.local'; } }],
+      hints: ['Die Fehlermeldung enthält einen <code>[Hinweis]</code> mit der Ursache. Der erste: DNS auf PC-1 zeigt nicht auf den DC. <code>ipconfig /all</code> zeigt den DNS-Server.', 'Danach liegt es am DC: <code>Get-Service DNS, NTDS</code> auf DC01 zeigt „Stopped“. Starten mit <code>Start-Service DNS</code>.', 'Zum Schluss <code>Add-Computer -DomainName lab.local -Credential lab\\administrator</code>.'],
+      sol(net) { wxr(net, 'PC-1', 'Set-DnsClientServerAddress -InterfaceAlias Ethernet0 -ServerAddresses 10.0.0.10'); wxr(net, 'DC01', ['Start-Service DNS', 'Start-Service NTDS']); wxr(net, 'PC-1', 'Add-Computer -DomainName lab.local -Credential lab\\administrator'); } },
+    { id: 'sc-win-dhcp', kind: 'Fehlersuche', title: 'Windows: DHCP vergibt keine Adressen', est: '15 min',
+      intro: 'FS01 (Domänenmitglied) ist als DHCP-Server eingerichtet, aber PC-2 bekommt per <code>ipconfig /renew</code> keine Adresse. Rolle und Bereich sind angelegt. Finde die drei Ursachen: der Dienst, die Autorisierung in Active Directory und der Adressbereich.',
+      build(net) { winBase(net, [['DC01', '10.0.0.10'], ['FS01', '10.0.0.30']], { pc2: true }); dcSetup(net, false); joinDomain(net, 'FS01'); wxr(net, 'FS01', ['Install-WindowsFeature DHCP', 'Add-DhcpServerv4Scope -Name LAN -StartRange 10.0.1.100 -EndRange 10.0.1.150 -SubnetMask 255.255.255.0', 'Set-DhcpServerv4OptionValue -Router 10.0.0.1 -DnsServer 10.0.0.10']); },
+      goals: [
+        { t: 'Der Dienst DHCPServer auf FS01 läuft', c: n => hd(n, 'FS01').win.svc.DHCPServer === 'Running' },
+        { t: 'FS01 ist in Active Directory als DHCP-Server autorisiert', c: n => !!hd(n, 'FS01').win.dhcp.auth },
+        { t: 'Der Bereich liegt im Netz des Servers (<code>10.0.0.100</code> bis <code>10.0.0.150</code>)', c: n => { const s = hd(n, 'FS01').win.dhcp.scope; return !!s && s.start === '10.0.0.100' && s.end === '10.0.0.150'; } },
+        { t: 'PC-2 hat per DHCP eine Adresse aus dem Bereich', c: n => { const p = hd(n, 'PC-2'); return !!p.cfg.ip && NL.ip2n(p.cfg.ip) >= NL.ip2n('10.0.0.100') && NL.ip2n(p.cfg.ip) <= NL.ip2n('10.0.0.150'); } }],
+      hints: ['<code>Get-Service DHCPServer</code> auf FS01: Der Dienst steht auf „Stopped“. Und <code>Get-DhcpServerv4Scope</code> zeigt den Bereich.', 'In einer Domäne darf ein DHCP-Server erst Adressen vergeben, wenn er autorisiert ist: <code>Add-DhcpServerInDC</code>. Das verhindert Schwarzbetrieb durch fremde DHCP-Server.', 'Der Bereich liegt in <code>10.0.1.0</code>, der Server hat <code>10.0.0.30</code>: <code>Remove-DhcpServerv4Scope</code>, dann neu mit <code>Add-DhcpServerv4Scope</code> und die Optionen setzen. Danach auf PC-2 <code>ipconfig /renew</code>.'],
+      sol(net) { wxr(net, 'FS01', ['Remove-DhcpServerv4Scope', 'Add-DhcpServerv4Scope -Name LAN -StartRange 10.0.0.100 -EndRange 10.0.0.150 -SubnetMask 255.255.255.0', 'Set-DhcpServerv4OptionValue -Router 10.0.0.1 -DnsServer 10.0.0.10', 'Add-DhcpServerInDC', 'Start-Service DHCPServer']); hostLine(hd(net, 'PC-2'), NL.newSess(), 'ipconfig /renew'); } },
+    { id: 'sc-win-iis', kind: 'Fehlersuche', title: 'Windows: IIS-Seite nicht erreichbar', est: '12 min',
+      intro: 'Auf WEB01 (Windows Server) ist IIS installiert, aber <code>http://10.0.0.30</code> lädt von PC-1 aus nicht. Prüfe Dienst, Windows-Firewall und Seiteninhalt.',
+      build(net) { winBase(net, [['WEB01', '10.0.0.30']]); wxr(net, 'WEB01', ['Install-WindowsFeature Web-Server', 'Stop-Service W3SVC', 'Disable-NetFirewallRule -DisplayName "World Wide Web Services (HTTP Traffic-In)"', 'Remove-Item C:\\inetpub\\wwwroot\\index.html']); const f = hd(net, 'WEB01').win; void f; },
+      goals: [
+        { t: 'Der Dienst W3SVC (IIS) läuft', c: n => hd(n, 'WEB01').win.svc.W3SVC === 'Running' },
+        { t: 'Die Firewall-Regel „World Wide Web Services (HTTP Traffic-In)“ ist aktiv', c: n => hd(n, 'WEB01').win.fw.some(r => r.port === 80 && r.on) },
+        { t: 'Auf der Startseite steht der Titel „Intranet“', c: n => { const f = hd(n, 'WEB01').win.files['C:\\inetpub\\wwwroot\\index.html']; return !!f && /<title>Intranet<\/title>/i.test(f.t); } },
+        { t: 'PC-1 lädt <code>http://10.0.0.30</code>', c: n => { const d = hd(n, 'PC-1'); return !!d && !!httpGet(d, 'http://10.0.0.30').ok; } }],
+      hints: ['<code>Get-Service W3SVC</code> zeigt „Stopped“. <code>Start-Service W3SVC</code>.', 'Die Windows-Firewall blockt Port 80: <code>Get-NetFirewallRule</code> zeigt die Regel mit Enabled False. <code>Enable-NetFirewallRule -DisplayName "World Wide Web Services (HTTP Traffic-In)"</code>.', 'Die Startseite fehlt: <code>Set-Content -Path C:\\inetpub\\wwwroot\\index.html -Value "&lt;html&gt;&lt;head&gt;&lt;title&gt;Intranet&lt;/title&gt;&lt;/head&gt;&lt;body&gt;Willkommen&lt;/body&gt;&lt;/html&gt;"</code>.'],
+      sol(net) { wxr(net, 'WEB01', ['Start-Service W3SVC', 'Enable-NetFirewallRule -DisplayName "World Wide Web Services (HTTP Traffic-In)"', 'Set-Content -Path C:\\inetpub\\wwwroot\\index.html -Value "<html><head><title>Intranet</title></head><body>Willkommen</body></html>"']); } },
+    { id: 'sc-win-share', kind: 'Aufbau', title: 'Windows: Dateiserver mit Freigabe', est: '15 min',
+      intro: 'FS01 ist Domänenmitglied. Die Abteilung Vertrieb braucht die Freigabe <code>Daten</code> auf <code>D:\\Daten</code>. Installiere die Rolle Dateiserver, lege den Ordner an und gib ihn der Gruppe <code>LAB\\Vertrieb</code> mit Vollzugriff frei (nicht „Jeder“).',
+      build(net) { winBase(net, [['DC01', '10.0.0.10'], ['FS01', '10.0.0.30']]); dcSetup(net, true); joinDomain(net, 'FS01'); },
+      goals: [
+        { t: 'Die Rolle <code>FS-FileServer</code> ist installiert', c: n => !!hd(n, 'FS01').win.feats['FS-FileServer'] },
+        { t: 'Der Ordner <code>D:\\Daten</code> existiert', c: n => !!hd(n, 'FS01').win.files['D:\\Daten'] },
+        { t: 'Die Freigabe <code>Daten</code> zeigt auf <code>D:\\Daten</code>', c: n => hd(n, 'FS01').win.shares.some(s => s.name === 'Daten' && s.path === 'D:\\Daten') },
+        { t: 'Nur die Gruppe <code>LAB\\Vertrieb</code> hat Vollzugriff', c: n => hd(n, 'FS01').win.shares.some(s => s.name === 'Daten' && s.full.length === 1 && /vertrieb$/i.test(s.full[0])) }],
+      hints: ['<code>Install-WindowsFeature FS-FileServer</code>, <code>New-Item -ItemType Directory -Path D:\\Daten</code>.', '<code>New-SmbShare -Name Daten -Path D:\\Daten -FullAccess LAB\\Vertrieb</code>. Die Gruppe muss in AD existieren, sonst meldet Windows „Keine Zuordnung zwischen Kontonamen und Sicherheits-IDs“.', 'Besser als „Jeder“: Berechtigungen immer an Gruppen vergeben, nie an einzelne Benutzer (AGDLP-Prinzip).'],
+      sol(net) { wxr(net, 'FS01', ['Install-WindowsFeature FS-FileServer', 'New-Item -ItemType Directory -Path D:\\Daten', 'New-SmbShare -Name Daten -Path D:\\Daten -FullAccess LAB\\Vertrieb']); } }
   ];
   function buildScen(id) { const sc = SC.find(x => x.id === id), net = newNet(); sc.build(net); return net; }
   const sdone = () => store.get('scendone', []);
@@ -1601,7 +1673,7 @@ const Sandbox = (function () {
 
   function close() { document.removeEventListener('keydown', escKey); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), STOR: STORN }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;

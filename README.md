@@ -11,6 +11,7 @@ Lern- und Planungsplattform für Cisco-Netzwerke, komplett im Browser (eine einz
 - **Linux-Server** – Jeder Server hat ein Ubuntu-Terminal mit Dateisystem, `systemctl`, `journalctl`, `apt`, `sudo`, `ufw`, `ip` und Pipes/Umleitungen. nginx, bind9 und isc-dhcp-server steuern die Dienste im Netz (Konfigurationsdateien werden beim Start gelesen). Fünf Szenarien: nginx-Konfigfehler, volle Festplatte, DNS mit bind9, DHCP-Server, ufw blockt Webserver.
 - **Wiki** (`#wiki`) – 140+ Artikel zu Kabeln, Steckern, Transceivern, Geräten, Layer 2/3, Sicherheit, Storage, Linux und IOS, mit Suche. Artikel zu jedem Gerätemodell, jeder Karte und jedem Transceiver entstehen automatisch aus den Planer-Daten. Labs und der Planer verlinken passende Artikel.
 - **Storage-Labs** – RAID-Pools (RAID 0/1/5/6/10), LUNs (Thick/Thin), LUN-Masking, Zoning auf dem MDS-FC-Switch (ohne aktives Zoneset gilt deny) und SAN am Linux-Server (`lsblk`, `rescan-scsi-bus.sh`, `multipath -ll`, `mkfs`, `mount`). Vier Szenarien: LUN einrichten, Server sieht LUN nicht, RAID dimensionieren, fehlende Pfade.
+- **Windows Server und Active Directory** – Server lassen sich auf Windows Server 2022 umstellen (PowerShell-Terminal), Windows-PCs haben ein eigenes Terminal. Rollen (AD DS, DNS, DHCP, IIS, Dateiserver), Domäne mit Benutzern, Gruppen und OUs, Domänenbeitritt, DHCP-Autorisierung, Windows-Firewall und SMB-Freigaben. Fünf Szenarien.
 - **Aufgaben** – Aufbau- und Fehlersuche-Szenarien mit live abgehakten Zielen.
 - **Ausfall-Simulation** (Gerät ausschalten, Kabel ziehen), Rückgängig/Wiederholen.
 - **Export** – Gerätekonfigurationen (IOS/IOS-XE, ASA, MDS-Zoning), Hardware-Blätter für Server/Storage, Patchliste (CSV).
@@ -21,6 +22,7 @@ Lern- und Planungsplattform für Cisco-Netzwerke, komplett im Browser (eine einz
 src/engine.js    Simulationskern: L2/L3, VLAN, Trunks, ACL, NAT, IPsec, Firewall, Hardware-Physik, CLI
 src/labs.js      Lab-Definitionen, Aufgaben und Musterlösungen
 src/wiki.js      Wiki-Artikel und Suche
+src/windows.js   Windows-Terminal (PowerShell-Teilmenge, AD, Rollen)
 src/storage.js   Pools, LUNs, Masking, Zoning, FC-Pfade
 src/linux.js     Linux-Terminal der Server (Dateisystem, systemd, apt, ufw)
 src/sandbox.js   Netzplaner (UI), Apps/Dienste, Aufgaben-Szenarien, Lint und Export
