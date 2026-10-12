@@ -47,7 +47,7 @@ const Sandbox = (function () {
     net.devs[id].use = {}; if (M.type === 'server') { net.devs[id].svc = defSvc(); if (M.cloud) { const sv = net.devs[id].svc; sv.dns.on = true; sv.dns.records = [{ name: 'www.example.com', ip: '@' }, { name: 'update.example.com', ip: '@' }]; sv.http.title = 'Internet'; sv.http.body = 'Du hast das (simulierte) Internet erreicht.'; } } autoRack(net, id); return id;
   }
   function migrate(net) {
-    const fresh = [];
+    const fresh = []; net.notes = net.notes || [];
     for (const d of Object.values(net.devs)) {
       if (d.type === 'server' && !d.svc) d.svc = defSvc();
       d.cfg.nic = d.cfg.nic || {}; d.cfg.nat = d.cfg.nat || []; d.pcard = d.pcard || {}; d.grp = d.grp || {}; d.use = d.use || {};
@@ -120,6 +120,7 @@ const Sandbox = (function () {
     app = root; document.title = 'Netzplaner – NetLab'; initDL(); document.removeEventListener('keydown', escKey);
     const sid = store.get('sbxscen', null), sc = sid && SC.find(x => x.id === sid), net = sc ? (store.get('scen.' + sid) || buildScen(sid)) : (store.get('sandbox') || example()); migrate(net);
     S = { net, scen: sc ? sid : null, undo: [], redo: [], sel: null, port: null, cable: 'cu', cabling: false, pend: null, view: store.get('sbxview', 'plan'), mode: store.get('sbxmode', 'rt'), tool: 'select', pcat: 0, flyout: null, dock: 'ports', dockOpen: true, itab: 'port', _sp: null, pdus: [], pduN: 0, pduSrc: null, sim: null, ptab: 'pdu', tf: 'all', out: {}, sess: {}, hist: [], hi: 0, drag: null, toast: '' };
+    S.snap = !!store.get('sbxsnap', false); S.multi = new Set(); S.selNote = null;
     S.sel = Object.keys(net.devs).find(id => net.devs[id].type === 'switch') || Object.keys(net.devs)[0] || null;
     app.innerHTML = `<div class="sbx">
       <header class="sbar">
@@ -128,13 +129,16 @@ const Sandbox = (function () {
         <button class="ibtn" id="undoBtn" title="Rückgängig (Strg+Z)" aria-label="Rückgängig"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button><button class="ibtn" id="redoBtn" title="Wiederholen (Strg+Y)" aria-label="Wiederholen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg></button>
         <button class="pill" id="scenpill" hidden></button>
         <div class="sp"></div>
-        <details class="menu"><summary class="btn">Mehr</summary><div class="mlist"><button data-m="desc">Ports automatisch beschriften</button><button data-m="example">Beispielnetz laden</button><button data-m="empty">Leeres Projekt</button><button data-m="json">Projekt als JSON</button><button data-m="import">Projekt importieren</button></div></details>
+        <details class="menu"><summary class="btn">Mehr</summary><div class="mlist"><button data-m="png">Plan als Bild (PNG)</button><button data-m="svg">Plan als SVG</button><button data-m="desc">Ports automatisch beschriften</button><button data-m="example">Beispielnetz laden</button><button data-m="empty">Leeres Projekt</button><button data-m="json">Projekt als JSON</button><button data-m="import">Projekt importieren</button></div></details>
         <button class="btn primary" id="xBtn">Prüfen &amp; exportieren</button>
       </header>
       <nav class="rail" id="rail" aria-label="Werkzeuge und Geräte"></nav>
       <div class="stage"><div class="hint" id="hint" aria-live="polite" hidden></div><div class="fly" id="fly" hidden></div>
+        <div class="srch" id="srch"><svg viewBox="0 0 24 24" class="ri" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="srchIn" type="search" placeholder="Suchen: Gerät, IP, VLAN, Port" aria-label="Im Plan suchen" autocomplete="off" spellcheck="false"><div class="srchres" id="srchRes" hidden></div></div>
+        <div class="mbar" id="mbar" hidden></div>
         <div class="canvas" id="cvwrap"><svg id="cv" role="group" aria-label="Netzplan"></svg></div>
-        <div class="zoom" role="group" aria-label="Zoom"><button class="ibtn" id="zIn" title="Vergrößern (+)" aria-label="Vergrößern"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button class="ibtn" id="zOut" title="Verkleinern (-)" aria-label="Verkleinern"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button><button class="ibtn" id="zFit" title="Alles einpassen (0)" aria-label="Alles einpassen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button></div></div>
+        <div class="mini" id="mini" hidden><svg id="miniSvg" aria-label="Übersicht" role="img"></svg></div>
+        <div class="zoom" role="group" aria-label="Zoom"><button class="ibtn" id="zIn" title="Vergrößern (+)" aria-label="Vergrößern"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button class="ibtn" id="zOut" title="Verkleinern (-)" aria-label="Verkleinern"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button><button class="ibtn" id="zSnap" title="Am Raster einrasten" aria-label="Am Raster einrasten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 12h16M12 4v16"/></svg></button><button class="ibtn" id="zFit" title="Alles einpassen (0)" aria-label="Alles einpassen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button></div></div>
       <section class="dock" id="dock">
         <div class="dtabs" role="tablist"><button role="tab" class="dt" data-d="ports">Ports</button><button role="tab" class="dt" data-d="cli">Konsole</button><button role="tab" class="dt" data-d="pkt">Pakete <i class="badge" id="pktn"></i></button><button role="tab" class="dt" data-d="task" id="dtTask" hidden>Aufgabe <i class="badge" id="taskn"></i></button><span class="sp"></span><button class="dtog" id="dockTgl" aria-label="Dock ein- oder ausklappen" title="Dock ein-/ausklappen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button></div>
         <div class="dpane" data-p="ports" id="fp"></div>
@@ -151,18 +155,31 @@ const Sandbox = (function () {
     $$('.mlist button').forEach(b => b.onclick = () => { b.closest('details').open = false; menu(b.dataset.m); });
     $$('#dock [data-d]').forEach(b => b.onclick = () => { S.dock = b.dataset.d; S.dockOpen = true; drawDock(); if (S.dock === 'cli') setTimeout(() => $('#cmd').focus(), 0); });
     $('#dockTgl').onclick = () => { S.dockOpen = !S.dockOpen; drawDock(); };
-    $('#zIn').onclick = () => zoomAt(1 / 1.25); $('#zOut').onclick = () => zoomAt(1.25); $('#zFit').onclick = fitView;
+    $('#zIn').onclick = () => zoomAt(1 / 1.25); $('#zOut').onclick = () => zoomAt(1.25); $('#zFit').onclick = fitView; $('#zSnap').classList.toggle('act', S.snap); $('#zSnap').onclick = () => { S.snap = !S.snap; store.set('sbxsnap', S.snap); $('#zSnap').classList.toggle('act', S.snap); toast(S.snap ? 'Raster an: Geräte rasten beim Verschieben ein.' : 'Raster aus.'); render(); };
+    wireSearch(); wireMini();
     wireCanvas(); wireTerm(); document.addEventListener('keydown', escKey); render();
   }
   function escKey(e) {
     if (!S || document.querySelector('.modal')) return;
-    if ((e.ctrlKey || e.metaKey) && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '')) { const k = e.key.toLowerCase(); if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; } if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; } }
+    const inF = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || ''), onCv = !inF && !(e.target && e.target.closest && e.target.closest('#dock,#insp,.sbar,#srch'));
+    if ((e.ctrlKey || e.metaKey) && !inF) {
+      const k = e.key.toLowerCase();
+      if (k === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; } if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); redo(); return; }
+      if (k === 'k') { e.preventDefault(); openSearch(); return; }
+      if (onCv && k === 'a' && S.view === 'plan') { e.preventDefault(); setSelection(new Set([...Object.keys(S.net.devs), ...notes().map(n => n.id)])); render(); return; }
+      if (onCv && k === 'c' && !String(window.getSelection()).length) { e.preventDefault(); copySel(); return; }
+      if (onCv && k === 'v') { e.preventDefault(); pasteClip(); return; }
+      if (onCv && k === 'd') { e.preventDefault(); dupSel(); return; }
+    }
+    if (onCv && !e.ctrlKey && !e.metaKey && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); delSel(); return; }
+    if (!inF && !e.ctrlKey && !e.metaKey && e.key === '/') { e.preventDefault(); openSearch(); return; }
     if (!/^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '') && !e.ctrlKey && !e.metaKey) { if (e.key === '+' || e.key === '=') zoomAt(1 / 1.25); else if (e.key === '-') zoomAt(1.25); else if (e.key === '0') fitView(); }
     if (e.key === 'Escape' && (S.cabling || S.pend || S.pduSrc || S.tool !== 'select' || S.flyout != null)) { S.cabling = false; S.pend = null; S.pduSrc = null; S.tool = 'select'; S.flyout = null; render(); }
   }
   function undo() { if (!S.undo.length) return; S.redo.push(JSON.stringify(S.net)); S.net = JSON.parse(S.undo.pop()); migrate(S.net); S.pend = null; S.sim = null; save(); render(); }
   function redo() { if (!S.redo.length) return; S.undo.push(JSON.stringify(S.net)); S.net = JSON.parse(S.redo.pop()); migrate(S.net); S.pend = null; S.sim = null; save(); render(); }
   function menu(m) {
+    if (m === 'png' || m === 'svg') exportPlan(m);
     if (m === 'desc') autoDesc();
     if (m === 'example') { if (confirm('Beispielnetz laden? Dein aktuelles Projekt wird ersetzt.')) { store.set('sbxscen', null); store.set('sandbox', example()); open(app); } }
     if (m === 'empty') { if (confirm('Leeres Projekt anlegen? Dein aktuelles Projekt wird ersetzt.')) { store.set('sbxscen', null); store.set('sandbox', newNet()); open(app); } }
@@ -181,6 +198,7 @@ const Sandbox = (function () {
     $('#cvwrap').dataset.tool = S.cabling ? 'cable' : S.tool;
     let h = '';
     if (S.cabling) h = S.pend ? `<b>Kabel:</b> Ende A ist ${esc(dh(S.pend.dev))} ${esc(SH(S.pend.port))} – jetzt freien Port am anderen Gerät anklicken (Esc: Abbruch)` : `<b>Kabel (${CABSHORT[S.cable]}):</b> freien Port anklicken (Esc: Ende)`;
+    else if (S.tool === 'marquee') h = '<b>Rahmen:</b> auf freier Fläche ziehen, um mehrere Elemente auszuwählen (Esc: Ende). Mit Umschalt+Ziehen geht es auch ohne dieses Werkzeug.';
     else if (S.tool === 'delete') h = '<b>Löschen:</b> Gerät oder Kabel anklicken (Esc: Ende)';
     else if (S.tool === 'fail') h = '<b>Ausfall:</b> Gerät anklicken = ausschalten/einschalten, Kabel anklicken = ziehen/stecken (Esc: Ende)';
     else if (S.tool === 'pdu') h = S.pduSrc ? `<b>Paket:</b> Quelle ${esc(dh(S.pduSrc))} – jetzt Ziel anklicken` : '<b>Paket:</b> Quelle, dann Ziel anklicken';
@@ -188,7 +206,7 @@ const Sandbox = (function () {
     const wasToast = !!S.toast; if (S.toast) h = S.toast;
     $('#hint').innerHTML = h; $('#hint').hidden = !h; S.toast = '';
     clearTimeout(S._ht); if (wasToast) S._ht = setTimeout(() => { const el = $('#hint'); if (el && S && !S.cabling && S.tool === 'select') el.hidden = true; }, 6500);
-    if (!S.vbUser) S.vb = null; vmap(); drawView(); drawPal(); drawPanel(); drawInsp(); drawOut(); drawPdu(); drawTask(); drawDock(); $('#undoBtn').disabled = !S.undo.length; $('#redoBtn').disabled = !S.redo.length;
+    if (!S.vbUser) S.vb = null; vmap(); drawView(); drawPal(); drawPanel(); drawInsp(); drawMulti(); drawOut(); drawPdu(); drawTask(); drawDock(); $('#undoBtn').disabled = !S.undo.length; $('#redoBtn').disabled = !S.redo.length;
   }
 
   // ---------------- Palette (Packet-Tracer-Stil) ----------------
@@ -220,13 +238,18 @@ const Sandbox = (function () {
     globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
     file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8M16 17H8M10 9H8"/>'
   };
+  Object.assign(RI, {
+    marquee: '<path d="M5 3h2M11 3h2M17 3h2M5 21h2M11 21h2M17 21h2M3 5v2M3 11v2M3 17v2M21 5v2M21 11v2M21 17v2"/>',
+    note: '<path d="M15 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h6M8 13h8M8 17h5"/>',
+    zone: '<rect x="3" y="4" width="18" height="16" rx="3" stroke-dasharray="3 3"/><path d="M7 9h6"/>'
+  });
   const ico = k => `<svg viewBox="0 0 24 24" class="ri" aria-hidden="true">${RI[k]}</svg>`;
   const CATIC = ['network', 'shield', 'server', 'database', 'monitor', 'plug'], CATSH = ['Netzwerk', 'Firewall', 'Server', 'Storage', 'Endgeräte', 'Kabel'];
   function drawPal() {
-    const rail = $('#rail'), fly = $('#fly'); if (!rail) return; const tools = [['select', 'Auswählen', 'select'], ['delete', 'Löschen', 'trash'], ['pdu', 'Paket', 'send'], ['fail', 'Ausfall', 'power']];
+    const rail = $('#rail'), fly = $('#fly'); if (!rail) return; const tools = [['select', 'Auswählen', 'select'], ['marquee', 'Rahmen', 'marquee'], ['delete', 'Löschen', 'trash'], ['pdu', 'Paket', 'send'], ['fail', 'Ausfall', 'power'], ['note', 'Notiz', 'note'], ['zone', 'Zone', 'zone']];
     rail.innerHTML = tools.map(([k, n, i]) => `<button class="rb ${S.tool === k && !S.cabling ? 'act' : ''}" data-tool="${k}" title="${n === 'Paket' ? 'Paket senden' : n}">${ico(i)}<span>${n}</span></button>`).join('') + '<i class="rsep"></i>'
       + PCATS.map((c, i) => `<button class="rb ${S.flyout === i || (i === 5 && S.cabling) ? 'act' : ''}" data-c="${i}" aria-expanded="${S.flyout === i}" title="${c[0]}">${ico(CATIC[i])}<span>${CATSH[i]}</span></button>`).join('') + `<i class="rsep"></i><button class="rb ${S.flyout === 'scen' || S.scen ? 'act' : ''}" data-s="scen" title="Aufgaben">${ico('clip')}<span>Aufgaben</span></button>`;
-    $$('.rb[data-tool]', rail).forEach(b => b.onclick = () => { S.tool = b.dataset.tool; S.cabling = false; S.pend = null; S.pduSrc = null; S.flyout = null; render(); });
+    $$('.rb[data-tool]', rail).forEach(b => b.onclick = () => { if (b.dataset.tool === 'note' || b.dataset.tool === 'zone') { addNote(b.dataset.tool); return; } S.tool = b.dataset.tool; S.cabling = false; S.pend = null; S.pduSrc = null; S.flyout = null; render(); });
     $$('.rb[data-c]', rail).forEach(b => b.onclick = () => { const i = +b.dataset.c; S.flyout = S.flyout === i ? null : i; S.pcat = i; drawPal(); });
     $$('.rb[data-s]', rail).forEach(b => b.onclick = () => { S.flyout = S.flyout === 'scen' ? null : 'scen'; drawPal(); });
     if (S.flyout == null) { fly.hidden = true; fly.innerHTML = ''; return; }
@@ -413,20 +436,21 @@ const Sandbox = (function () {
       cab += `<g class="lw ${rel ? 'rel' : ''}" data-d="${l.a}" data-p="${esc(l.ap)}"><title>${esc(dh(l.a))} ${esc(SH(l.ap))} ↔ ${esc(dh(l.b))} ${esc(SH(l.bp))}, ${CABSHORT[l.cable || 'cu']}${up ? ', Link up' : ', kein Link: ' + esc(st.reason)}</title>`
         + `<path d="${c.d}" class="wire hit"/><path d="${c.d}" data-li="${li}" class="wire ${up ? '' : 'dn'} ${l.cut ? 'cut' : ''}" style="stroke:${CABCOL[l.cable || 'cu']}"/><circle class="lamp" cx="${c.la.x.toFixed(1)}" cy="${c.la.y.toFixed(1)}" r="2.7" style="fill:${lamp(st)}"/><circle class="lamp" cx="${c.lb.x.toFixed(1)}" cy="${c.lb.y.toFixed(1)}" r="2.7" style="fill:${lamp(NL.portStatus(net, l.b, l.bp))}"/>${up ? '' : `<circle cx="${c.mx}" cy="${c.my}" r="7" class="xdot"/><path class="xmark" d="M${c.mx - 3} ${c.my - 3}l6 6m0 -6l-6 6"/>`}</g>`;
     });
-    s += cab;
+    s += zonesSvg() + cab;
     for (const id in net.devs) {
       const d = net.devs[id], L = LC[id], x = d.x - L.w / 2, y = d.y - L.h / 2, h0 = hip(d, d.ports[0]) || {}, M = MODELS[d.model] || {};
       const sub = L.icon ? (NL.isHost(d) ? (h0.ip ? h0.ip + '/' + NL.maskLen(h0.mask) : 'keine IP') : '') : (M.label || '').replace(/^(Huawei|Cisco) /, '');
       const stt = L.icon ? null : stats(d);
-      s += `<g class="dev ${id === S.sel ? 'sel' : ''} ${id === S.pduSrc ? 'src' : ''} ${d.off ? 'off' : ''}" data-dev="${id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen">`
+      s += `<g class="dev ${isSelDev(id) ? 'sel' : ''} ${id === S.pduSrc ? 'src' : ''} ${d.off ? 'off' : ''}" data-dev="${id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen">`
         + `<rect class="selbox" x="-5" y="-5" width="${L.w + 10}" height="${L.h + 10}" rx="7"/>`
         + (L.icon ? `<g transform="translate(32,34) scale(.85)" class="ic">${ICON[d.icon] || ICON[d.type]}</g>` : `<rect class="fpl t-${d.fw ? 'fw' : d.type}" width="${L.w}" height="${L.h}" rx="4"/>${groupsSvg(L, 0, 0, false)}`)
         + portsSvg(d, L, 0, 0, false)
         + (L.icon ? `<text class="hn" x="${L.w / 2}" y="${L.h + 14}">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="${L.h + 26}">${esc(sub)}</text>`
           : `<text class="hn" x="${L.w / 2}" y="-18">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="-6">${esc(sub)} · ${stt.used}/${stt.total} belegt</text>`) + '</g>';
     }
+    s += notesSvg();
     s += simOverlay();
-    if (!Object.keys(net.devs).length) s += `<text x="${VW / 2}" y="${VH / 2}" class="empty">Leeres Projekt. Öffne links eine Kategorie und wähle ein Gerät.</text>`;
+    if (!Object.keys(net.devs).length && !notes().length) s += `<text x="${VW / 2}" y="${VH / 2}" class="empty">Leeres Projekt. Öffne links eine Kategorie und wähle ein Gerät.</text>`;
     return s;
   }
 
@@ -466,9 +490,10 @@ const Sandbox = (function () {
     const svg = $('#cv'), wrap = $('#cvwrap'); wrap.classList.toggle('rack', S.view === 'rack');
     if (S.view === 'rack') { svg.setAttribute('viewBox', `0 0 700 ${RU * UH + 52}`); svg.style.width = '700px'; svg.style.height = (RU * UH + 52) + 'px'; svg.style.maxWidth = 'none'; svg.innerHTML = drawRack(); }
     else { const v = S.vb || (S.vb = fitVB()); svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); svg.style.width = ''; svg.style.height = ''; svg.style.maxWidth = ''; svg.innerHTML = drawPlan(); }
+    drawMini();
   }
   const ZMIN = 120, ZMAX = 6000;
-  function setVB(v) { S.vb = v; S.vbUser = true; $('#cv').setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); }
+  function setVB(v) { S.vb = v; S.vbUser = true; $('#cv').setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); drawMini(); }
   function zoomAt(f, c) {
     if (S.view !== 'plan') return;
     const v = S.vb || (S.vb = fitVB()), w = Math.min(ZMAX, Math.max(ZMIN, v.w * f)); f = w / v.w; if (f === 1) return;
@@ -480,10 +505,26 @@ const Sandbox = (function () {
     const svg = $('#cv');
     const pt = e => { const r = svg.getBoundingClientRect(), vb = svg.viewBox.baseVal, k = Math.min(r.width / vb.width, r.height / vb.height), ox = (r.width - vb.width * k) / 2, oy = (r.height - vb.height * k) / 2; return S.view === 'rack' ? { x: (e.clientX - r.left) * vb.width / r.width, y: (e.clientY - r.top) * vb.height / r.height } : { x: vb.x + (e.clientX - r.left - ox) / k, y: vb.y + (e.clientY - r.top - oy) / k }; };
     svg.addEventListener('pointerdown', e => {
-      if (e.target.closest('.cp') || e.target.closest('.lw')) return; const g = e.target.closest('[data-dev]');
-      if (!g) { if (S.view === 'plan') startPan(e); return; }
-      const d = S.net.devs[g.dataset.dev], p = pt(e); S.drag = { id: d.id, sx: p.x, sy: p.y, ox: d.x, oy: d.y, orack: d.rack, moved: false, snap: JSON.stringify(S.net) }; svg.setPointerCapture(e.pointerId);
+      if (e.target.closest('.cp') || e.target.closest('.lw')) return;
+      const rz = e.target.closest('[data-resize]');
+      if (rz) { const n = noteById(rz.dataset.resize), p = pt(e); S.drag = { resize: n.id, sx: p.x, sy: p.y, ow: n.w, oh: n.h, moved: false, snap: JSON.stringify(S.net) }; svg.setPointerCapture(e.pointerId); return; }
+      const g = e.target.closest('[data-dev],[data-note]');
+      if (!g) { if (S.view !== 'plan') return; if (e.shiftKey || S.tool === 'marquee') startMarq(e); else startPan(e); return; }
+      const id = g.dataset.dev || g.dataset.note, d = S.net.devs[id], p = pt(e);
+      S.drag = { id, kind: d ? 'dev' : 'note', sx: p.x, sy: p.y, items: S.view === 'plan' ? movers(id) : [], ox: d ? d.x : 0, oy: d ? d.y : 0, orack: d ? d.rack : null, moved: false, snap: JSON.stringify(S.net) }; svg.setPointerCapture(e.pointerId);
     });
+    const startMarq = e => {
+      const p = pt(e); S.marq = { x0: p.x, y0: p.y, x1: p.x, y1: p.y, add: e.shiftKey };
+      const r = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); r.id = 'marq'; r.setAttribute('class', 'marq'); svg.appendChild(r); svg.setPointerCapture(e.pointerId);
+    };
+    const finishMarq = () => {
+      const m = S.marq; S.marq = null; const r = $('#marq'); if (r) r.remove();
+      if (Math.abs(m.x1 - m.x0) < 4 && Math.abs(m.y1 - m.y0) < 4) return;
+      const x0 = Math.min(m.x0, m.x1), x1 = Math.max(m.x0, m.x1), y0 = Math.min(m.y0, m.y1), y1 = Math.max(m.y0, m.y1), hit = new Set(m.add ? selIds() : []);
+      const ids = [...Object.keys(S.net.devs), ...notes().map(n => n.id)];
+      ids.forEach(i => { const b = bbox(i), n = noteById(i), inside = n && n.kind === 'zone' ? (b.x0 >= x0 && b.x1 <= x1 && b.y0 >= y0 && b.y1 <= y1) : (b.x1 >= x0 && b.x0 <= x1 && b.y1 >= y0 && b.y0 <= y1); if (inside) hit.add(i); });
+      setSelection(hit); if (S.tool === 'marquee') S.tool = 'select'; render();
+    };
     const startPan = e => {
       const P = S.ptrs || (S.ptrs = new Map()); P.set(e.pointerId, { x: e.clientX, y: e.clientY }); svg.setPointerCapture(e.pointerId);
       const v = S.vb || (S.vb = fitVB());
@@ -491,29 +532,46 @@ const Sandbox = (function () {
       else if (P.size === 2) { const [a, b] = [...P.values()]; S.pan = null; S.pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, v: { ...v }, c: pt({ clientX: (a.x + b.x) / 2, clientY: (a.y + b.y) / 2 }) }; }
     };
     const endPtr = e => { if (!S.ptrs || !S.ptrs.has(e.pointerId)) return; S.ptrs.delete(e.pointerId); if (S.ptrs.size < 2) S.pinch = null; if (!S.ptrs.size) { S.pan = null; svg.classList.remove('panning'); } };
-    svg.addEventListener('pointercancel', endPtr);
+    svg.addEventListener('pointercancel', e => { endPtr(e); if (S.marq) { S.marq = null; const r = $('#marq'); if (r) r.remove(); } });
     svg.addEventListener('wheel', e => { if (S.view !== 'plan') return; e.preventDefault(); zoomAt(Math.exp(e.deltaY * (e.deltaMode === 1 ? .05 : .0015)), pt(e)); }, { passive: false });
     svg.addEventListener('pointermove', e => {
+      if (S.marq) { const p = pt(e), m = S.marq, r = $('#marq'); m.x1 = p.x; m.y1 = p.y; if (r) { r.setAttribute('x', Math.min(m.x0, p.x)); r.setAttribute('y', Math.min(m.y0, p.y)); r.setAttribute('width', Math.abs(p.x - m.x0)); r.setAttribute('height', Math.abs(p.y - m.y0)); } return; }
       if (S.ptrs && S.ptrs.has(e.pointerId)) {
         S.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (S.pinch) { const [a, b] = [...S.ptrs.values()], q = S.pinch, f = Math.min(ZMAX / q.v.w, Math.max(ZMIN / q.v.w, q.d / (Math.hypot(a.x - b.x, a.y - b.y) || 1))); setVB({ x: q.c.x - (q.c.x - q.v.x) * f, y: q.c.y - (q.c.y - q.v.y) * f, w: q.v.w * f, h: q.v.h * f }); }
         else if (S.pan) { const r = svg.getBoundingClientRect(), v = S.pan.v, k = Math.min(r.width / v.w, r.height / v.h); setVB({ x: v.x - (e.clientX - S.pan.x) / k, y: v.y - (e.clientY - S.pan.y) / k, w: v.w, h: v.h }); }
         return;
       }
-      if (!S.drag) return; const p = pt(e), d = S.net.devs[S.drag.id], dx = p.x - S.drag.sx, dy = p.y - S.drag.sy; if (Math.abs(dx) + Math.abs(dy) > 4) S.drag.moved = true; if (!S.drag.moved) return;
-      if (S.view === 'plan') { const L = layout(d); const v = S.vb || { x: 0, y: 0, w: VW, h: VH }; d.x = Math.max(v.x + L.w / 2 + 8, Math.min(v.x + v.w - L.w / 2 - 8, Math.round(S.drag.ox + dx))); d.y = Math.max(v.y + L.h / 2 + 30, Math.min(v.y + v.h - L.h / 2 - 36, Math.round(S.drag.oy + dy))); drawView(); }
-      else if (uOf(d) && S.drag.orack) { const pos = Math.max(1, Math.min(RU - uOf(d) + 1, Math.round(S.drag.orack - dy / UH))); if (pos !== d.rack && freeAt(S.net, d.id, pos, uOf(d))) { d.rack = pos; drawView(); } }
+      if (!S.drag) return;
+      const p = pt(e), D = S.drag; let dx = p.x - D.sx, dy = p.y - D.sy; if (Math.abs(dx) + Math.abs(dy) > 4) D.moved = true; if (!D.moved) return;
+      if (D.resize) { const n = noteById(D.resize); if (!n) return; const w = Math.round(D.ow + dx); n.w = Math.max(n.kind === 'zone' ? 120 : 100, S.snap ? snapV(w) : w); if (n.kind === 'zone') { const h = Math.round(D.oh + dy); n.h = Math.max(80, S.snap ? snapV(h) : h); } drawView(); return; }
+      const d = S.net.devs[D.id];
+      if (S.view === 'plan') {
+        const prim = D.items.find(i => i.id === D.id); if (S.snap && prim) { dx = snapV(prim.ox + dx) - prim.ox; dy = snapV(prim.oy + dy) - prim.oy; }
+        if (D.items.length === 1 && d) { const L = layout(d), v = S.vb || { x: 0, y: 0, w: VW, h: VH }; d.x = Math.max(v.x + L.w / 2 + 8, Math.min(v.x + v.w - L.w / 2 - 8, Math.round(D.ox + dx))); d.y = Math.max(v.y + L.h / 2 + 30, Math.min(v.y + v.h - L.h / 2 - 36, Math.round(D.oy + dy))); }
+        else D.items.forEach(i => { const o = itemOf(i.id); if (o) { o.x = Math.round(i.ox + dx); o.y = Math.round(i.oy + dy); } });
+        drawView();
+      } else if (d && uOf(d) && D.orack) { const pos = Math.max(1, Math.min(RU - uOf(d) + 1, Math.round(D.orack - dy / UH))); if (pos !== d.rack && freeAt(S.net, d.id, pos, uOf(d))) { d.rack = pos; drawView(); } }
     });
     svg.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('text/plain')) { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; } });
     svg.addEventListener('drop', e => { e.preventDefault(); const m = e.dataTransfer.getData('text/plain'); if (!MODELS[m]) return; const p = pt(e); if (S.view === 'rack') addAt(m); else addAt(m, Math.round(p.x), Math.round(p.y)); });
-    svg.addEventListener('pointerup', e => { endPtr(e); if (!S.drag) return; const { id, moved, snap } = S.drag; S.drag = null; if (moved) { if (snap) { S.undo.push(snap); if (S.undo.length > 60) S.undo.shift(); S.redo = []; } save(); drawInsp(); $('#undoBtn').disabled = false; } else { const now = Date.now(), lc = S.lastClick; if (lc && lc.id === id && now - lc.t < 380 && S.tool === 'select' && !S.cabling) { S.lastClick = null; dblDev(id); } else { S.lastClick = { id, t: now }; clickDev(id); } } });
+    svg.addEventListener('pointerup', e => {
+      endPtr(e); if (S.marq) { finishMarq(); return; }
+      if (!S.drag) return; const D = S.drag; S.drag = null;
+      if (D.moved) { if (D.snap) { S.undo.push(D.snap); if (S.undo.length > 60) S.undo.shift(); S.redo = []; } save(); drawInsp(); drawMini(); $('#undoBtn').disabled = false; return; }
+      if (D.resize) return;
+      const id = D.id, add = (e.shiftKey || e.ctrlKey || e.metaKey) && S.tool === 'select' && !S.cabling, now = Date.now(), lc = S.lastClick, dbl = lc && lc.id === id && now - lc.t < 380 && S.tool === 'select' && !S.cabling;
+      if (add) { toggleMulti(id); return; }
+      if (D.kind === 'note') { S.lastClick = dbl ? null : { id, t: now }; clickNote(id); if (dbl) setTimeout(() => { const t = $('#ntext'); if (t) { t.focus(); t.select(); } }, 0); return; }
+      if (dbl) { S.lastClick = null; dblDev(id); } else { S.lastClick = { id, t: now }; clickDev(id); }
+    });
     svg.addEventListener('click', e => { const c = e.target.closest('.cp') || e.target.closest('.lw'); if (c) portClick(c.dataset.d, c.dataset.p, !e.target.closest('.cp')); });
     svg.addEventListener('keydown', e => { const g = e.target.closest('[data-dev]'); if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); clickDev(g.dataset.dev); } });
   }
   function dblDev(id) { const d = S.net.devs[id]; if (!d) return; if (canApps(d)) { S.sel = id; render(); openApps(id, 'home'); } else if (!NL.isHost(d) && d.type !== 'fc') { S.sel = id; S.dock = 'cli'; S.dockOpen = true; render(); setTimeout(() => $('#cmd').focus(), 0); } }
   function delDev(id) { act(() => { S.net.links = S.net.links.filter(l => l.a !== id && l.b !== id); delete S.net.devs[id]; delete S.out[id]; if (S.sel === id) { S.sel = null; S.port = null; } }); }
   function toggleOff(id) { const d = S.net.devs[id]; act(() => { d.off = !d.off; toast(d.off ? `<b>${esc(d.cfg.hostname)}</b> ist ausgeschaltet – alle Links daran sind down.` : `${esc(d.cfg.hostname)} läuft wieder.`); }); }
-  function clickDev(id) { if (S.tool === 'delete' && !S.cabling) { delDev(id); return; } if (S.tool === 'fail' && !S.cabling) { toggleOff(id); return; } if (S.tool === 'pdu' && !S.cabling) { pduPick(id); return; } const d = S.net.devs[id]; if (S.cabling && S.pend && isIcon(d) && S.pend.dev !== id) { portClick(id, d.ports[0]); return; } S.sel = id; S.port = isIcon(d) ? d.ports[0] : null; render(); }
+  function clickDev(id) { if (S.tool === 'delete' && !S.cabling) { delDev(id); return; } if (S.tool === 'fail' && !S.cabling) { toggleOff(id); return; } if (S.tool === 'pdu' && !S.cabling) { pduPick(id); return; } const d = S.net.devs[id]; if (S.cabling && S.pend && isIcon(d) && S.pend.dev !== id) { portClick(id, d.ports[0]); return; } S.selNote = null; S.multi = new Set(); S.sel = id; S.port = isIcon(d) ? d.ports[0] : null; render(); }
 
   // ---------------- cabling ----------------
   function connect(id, p) {
@@ -569,7 +627,10 @@ const Sandbox = (function () {
   const opt = (v, cur, label) => `<option value="${esc(v)}" ${String(v) === String(cur) ? 'selected' : ''}>${esc(label == null ? v : label)}</option>`;
   const vlStr = a => a === null ? 'all' : a.slice().sort((x, y) => x - y).join(',');
   function drawInsp() {
-    const el = $('#insp'), d = S.net.devs[S.sel]; if (!d) { el.innerHTML = '<p class="empty-note">Wähle ein Gerät im Plan aus.</p>'; return; }
+    const el = $('#insp'), d = S.net.devs[S.sel];
+    if (S.multi.size > 1) { el.innerHTML = `<div class="ihead"><b>${S.multi.size} Elemente</b><span class="muted">Mit der Leiste unten ausrichten, duplizieren oder löschen. Ein Klick auf ein einzelnes Gerät hebt die Auswahl auf.</span></div>`; return; }
+    if (S.selNote && noteById(S.selNote)) { drawNoteInsp(el, noteById(S.selNote)); return; }
+    if (!d) { el.innerHTML = '<p class="empty-note">Wähle ein Gerät im Plan aus.</p>'; return; }
     if (S.port !== S._sp) { S._sp = S.port; if (S.port) S.itab = 'port'; }
     const M = MODELS[d.model] || {}, hp = !!S.port, tab = hp && S.itab !== 'dev' ? 'port' : 'dev';
     el.innerHTML = `<div class="ihead"><b>${esc(d.cfg.hostname)}</b><span class="muted">${esc((M.label || d.type).replace(/^(Huawei|Cisco) /, ''))}</span></div>` + (hp ? `<div class="itabs" role="tablist"><button role="tab" class="${tab === 'port' ? 'act' : ''}" data-i="port">Port ${esc(SH(S.port))}</button><button role="tab" class="${tab === 'dev' ? 'act' : ''}" data-i="dev">Gerät</button></div>` : '')
@@ -1142,9 +1203,239 @@ const Sandbox = (function () {
     $('#scEnd').onclick = endScen;
   }
 
+  // ---------------- Planer-Werkzeuge: Auswahl, Kopieren, Notizen, Suche, Minimap, Bild-Export ----------------
+  let CLIP = null;
+  const NCOL = { blau: '#2F5FE8', grün: '#16A34A', bernstein: '#D9A400', rot: '#DC2626', violett: '#8E44AD', grau: '#64748B' };
+  const notes = () => S.net.notes || (S.net.notes = []);
+  const noteById = id => notes().find(n => n.id === id);
+  const itemOf = id => S.net.devs[id] || noteById(id);
+  const selIds = () => (S.multi && S.multi.size) ? [...S.multi] : S.selNote ? [S.selNote] : S.sel ? [S.sel] : [];
+  const isSelDev = id => (S.multi && S.multi.size) ? S.multi.has(id) : (id === S.sel && !S.selNote);
+  const isSelNote = id => (S.multi && S.multi.size) ? S.multi.has(id) : id === S.selNote;
+  const snapV = v => Math.round(v / 24) * 24;
+
+  function wrapT(t, max) {
+    const out = [];
+    String(t || '').split('\n').forEach(par => { let line = ''; par.split(/\s+/).filter(Boolean).forEach(w => { if (line && (line + ' ' + w).length > max) { out.push(line); line = w; } else line = line ? line + ' ' + w : w; }); out.push(line); });
+    return out;
+  }
+  function noteBox(n) {
+    if (n.kind === 'zone') return { w: n.w, h: n.h };
+    const lines = wrapT(n.text, Math.max(10, Math.floor((n.w - 28) / 7)));
+    return { w: n.w, h: lines.length * 17 + 20, lines };
+  }
+  function bbox(id) {
+    const d = S.net.devs[id];
+    if (d) { const L = layout(d); return { x0: d.x - L.w / 2, y0: d.y - L.h / 2, x1: d.x + L.w / 2, y1: d.y + L.h / 2 }; }
+    const n = noteById(id), b = noteBox(n); return { x0: n.x, y0: n.y, x1: n.x + b.w, y1: n.y + b.h };
+  }
+  function zonesSvg() {
+    return notes().filter(n => n.kind === 'zone').map(n => {
+      const c = NCOL[n.color] || NCOL.blau, sel = isSelNote(n.id), one = sel && selIds().length === 1;
+      return `<g class="nt zone ${sel ? 'sel' : ''}" data-note="${n.id}" transform="translate(${n.x},${n.y})"><rect class="zr" width="${n.w}" height="${n.h}" rx="16" style="fill:${c};stroke:${c}"/><rect class="zhd" width="${n.w}" height="36" rx="16"/><text class="zt" x="16" y="23" style="fill:${c}">${esc(n.text)}</text>${one ? `<rect class="zh" data-resize="${n.id}" x="${n.w - 16}" y="${n.h - 16}" width="16" height="16" rx="4"/>` : ''}</g>`;
+    }).join('');
+  }
+  function notesSvg() {
+    return notes().filter(n => n.kind !== 'zone').map(n => {
+      const c = NCOL[n.color] || NCOL.bernstein, b = noteBox(n), sel = isSelNote(n.id), one = sel && selIds().length === 1;
+      return `<g class="nt note ${sel ? 'sel' : ''}" data-note="${n.id}" transform="translate(${n.x},${n.y})"><rect class="nr" width="${b.w}" height="${b.h}" rx="9" style="fill:${c};stroke:${c}"/><rect width="5" height="${b.h}" rx="2.5" style="fill:${c}"/>${b.lines.map((l, i) => `<text class="nl" x="16" y="${21 + i * 17}">${esc(l)}</text>`).join('')}${one ? `<rect class="zh" data-resize="${n.id}" x="${b.w - 12}" y="${b.h / 2 - 8}" width="12" height="16" rx="4"/>` : ''}</g>`;
+    }).join('');
+  }
+
+  // Auswahl
+  function setSelection(set) {
+    S.port = null;
+    if (set.size > 1) { S.multi = set; if (!set.has(S.sel) || !S.net.devs[S.sel]) { const d = [...set].find(i => S.net.devs[i]); if (d) S.sel = d; } }
+    else { S.multi = new Set(); const only = [...set][0]; if (!only) S.selNote = null; else if (S.net.devs[only]) { S.sel = only; S.selNote = null; } else S.selNote = only; }
+  }
+  function toggleMulti(id) { const base = new Set(selIds()); if (base.has(id)) base.delete(id); else base.add(id); setSelection(base); render(); }
+  function clickNote(id) {
+    if (S.tool === 'delete' && !S.cabling) { act(() => { S.net.notes = notes().filter(n => n.id !== id); if (S.selNote === id) S.selNote = null; }); return; }
+    S.selNote = id; S.multi = new Set(); render();
+  }
+  function movers(id) {
+    const ids = new Set(S.multi && S.multi.has(id) ? S.multi : [id]);
+    [...ids].forEach(i => { const z = noteById(i); if (z && z.kind === 'zone') Object.values(S.net.devs).forEach(d => { if (d.x >= z.x && d.x <= z.x + z.w && d.y >= z.y && d.y <= z.y + z.h) ids.add(d.id); }); });
+    return [...ids].map(i => { const o = itemOf(i); return o && { id: i, ox: o.x, oy: o.y }; }).filter(Boolean);
+  }
+
+  // Kopieren, Duplizieren, Löschen
+  const plural = n => `${n} Element${n > 1 ? 'e' : ''}`;
+  const payloadOf = ids => { const net = S.net, set = new Set(ids); return JSON.parse(JSON.stringify({ devs: ids.filter(i => net.devs[i]).map(i => net.devs[i]), links: net.links.filter(l => set.has(l.a) && set.has(l.b)), notes: ids.map(noteById).filter(Boolean) })); };
+  function uniqueName(name, used) { const base = name.replace(/[-_ ]?\d+$/, ''); for (let n = 1; n < 1000; n++) { const c = base + '-' + String(n).padStart(2, '0'); if (!used.has(c)) return c; } return name + '-copy'; }
+  function instantiate(p, dx, dy) {
+    const net = S.net, map = {}, out = [], used = new Set(Object.values(net.devs).map(d => d.cfg.hostname));
+    p.devs.forEach(src => {
+      const o = JSON.parse(JSON.stringify(src)), nid = 'd' + (net.seq++); map[src.id] = nid; o.id = nid; o.x += dx; o.y += dy; o.rack = null;
+      o.cfg.hostname = uniqueName(o.cfg.hostname, used); used.add(o.cfg.hostname);
+      o.cfg.ip = null; o.cfg.mask = null; o.cfg.nic = {}; Object.values(o.cfg.ifs || {}).forEach(f => { f.ip = null; f.mask = null; });
+      net.devs[nid] = o; out.push(nid);
+    });
+    p.links.forEach(l => { if (map[l.a] && map[l.b]) net.links.push(Object.assign({}, l, { a: map[l.a], b: map[l.b], cut: false })); });
+    p.notes.forEach(n => { const o = Object.assign({}, n, { id: 'n' + (net.seq++), x: n.x + dx, y: n.y + dy }); notes().push(o); out.push(o.id); });
+    out.forEach(i => { if (net.devs[i]) autoRack(net, i); });
+    return out;
+  }
+  function dupSel() { const ids = selIds(); if (!ids.length) return; act(() => { const n = instantiate(payloadOf(ids), 48, 48); setSelection(new Set(n)); toast(`${plural(n.length)} dupliziert. IP-Adressen sind geleert, damit keine Doppelten entstehen.`); }); }
+  function copySel() { const ids = selIds(); if (!ids.length) return; CLIP = { p: payloadOf(ids), n: 0 }; toast(`${plural(ids.length)} kopiert. Mit Strg+V einfügen.`); render(); }
+  function pasteClip() {
+    if (!CLIP) { toast('Die Zwischenablage ist leer. Wähle Geräte aus und drücke Strg+C.'); render(); return; }
+    CLIP.n++; act(() => { const n = instantiate(CLIP.p, 48 * CLIP.n, 48 * CLIP.n); setSelection(new Set(n)); toast(`${plural(n.length)} eingefügt. IP-Adressen sind geleert.`); });
+  }
+  function delSel() {
+    const ids = selIds(); if (!ids.length) return;
+    act(() => { ids.forEach(id => { if (S.net.devs[id]) { S.net.links = S.net.links.filter(l => l.a !== id && l.b !== id); delete S.net.devs[id]; delete S.out[id]; } else S.net.notes = notes().filter(n => n.id !== id); }); S.multi = new Set(); S.selNote = null; S.port = null; toast(`${plural(ids.length)} gelöscht. Strg+Z holt sie zurück.`); });
+  }
+
+  // Ausrichten und Verteilen
+  function alignSel(mode) {
+    const ids = selIds().filter(itemOf); if (ids.length < 2) return;
+    act(() => {
+      const B = ids.map(i => [itemOf(i), bbox(i)]), mn = k => Math.min(...B.map(b => b[1][k])), mx = k => Math.max(...B.map(b => b[1][k])), x0 = mn('x0'), x1 = mx('x1'), y0 = mn('y0'), y1 = mx('y1');
+      if (mode === 'dh' || mode === 'dv') {
+        const h = mode === 'dh', a = h ? 'x0' : 'y0', z = h ? 'x1' : 'y1'; B.sort((p, q) => p[1][a] - q[1][a]);
+        const total = B.reduce((s, b) => s + b[1][z] - b[1][a], 0), gap = ((h ? x1 - x0 : y1 - y0) - total) / (B.length - 1); let pos = B[0][1][a];
+        B.forEach(([o, b]) => { const dd = pos - b[a]; if (h) o.x += dd; else o.y += dd; pos += b[z] - b[a] + gap; });
+      } else B.forEach(([o, b]) => {
+        if (mode === 'l') o.x += x0 - b.x0; if (mode === 'r') o.x += x1 - b.x1; if (mode === 'c') o.x += (x0 + x1) / 2 - (b.x0 + b.x1) / 2;
+        if (mode === 't') o.y += y0 - b.y0; if (mode === 'b') o.y += y1 - b.y1; if (mode === 'm') o.y += (y0 + y1) / 2 - (b.y0 + b.y1) / 2;
+      });
+      B.forEach(([o]) => { o.x = Math.round(o.x); o.y = Math.round(o.y); });
+    });
+  }
+  const AI = {
+    l: '<path d="M4 3v18"/><rect x="7" y="6" width="12" height="4"/><rect x="7" y="14" width="8" height="4"/>', c: '<path d="M12 3v18"/><rect x="5" y="6" width="14" height="4"/><rect x="8" y="14" width="8" height="4"/>', r: '<path d="M20 3v18"/><rect x="5" y="6" width="12" height="4"/><rect x="9" y="14" width="8" height="4"/>',
+    t: '<path d="M3 4h18"/><rect x="6" y="7" width="4" height="12"/><rect x="14" y="7" width="4" height="8"/>', m: '<path d="M3 12h18"/><rect x="6" y="5" width="4" height="14"/><rect x="14" y="8" width="4" height="8"/>', b: '<path d="M3 20h18"/><rect x="6" y="5" width="4" height="12"/><rect x="14" y="9" width="4" height="8"/>',
+    dh: '<path d="M4 4v16M20 4v16"/><rect x="10" y="7" width="4" height="10"/>', dv: '<path d="M4 4h16M4 20h16"/><rect x="7" y="10" width="10" height="4"/>',
+    dup: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>', del: RI.trash
+  };
+  function drawMulti() {
+    const el = $('#mbar'); if (!el) return; const ids = selIds();
+    if (S.view !== 'plan' || ids.length < 2) { el.hidden = true; return; }
+    const B = (a, t, dis) => `<button class="ibtn" data-a="${a}" title="${t}" aria-label="${t}" ${dis ? 'disabled' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${AI[a]}</svg></button>`;
+    el.hidden = false;
+    el.innerHTML = `<span class="mcount">${ids.length} ausgewählt</span><i class="msep"></i>${B('l', 'Links ausrichten')}${B('c', 'Horizontal zentrieren')}${B('r', 'Rechts ausrichten')}${B('t', 'Oben ausrichten')}${B('m', 'Vertikal zentrieren')}${B('b', 'Unten ausrichten')}<i class="msep"></i>${B('dh', 'Horizontal verteilen', ids.length < 3)}${B('dv', 'Vertikal verteilen', ids.length < 3)}<i class="msep"></i>${B('dup', 'Duplizieren (Strg+D)')}${B('del', 'Löschen (Entf)')}<button class="btn small ghost" data-a="clr">Auswahl aufheben</button>`;
+    $$('[data-a]', el).forEach(b => b.onclick = () => { const a = b.dataset.a; if (a === 'dup') dupSel(); else if (a === 'del') delSel(); else if (a === 'clr') { S.multi = new Set(); render(); } else alignSel(a); });
+  }
+
+  // Notizen und Zonen
+  function addNote(kind) {
+    if (S.view !== 'plan') { S.view = 'plan'; store.set('sbxview', 'plan'); }
+    act(() => {
+      const v = S.vb || (S.vb = fitVB()), id = 'n' + (S.net.seq++), cx = Math.round(v.x + v.w / 2), cy = Math.round(v.y + v.h / 2);
+      notes().push(kind === 'zone' ? { id, kind, x: cx - 170, y: cy - 110, w: 340, h: 220, text: 'Neue Zone', color: 'grün' } : { id, kind: 'note', x: cx - 95, y: cy - 30, w: 190, text: 'Neue Notiz', color: 'bernstein' });
+      S.selNote = id; S.multi = new Set(); S.flyout = null; S.tool = 'select'; S.cabling = false;
+    });
+    setTimeout(() => { const t = $('#ntext'); if (t) { t.focus(); t.select(); } }, 0);
+  }
+  function liveEdit(el, apply) {
+    if (!el) return; let before = null;
+    el.onfocus = () => { before = JSON.stringify(S.net); };
+    el.oninput = () => { apply(el.value); save(); drawView(); };
+    el.onchange = () => { if (before !== null && before !== JSON.stringify(S.net)) { S.undo.push(before); if (S.undo.length > 60) S.undo.shift(); S.redo = []; $('#undoBtn').disabled = false; } before = null; };
+  }
+  function drawNoteInsp(el, n) {
+    const zone = n.kind === 'zone', minW = zone ? 120 : 100;
+    el.innerHTML = `<div class="ihead"><b>${zone ? 'Zone' : 'Notiz'}</b><span class="muted">${zone ? 'Gruppiert Geräte, zum Beispiel Serverraum oder DMZ. Ziehst du die Titelleiste, wandern die Geräte darin mit.' : 'Freier Text im Plan.'}</span></div><div class="ibody">
+      <div class="f"><label for="ntext">${zone ? 'Titel' : 'Text'}</label>${zone ? `<input id="ntext" value="${esc(n.text)}" maxlength="60">` : `<textarea id="ntext" class="ta" rows="4" maxlength="400">${esc(n.text)}</textarea>`}</div>
+      <div class="f"><label>Farbe</label><div class="swatches" role="group" aria-label="Farbe">${Object.entries(NCOL).map(([k, c]) => `<button class="sw ${n.color === k ? 'act' : ''}" data-col="${k}" style="background:${c}" title="${k}" aria-label="${k}"></button>`).join('')}</div></div>
+      <div class="f2"><div class="f"><label for="nw">Breite</label><input id="nw" type="number" min="${minW}" max="1600" step="10" value="${n.w}"></div>${zone ? `<div class="f"><label for="nh">Höhe</label><input id="nh" type="number" min="80" max="1200" step="10" value="${n.h}"></div>` : ''}</div>
+      <button class="btn danger block" id="ndel">Löschen</button></div>`;
+    liveEdit($('#ntext'), v => { n.text = v; });
+    liveEdit($('#nw'), v => { n.w = Math.max(minW, Math.min(1600, +v || n.w)); });
+    if (zone) liveEdit($('#nh'), v => { n.h = Math.max(80, Math.min(1200, +v || n.h)); });
+    $$('.sw', el).forEach(b => b.onclick = () => act(() => { n.color = b.dataset.col; }));
+    $('#ndel').onclick = delSel;
+  }
+
+  // Suche
+  function searchIndex(q) {
+    q = String(q || '').trim().toLowerCase(); if (!q) return []; const res = [], has = s => String(s == null ? '' : s).toLowerCase().includes(q);
+    for (const d of Object.values(S.net.devs)) {
+      const name = d.cfg.hostname, M = MODELS[d.model] || {};
+      if (has(name) || has(M.label)) res.push({ t: name, s: (M.label || d.type).replace(/^(Huawei|Cisco) /, ''), id: d.id });
+      ifaceList(d).forEach(h => { if (has(h.ip)) res.push({ t: name, s: 'IP ' + h.ip, id: d.id }); });
+      if (d.type === 'switch') Object.entries(d.cfg.vlans).forEach(([v, n]) => { if (q === String(v) || has('vlan ' + v) || has(n)) res.push({ t: name, s: `VLAN ${v} ${n}`, id: d.id }); });
+      Object.entries(d.cfg.ifs || {}).forEach(([p, i]) => { if (i.desc && has(i.desc)) res.push({ t: name, s: `${SH(p)}: ${i.desc}`, id: d.id, port: p }); });
+    }
+    notes().forEach(n => { if (has(n.text)) res.push({ t: n.kind === 'zone' ? 'Zone' : 'Notiz', s: String(n.text).slice(0, 48), id: n.id, note: true }); });
+    return res.slice(0, 12);
+  }
+  function openSearch() { const i = $('#srchIn'); if (i) { i.focus(); i.select(); } }
+  function focusResult(r) {
+    S.multi = new Set(); if (r.note) S.selNote = r.id; else { S.sel = r.id; S.selNote = null; S.port = r.port || null; }
+    if (S.view === 'plan' && itemOf(r.id)) { const b = bbox(r.id), v = S.vb || fitVB(), w = Math.min(v.w, 800), h = w * v.h / v.w; setVB({ x: (b.x0 + b.x1) / 2 - w / 2, y: (b.y0 + b.y1) / 2 - h / 2, w, h }); }
+    render();
+  }
+  function wireSearch() {
+    const inp = $('#srchIn'), box = $('#srchRes'); let hit = [], cur = 0;
+    const mark = () => $$('.sr-i', box).forEach((b, i) => b.classList.toggle('act', i === cur));
+    const pick = i => { const r = hit[i]; if (!r) return; box.hidden = true; inp.value = ''; inp.blur(); focusResult(r); };
+    const draw = () => { hit = searchIndex(inp.value); cur = 0; box.hidden = !inp.value.trim(); box.innerHTML = hit.length ? hit.map((r, i) => `<button class="sr-i" data-i="${i}"><b>${esc(r.t)}</b><span>${esc(r.s)}</span></button>`).join('') : '<p class="empty-note">Nichts gefunden.</p>'; mark(); $$('.sr-i', box).forEach(b => b.onclick = () => pick(+b.dataset.i)); };
+    box.onmousedown = e => e.preventDefault();
+    inp.oninput = draw; inp.onfocus = () => { if (inp.value.trim()) draw(); };
+    inp.onblur = () => { box.hidden = true; };
+    inp.onkeydown = e => {
+      if (e.key === 'Enter') { e.preventDefault(); pick(cur); }
+      else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); if (hit.length) { cur = (cur + (e.key === 'ArrowDown' ? 1 : hit.length - 1)) % hit.length; mark(); } }
+      else if (e.key === 'Escape') { inp.value = ''; box.hidden = true; inp.blur(); }
+    };
+  }
+
+  // Minimap
+  function contentBB() {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9; const add = (a, b, c, d) => { x0 = Math.min(x0, a); y0 = Math.min(y0, b); x1 = Math.max(x1, c); y1 = Math.max(y1, d); };
+    for (const id in S.net.devs) { const d = S.net.devs[id], L = layout(d); add(d.x - L.w / 2, d.y - L.h / 2 - 28, d.x + L.w / 2, d.y + L.h / 2 + 34); }
+    notes().forEach(n => { const b = noteBox(n); add(n.x, n.y, n.x + b.w, n.y + b.h); });
+    return x0 > x1 ? { x0: 0, y0: 0, x1: VW, y1: VH } : { x0, y0, x1, y1 };
+  }
+  const TCOL = { switch: '#3b82f6', router: '#a855f7', fc: '#0ea5e9', server: '#64748b', storage: '#10b981', pc: '#94a3b8' };
+  function drawMini() {
+    const m = $('#mini'); if (!m) return; const v = S.vb, show = S.view === 'plan' && S.vbUser && v && Object.keys(S.net.devs).length > 0; m.hidden = !show; if (!show) return;
+    if (!(S.miniLock && S.mw)) { const c = contentBB(), x0 = Math.min(c.x0, v.x) - 30, y0 = Math.min(c.y0, v.y) - 30, x1 = Math.max(c.x1, v.x + v.w) + 30, y1 = Math.max(c.y1, v.y + v.h) + 30; S.mw = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 }; }
+    const w = S.mw;
+    $('#miniSvg').setAttribute('viewBox', `${w.x} ${w.y} ${w.w} ${w.h}`);
+    $('#miniSvg').innerHTML = notes().filter(n => n.kind === 'zone').map(n => `<rect x="${n.x}" y="${n.y}" width="${n.w}" height="${n.h}" fill="${NCOL[n.color] || NCOL.blau}" fill-opacity=".2"/>`).join('')
+      + Object.values(S.net.devs).map(d => { const L = layout(d); return `<rect x="${d.x - L.w / 2}" y="${d.y - L.h / 2}" width="${L.w}" height="${L.h}" rx="4" fill="${TCOL[d.fw ? 'router' : d.type] || '#64748b'}"/>`; }).join('')
+      + `<rect class="mv" x="${v.x}" y="${v.y}" width="${v.w}" height="${v.h}" stroke-width="${w.w / 110}"/>`;
+  }
+  function wireMini() {
+    const m = $('#miniSvg'); let dn = false;
+    const go = e => { const r = m.getBoundingClientRect(), w = S.mw; if (!w || !S.vb) return; const k = Math.min(r.width / w.w, r.height / w.h), px = w.x + (e.clientX - r.left - (r.width - w.w * k) / 2) / k, py = w.y + (e.clientY - r.top - (r.height - w.h * k) / 2) / k; setVB({ x: px - S.vb.w / 2, y: py - S.vb.h / 2, w: S.vb.w, h: S.vb.h }); };
+    m.onpointerdown = e => { dn = true; S.miniLock = true; m.setPointerCapture(e.pointerId); go(e); };
+    m.onpointermove = e => { if (dn) go(e); };
+    m.onpointerup = m.onpointercancel = () => { dn = false; S.miniLock = false; drawMini(); };
+  }
+
+  // Bild-Export (PNG / SVG)
+  function dlBlob(name, blob) { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+  function exportPlan(kind) {
+    if (!Object.keys(S.net.devs).length && !notes().length) { toast('Der Plan ist leer. Es gibt nichts zu exportieren.'); render(); return; }
+    const c = contentBB(), m = 40, vb = { x: Math.floor(c.x0 - m), y: Math.floor(c.y0 - m), w: Math.ceil(c.x1 - c.x0 + 2 * m), h: Math.ceil(c.y1 - c.y0 + 2 * m) };
+    const NS = 'http://www.w3.org/2000/svg', host = document.createElement('div'), svg = document.createElementNS(NS, 'svg');
+    host.style.cssText = 'position:fixed;left:-99999px;top:0;visibility:hidden;pointer-events:none';
+    svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`); svg.setAttribute('width', vb.w); svg.setAttribute('height', vb.h); svg.setAttribute('xmlns', NS);
+    svg.innerHTML = drawPlan(); host.appendChild(svg); document.body.appendChild(host);
+    let str = '';
+    try {
+      svg.querySelectorAll('.sel,.src,.rel').forEach(el => el.classList.remove('sel', 'src', 'rel'));
+      svg.querySelectorAll('.selbox,.zh,.wire.hit,#gr,#env').forEach(el => el.remove());
+      const grid = svg.querySelector('rect[fill="url(#gr)"]'); if (grid) grid.remove();
+      const props = ['fill', 'fill-opacity', 'stroke', 'stroke-width', 'stroke-opacity', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'opacity', 'font-family', 'font-size', 'font-weight', 'font-style', 'text-anchor', 'paint-order', 'letter-spacing'];
+      svg.querySelectorAll('*').forEach(el => { const cs = getComputedStyle(el); props.forEach(p => { const v = cs.getPropertyValue(p); if (v) el.style.setProperty(p, v); }); });
+      const bg = document.createElementNS(NS, 'rect'); [['x', vb.x], ['y', vb.y], ['width', vb.w], ['height', vb.h], ['fill', getComputedStyle(document.body).backgroundColor]].forEach(([k, v]) => bg.setAttribute(k, v)); svg.insertBefore(bg, svg.firstChild);
+      str = new XMLSerializer().serializeToString(svg);
+    } finally { host.remove(); }
+    if (kind === 'svg') { dlBlob('netlab-plan.svg', new Blob([str], { type: 'image/svg+xml;charset=utf-8' })); return; }
+    const url = URL.createObjectURL(new Blob([str], { type: 'image/svg+xml;charset=utf-8' })), img = new Image(), sc = Math.max(.5, Math.min(2, 4000 / Math.max(vb.w, vb.h)));
+    img.onload = () => { const cv = document.createElement('canvas'); cv.width = Math.round(vb.w * sc); cv.height = Math.round(vb.h * sc); const g = cv.getContext('2d'); g.scale(sc, sc); g.drawImage(img, 0, 0, vb.w, vb.h); URL.revokeObjectURL(url); cv.toBlob(b => { if (b) dlBlob('netlab-plan.png', b); else { toast('PNG-Export fehlgeschlagen. Probiere SVG.'); render(); } }, 'image/png'); };
+    img.onerror = () => { URL.revokeObjectURL(url); toast('PNG-Export fehlgeschlagen. Probiere SVG.'); render(); };
+    img.src = url;
+  }
+
   function close() { document.removeEventListener('keydown', escKey); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {} }; return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;
