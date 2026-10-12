@@ -100,6 +100,7 @@
         <div class="bar" aria-hidden="true"><i id="tbar" style="width:0"></i></div>
         <ul class="tasks" id="tasks"></ul>
         ${lab.hints ? `<details class="hints"><summary>Hinweise (${lab.hints.length})</summary><ol>${lab.hints.map(h => `<li>${h}</li>`).join('')}</ol></details>` : ''}
+        ${LAB_WIKI[lab.id] ? `<div class="lab-wiki"><b>Nachlesen im Wiki</b><div class="wk-chips">${LAB_WIKI[lab.id].map(wkLink).join('')}</div></div>` : ''}
         <div class="actions">${lab.sol ? '<button class="btn" id="solBtn">Lösung ansehen</button>' : ''}<button class="btn ghost" id="resetBtn">Lab zurücksetzen</button></div>
       </aside>
       <section class="main">${main}</section></div>`;
@@ -322,12 +323,40 @@
     draw();
   }
 
+  // ---------------- Wiki ----------------
+  const START = ['kabel-uebersicht', 'vlan', 'trunk', 'subnetting', 'routing-tabelle', 'acl', 'zoning', 'linux-systemd'];
+  const LAB_WIKI = { basics: ['ios-grundlagen', 'ios-show'], subnet: ['subnetting', 'ip-adresse'], vlans: ['vlan', 'access-port', 'ios-vlan'], trunk: ['trunk', 'native-vlan'], 'quiz-l2': ['stp', 'etherchannel', 'hsrp'], ros: ['roas', 'trunk'], static: ['routing-tabelle', 'default-route'], l3sw: ['svi', 'vlan'], acl: ['acl', 'firewall-stateful'], harden: ['ssh-haertung', 'bpdu-guard', 'port-security'], 'quiz-sec': ['nat', 'dmz', 'zero-trust'], dot1x: ['dot1x', 'mab', 'radius'], ise: ['ise-policy', 'radius'], ssl: ['ssl-inspection'], vpn: ['ipsec'], capstone: ['vlan', 'svi', 'acl', 'dhcp'] };
+  const wkLink = id => { const a = WIKI.get(id); return a ? `<a class="wk-chip" href="#wiki/${id}">${esc(a.title.replace(/:.*$/, ''))}</a>` : ''; };
+  const wkRow = a => `<li><a href="#wiki/${a.id}"><b>${esc(a.title)}</b><span>${esc(a.short)}</span></a></li>`;
+  function wikiView(arg) {
+    cur = null; document.title = 'Wiki – NetLab';
+    const cats = WIKI.CATS, m = arg.match(/^k\/([\w-]+)$/), cat = m && cats.find(c => c.id === m[1]), art = !cat && arg ? WIKI.get(arg) : null, activeCat = cat ? cat.id : art ? art.cat : '';
+    app.innerHTML = `<div class="wiki">
+      <aside class="wk-side"><div><label class="sr" for="wq">Wiki durchsuchen</label><input id="wq" type="search" placeholder="Im Wiki suchen (/)" autocomplete="off" spellcheck="false"></div>
+        <nav aria-label="Kategorien"><ul class="wk-cats"><li><a href="#wiki" ${!activeCat && !arg ? 'aria-current="page"' : ''}>Startseite</a></li>${cats.map(c => `<li><a href="#wiki/k/${c.id}" ${activeCat === c.id ? 'aria-current="page"' : ''}>${esc(c.name)}<span>${WIKI.byCat(c.id).length}</span></a></li>`).join('')}</ul></nav></aside>
+      <section class="wk-main" id="wkm" tabindex="-1"></section></div>`;
+    const main = $('#wkm'), q = $('#wq');
+    const home = () => `<h1>Wiki</h1><p class="wk-lead">Nachschlagen, wenn du beim Bauen nicht weiterweißt: Kabel, Ports, Geräte, Protokolle, Storage und Server. ${WIKI.all().length} Artikel, alles lässt sich durchsuchen.</p>
+      <div class="wk-grid">${cats.map(c => `<a class="wk-card" href="#wiki/k/${c.id}"><b>${esc(c.name)}</b><span>${esc(c.desc)}</span><i>${WIKI.byCat(c.id).length} Artikel</i></a>`).join('')}</div>
+      <h2 class="wk-sub">Gut zum Einstieg</h2><ul class="wk-list">${START.map(WIKI.get).filter(Boolean).map(wkRow).join('')}</ul>`;
+    const catPage = c => { const l = WIKI.byCat(c.id), a = l.filter(x => !x.gen), g = l.filter(x => x.gen); return `<p class="wk-crumb"><a href="#wiki">Wiki</a></p><h1>${esc(c.name)}</h1><p class="wk-lead">${esc(c.desc)}</p><ul class="wk-list">${a.map(wkRow).join('')}</ul>${g.length ? `<h2 class="wk-sub">Aus dem Planer (${g.length})</h2><ul class="wk-list">${g.map(wkRow).join('')}</ul>` : ''}`; };
+    const artPage = a => { const c = cats.find(x => x.id === a.cat); document.title = a.title + ' – Wiki – NetLab'; const rel = (a.rel || []).map(wkLink).join(''); return `<p class="wk-crumb"><a href="#wiki">Wiki</a> › <a href="#wiki/k/${c.id}">${esc(c.name)}</a></p><h1>${esc(a.title)}</h1><p class="wk-lead">${esc(a.short)}</p><div class="wk-body">${WIKI.links(a.body)}</div>${rel ? `<div class="wk-rel"><h2>Siehe auch</h2><div class="wk-chips">${rel}</div></div>` : ''}`; };
+    const show = () => { main.innerHTML = cat ? catPage(cat) : art ? artPage(art) : arg ? `<h1>Artikel nicht gefunden</h1><p class="wk-lead">Den Artikel „${esc(arg)}“ gibt es nicht. Suche oben oder wähle eine Kategorie.</p>` : home(); };
+    const results = v => { const r = WIKI.search(v); main.innerHTML = `<p class="wk-crumb"><a href="#wiki">Wiki</a></p><h1>Suche: „${esc(v)}“</h1>` + (r.length ? `<p class="wk-lead">${r.length} Treffer</p><ul class="wk-list">${r.slice(0, 40).map(wkRow).join('')}</ul>` : '<p class="wk-lead">Keine Treffer. Probiere einen Oberbegriff wie „VLAN“, „Kabel“ oder „Zoning“.</p>'); };
+    show();
+    q.addEventListener('input', () => { const v = q.value.trim(); if (v) results(v); else show(); });
+    q.addEventListener('keydown', e => { if (e.key === 'Enter') { const r = WIKI.search(q.value); if (r[0]) { q.value = ''; location.hash = '#wiki/' + r[0].id; } } else if (e.key === 'Escape') { q.value = ''; show(); q.blur(); } });
+    document.addEventListener('keydown', function k(e) { if (!$('#wq')) { document.removeEventListener('keydown', k); return; } if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test((e.target || {}).tagName || '')) { e.preventDefault(); $('#wq').focus(); } });
+  }
+
   // ---------------- Router ----------------
   function route() {
     const onSbx = location.hash === '#sandbox';
-    $('#nav-labs').setAttribute('aria-current', onSbx ? 'false' : 'page'); $('#nav-sbx').setAttribute('aria-current', onSbx ? 'page' : 'false');
+    const onWiki = /^#wiki/.test(location.hash);
+    $('#nav-labs').setAttribute('aria-current', onSbx || onWiki ? 'false' : 'page'); $('#nav-sbx').setAttribute('aria-current', onSbx ? 'page' : 'false'); $('#nav-wiki').setAttribute('aria-current', onWiki ? 'page' : 'false');
     if (onSbx) { cur = null; window.scrollTo(0, 0); return Sandbox.open(app); }
     Sandbox.close();
+    if (onWiki) { cur = null; window.scrollTo(0, 0); return wikiView(location.hash.replace(/^#wiki\/?/, '')); }
     const m = location.hash.match(/^#lab\/([\w-]+)/); const lab = m && ALL.find(l => l.id === m[1]);
     window.scrollTo(0, 0);
     if (!lab) return home();

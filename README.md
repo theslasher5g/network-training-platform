@@ -9,6 +9,7 @@ Lern- und Planungsplattform für Cisco-Netzwerke, komplett im Browser (eine einz
 - **Apps & Dienste** für PCs und Server: IP-Konfiguration (inkl. DHCP), Eingabeaufforderung, Webbrowser, Texteditor; HTTP, DNS, DHCP.
 - **Planer-Werkzeuge** – Zoom und Verschieben (Mausrad, Ziehen, Pinch, Tasten `+` `-` `0`), Mehrfachauswahl per Umschalt+Ziehen oder Rahmen-Werkzeug, Ausrichten und Verteilen, Raster, Kopieren/Einfügen/Duplizieren (Strg+C/V/D), Notizen und Zonen, Suche (`/` oder Strg+K), Minimap, Export des Plans als PNG oder SVG.
 - **Linux-Server** – Jeder Server hat ein Ubuntu-Terminal mit Dateisystem, `systemctl`, `journalctl`, `apt`, `sudo`, `ufw`, `ip` und Pipes/Umleitungen. nginx, bind9 und isc-dhcp-server steuern die Dienste im Netz (Konfigurationsdateien werden beim Start gelesen). Fünf Szenarien: nginx-Konfigfehler, volle Festplatte, DNS mit bind9, DHCP-Server, ufw blockt Webserver.
+- **Wiki** (`#wiki`) – 140+ Artikel zu Kabeln, Steckern, Transceivern, Geräten, Layer 2/3, Sicherheit, Storage, Linux und IOS, mit Suche. Artikel zu jedem Gerätemodell, jeder Karte und jedem Transceiver entstehen automatisch aus den Planer-Daten. Labs und der Planer verlinken passende Artikel.
 - **Aufgaben** – Aufbau- und Fehlersuche-Szenarien mit live abgehakten Zielen.
 - **Ausfall-Simulation** (Gerät ausschalten, Kabel ziehen), Rückgängig/Wiederholen.
 - **Export** – Gerätekonfigurationen (IOS/IOS-XE, ASA, MDS-Zoning), Hardware-Blätter für Server/Storage, Patchliste (CSV).
@@ -18,6 +19,7 @@ Lern- und Planungsplattform für Cisco-Netzwerke, komplett im Browser (eine einz
 ```
 src/engine.js    Simulationskern: L2/L3, VLAN, Trunks, ACL, NAT, IPsec, Firewall, Hardware-Physik, CLI
 src/labs.js      Lab-Definitionen, Aufgaben und Musterlösungen
+src/wiki.js      Wiki-Artikel und Suche
 src/linux.js     Linux-Terminal der Server (Dateisystem, systemd, apt, ufw)
 src/sandbox.js   Netzplaner (UI), Apps/Dienste, Aufgaben-Szenarien, Lint und Export
 src/app.js       Startseite, Lab-Ansicht, Routing

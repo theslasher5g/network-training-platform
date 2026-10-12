@@ -634,7 +634,7 @@ const Sandbox = (function () {
     if (!d) { el.innerHTML = '<p class="empty-note">Wähle ein Gerät im Plan aus.</p>'; return; }
     if (S.port !== S._sp) { S._sp = S.port; if (S.port) S.itab = 'port'; }
     const M = MODELS[d.model] || {}, hp = !!S.port, tab = hp && S.itab !== 'dev' ? 'port' : 'dev';
-    el.innerHTML = `<div class="ihead"><b>${esc(d.cfg.hostname)}</b><span class="muted">${esc((M.label || d.type).replace(/^(Huawei|Cisco) /, ''))}</span></div>` + (hp ? `<div class="itabs" role="tablist"><button role="tab" class="${tab === 'port' ? 'act' : ''}" data-i="port">Port ${esc(SH(S.port))}</button><button role="tab" class="${tab === 'dev' ? 'act' : ''}" data-i="dev">Gerät</button></div>` : '')
+    el.innerHTML = `<div class="ihead"><b>${esc(d.cfg.hostname)}</b><span class="muted">${esc((M.label || d.type).replace(/^(Huawei|Cisco) /, ''))}${d.model ? ` <a class="wk-ctx" href="#wiki/hw-${esc(d.model.toLowerCase())}">Wiki</a>` : ''}</span></div>` + (hp ? `<div class="itabs" role="tablist"><button role="tab" class="${tab === 'port' ? 'act' : ''}" data-i="port">Port ${esc(SH(S.port))}</button><button role="tab" class="${tab === 'dev' ? 'act' : ''}" data-i="dev">Gerät</button></div>` : '')
       + `<div class="ibody">${tab === 'port' ? portCard(d, S.port) : devCard(d)}</div>`;
     $$('.itabs [data-i]', el).forEach(b => b.onclick = () => { S.itab = b.dataset.i; drawInsp(); });
     wireInsp(d);
@@ -643,9 +643,9 @@ const Sandbox = (function () {
     const st = NL.portStatus(S.net, d.id, p), i = d.cfg.ifs && d.cfg.ifs[p], k = d.pk[p], hostD = NL.isHost(d), card = d.pcard && d.pcard[p] ? CARDS[d.pcard[p]] : null;
     let h = `<section class="card"><h3>Port ${esc(SH(p))} <span class="muted">${esc(KIND[k].label)}${card ? ', ' + esc(card.short) : ''}</span></h3>`;
     h += `<p class="pst s-${st.st}"><b>${st.st === 'connected' ? 'Link up, ' + NL.fmtSpeed(st.speed, st.proto) : st.st === 'notconnect' ? 'Kein Link' : st.st}</b>${st.st !== 'connected' && st.reason ? ' – ' + esc(st.reason) : ''}</p>`;
-    if (st.link) h += `<p class="conn">Kabel: ${CABSHORT[st.link.cable || 'cu']}<br>zu <b>${esc(dh(st.peer.dev))}</b> ${esc(SH(st.peer.port))} <button class="lnkbtn" id="goPeer">anzeigen</button></p><button class="btn small" id="unplug">Kabel entfernen</button>`;
+    if (st.link) h += `<p class="conn">Kabel: ${CABSHORT[st.link.cable || 'cu']} <a class="wk-ctx" href="#wiki/kabel-${st.link.cable || 'cu'}">Wiki</a><br>zu <b>${esc(dh(st.peer.dev))}</b> ${esc(SH(st.peer.port))} <button class="lnkbtn" id="goPeer">anzeigen</button></p><button class="btn small" id="unplug">Kabel entfernen</button>`;
     else h += `<p class="conn muted">Kein Kabel gesteckt.</p><button class="btn small" id="plugFrom">Kabel von hier verlegen</button>`;
-    if (k !== 'rj45') h += `<div class="f"><label for="xc">Transceiver im ${esc(KIND[k].label)}-Slot</label><select id="xc">${opt('', d.xcvr[p] || '', '– leer (oder DAC-Kabel) –')}${Object.entries(XCVR).filter(([x, X]) => NL.slotAccepts(k, X)).map(([x, X]) => opt(x, d.xcvr[p] || '', `${x} (${X.label})`)).join('')}</select></div>`;
+    if (k !== 'rj45') h += `<div class="f"><label for="xc">Transceiver im ${esc(KIND[k].label)}-Slot</label><select id="xc">${opt('', d.xcvr[p] || '', '– leer (oder DAC-Kabel) –')}${Object.entries(XCVR).filter(([x, X]) => NL.slotAccepts(k, X)).map(([x, X]) => opt(x, d.xcvr[p] || '', `${x} (${X.label})`)).join('')}</select><a class="wk-ctx" href="#wiki/${d.xcvr[p] ? 'xcvr-' + d.xcvr[p].toLowerCase() : 'transceiver-grundlagen'}">Im Wiki nachlesen</a></div>`;
     if (card && card.roce) h += `<p class="note">Diese Karte ist RoCE v2-fähig (RDMA). Der Switch-Port braucht <code>priority-flow-control mode on</code> und MTU 9216.</p>`;
     if (hostD) {
       if (k === 'fc') h += `<div class="f"><label>WWPN (automatisch)</label><code class="mono">${NL.wwpn(d, p)}</code></div>`;

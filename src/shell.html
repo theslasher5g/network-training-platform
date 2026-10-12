@@ -585,6 +585,47 @@ table.rules,table.eps{border-radius:10px;overflow:hidden}
 .sw.act{box-shadow:0 0 0 2px var(--ink)}
 @media (max-width:560px){.mini{display:none}.srch{width:calc(100% - 24px)}}
 
+
+/* ===== Wiki ===== */
+main:has(.wiki){max-width:1240px}
+.wiki{display:grid;grid-template-columns:260px minmax(0,1fr);gap:clamp(1.2rem,3vw,3rem);align-items:start;padding-top:.5rem}
+.wk-side{position:sticky;top:76px;display:flex;flex-direction:column;gap:1rem}
+.wk-side input{width:100%;padding:.6rem .9rem;border-radius:12px;border:1px solid var(--line);background:var(--panel);font:inherit;color:var(--ink)}
+.wk-cats{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.wk-cats a{display:flex;justify-content:space-between;gap:.5rem;padding:.5rem .75rem;border-radius:10px;text-decoration:none;color:var(--ink);font-weight:500;font-size:.93rem}
+.wk-cats a span{color:var(--muted);font-variant-numeric:tabular-nums;font-size:.82rem}
+.wk-cats a:hover{background:color-mix(in srgb,var(--ink) 6%,transparent)}
+.wk-cats a[aria-current=page]{background:color-mix(in srgb,var(--blue) 12%,transparent);color:var(--blue);font-weight:700}
+.wk-main{min-width:0;outline:none}
+.wk-main h1{font-size:clamp(1.8rem,3.4vw,2.6rem);letter-spacing:-.03em;line-height:1.1;margin:.2rem 0 .6rem;font-weight:800}
+.wk-crumb{font-size:.85rem;color:var(--muted);margin:0 0 .4rem}.wk-crumb a{color:var(--muted)}
+.wk-lead{font-size:1.1rem;color:var(--muted);margin:0 0 1.6rem;max-width:40rem}
+.wk-body{max-width:46rem;line-height:1.7}
+.wk-body h3{font:700 1.1rem var(--display);margin:1.6rem 0 .4rem}
+.wk-body p{margin:.7rem 0}.wk-body ul{padding-left:1.3rem}.wk-body li{margin:.25rem 0}
+.wk-body .code{margin:.8rem 0;display:block;white-space:pre;max-width:100%}
+.wk-link{color:var(--blue);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--blue) 35%,transparent)}.wk-link:hover{border-bottom-color:var(--blue)}
+table.wk{border-collapse:collapse;width:100%;margin:1rem 0;font-size:.92rem;display:block;overflow-x:auto}
+table.wk th{text-align:left;font-weight:700;color:var(--muted);font-size:.8rem;padding:.45rem .8rem .45rem 0;border-bottom:2px solid var(--line);white-space:nowrap}
+table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vertical-align:top}
+.wk-plan{background:color-mix(in srgb,var(--blue) 8%,var(--panel));border-left:3px solid var(--blue);border-radius:0 12px 12px 0;padding:.7rem 1rem;margin:1.2rem 0}
+.wk-note{background:color-mix(in srgb,var(--amber) 14%,var(--panel));border-left:3px solid var(--amber);border-radius:0 12px 12px 0;padding:.7rem 1rem;font-size:.9rem}
+.wk-rel{margin-top:2.2rem;padding-top:1.2rem;border-top:1px solid var(--line)}.wk-rel h2{font:700 1rem var(--display);margin:0 0 .6rem}
+.wk-chips{display:flex;flex-wrap:wrap;gap:.45rem}
+.wk-chip{display:inline-block;padding:.3rem .8rem;border-radius:999px;background:var(--panel);border:1px solid var(--line);text-decoration:none;color:var(--ink);font-size:.88rem}.wk-chip:hover{border-color:var(--blue);color:var(--blue)}
+.wk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:.9rem;margin:1.4rem 0}
+.wk-card{display:flex;flex-direction:column;gap:.3rem;padding:1.1rem 1.2rem;border:1px solid var(--line);border-radius:16px;background:var(--panel);text-decoration:none;color:var(--ink);transition:border-color .15s,box-shadow .15s}
+.wk-card:hover{border-color:var(--blue);box-shadow:0 8px 24px -14px color-mix(in srgb,var(--blue) 50%,transparent)}
+.wk-card b{font:700 1.08rem var(--display);letter-spacing:-.01em}.wk-card span{color:var(--muted);font-size:.9rem}.wk-card i{font-style:normal;color:var(--blue);font-size:.82rem;margin-top:.3rem}
+.wk-list{list-style:none;padding:0;margin:0 0 1.5rem;border:1px solid var(--line);border-radius:16px;background:var(--panel);overflow:hidden}
+.wk-list li+li{border-top:1px solid var(--line)}
+.wk-list a{display:flex;flex-direction:column;gap:.1rem;padding:.8rem 1.1rem;text-decoration:none;color:var(--ink)}.wk-list a:hover{background:color-mix(in srgb,var(--blue) 6%,var(--panel))}
+.wk-list b{font-weight:600}.wk-list span{color:var(--muted);font-size:.88rem}
+.wk-sub{font:700 1.05rem var(--display);margin:1.8rem 0 .6rem}
+.wk-ctx{font-size:.78rem;margin-left:.4rem;color:var(--blue)}
+.lab-wiki{margin-top:1.2rem;font-size:.9rem}.lab-wiki .wk-chips{margin-top:.4rem}
+@media (max-width:860px){.wiki{grid-template-columns:1fr}.wk-side{position:static}.wk-cats{flex-direction:row;flex-wrap:wrap;gap:.3rem}.wk-cats a{border:1px solid var(--line);background:var(--panel)}}
+
 /* Lab-Seitenleiste */
 .side{padding:1.4rem 1.4rem 2rem}
 .ltitle{font-size:1.6rem;letter-spacing:-.025em;font-weight:800}
@@ -606,7 +647,7 @@ footer{padding:1.5rem 1rem 2.5rem}
 <a class="skip" href="#app">Zum Inhalt springen</a>
 <header class="top">
   <a class="brand" href="#" aria-label="NetLab Startseite"><svg viewBox="0 0 26 26" aria-hidden="true"><rect x="2" y="7" width="22" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="2"/><rect x="6" y="11" width="4" height="5" fill="currentColor"/><rect x="11" y="11" width="4" height="5" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="#3DBB7E"/></svg>NetLab</a>
-  <nav class="nav" aria-label="Hauptnavigation"><a href="#" id="nav-labs">Labs</a><a href="#sandbox" id="nav-sbx">Netzplaner</a></nav>
+  <nav class="nav" aria-label="Hauptnavigation"><a href="#" id="nav-labs">Labs</a><a href="#sandbox" id="nav-sbx">Netzplaner</a><a href="#wiki" id="nav-wiki">Wiki</a></nav>
   <div class="meter"><div id="leds" aria-label="Fortschritt pro Lab"></div><span id="count"></span></div>
 </header>
 <main id="app" tabindex="-1"></main>
@@ -620,6 +661,9 @@ footer{padding:1.5rem 1rem 2.5rem}
 </script>
 <script>
 /*__LINUX__*/
+</script>
+<script>
+/*__WIKI__*/
 </script>
 <script>
 /*__SANDBOX__*/
