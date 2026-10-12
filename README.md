@@ -13,6 +13,7 @@ Lern- und Planungsplattform für Cisco-Netzwerke, komplett im Browser (eine einz
 - **Storage-Labs** – RAID-Pools (RAID 0/1/5/6/10), LUNs (Thick/Thin), LUN-Masking, Zoning auf dem MDS-FC-Switch (ohne aktives Zoneset gilt deny) und SAN am Linux-Server (`lsblk`, `rescan-scsi-bus.sh`, `multipath -ll`, `mkfs`, `mount`). Vier Szenarien: LUN einrichten, Server sieht LUN nicht, RAID dimensionieren, fehlende Pfade.
 - **Windows Server und Active Directory** – Server lassen sich auf Windows Server 2022 umstellen (PowerShell-Terminal), Windows-PCs haben ein eigenes Terminal. Rollen (AD DS, DNS, DHCP, IIS, Dateiserver), Domäne mit Benutzern, Gruppen und OUs, Domänenbeitritt, DHCP-Autorisierung, Windows-Firewall und SMB-Freigaben. Fünf Szenarien.
 - **Virtualisierung** – Server als Hypervisor einrichten (vSwitch mit Uplinks, VLAN pro VM), VMs mit vCPU/RAM/Platte, Start/Stopp, Kapazitätsprüfung, Cluster, Migration (kalt und live über SAN-Datastore) und HA. VMs sind echte Netzteilnehmer mit Linux- oder Windows-Terminal; `virsh` auf dem Host. Vier Szenarien.
+- **Web-GUIs der Geräte** – Server, Hypervisor, Windows-Server, Storage und FC-Switch haben eine Weboberfläche mit Anmeldung, Menü, Tabellen und Dialogen (Linux: Dienste, Dateien, Speicher, Firewall; Hypervisor: VMs, vSwitch, Datastores, Cluster; Windows: Rollen, Active Directory, DNS, DHCP, Freigaben; Storage: Pools, LUNs, Zuordnung; Fabric: Zoning). Aufruf über „Web-GUI öffnen“ am Gerät oder per Webbrowser eines PCs unter `https://<IP>:8443`. Jede Aktion zeigt den gleichwertigen Terminal-Befehl.
 - **Aufgaben** – Aufbau- und Fehlersuche-Szenarien mit live abgehakten Zielen.
 - **Ausfall-Simulation** (Gerät ausschalten, Kabel ziehen), Rückgängig/Wiederholen.
 - **Export** – Gerätekonfigurationen (IOS/IOS-XE, ASA, MDS-Zoning), Hardware-Blätter für Server/Storage, Patchliste (CSV).
@@ -23,6 +24,7 @@ Lern- und Planungsplattform für Cisco-Netzwerke, komplett im Browser (eine einz
 src/engine.js    Simulationskern: L2/L3, VLAN, Trunks, ACL, NAT, IPsec, Firewall, Hardware-Physik, CLI
 src/labs.js      Lab-Definitionen, Aufgaben und Musterlösungen
 src/wiki.js      Wiki-Artikel und Suche
+src/webgui.js    Weboberflächen der Geräte (Linux, Hypervisor, Windows, Storage, FC)
 src/virt.js      Hypervisor, vSwitch, VMs, Migration, HA
 src/windows.js   Windows-Terminal (PowerShell-Teilmenge, AD, Rollen)
 src/storage.js   Pools, LUNs, Masking, Zoning, FC-Pfade

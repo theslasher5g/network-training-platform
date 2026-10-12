@@ -11,6 +11,7 @@ const Sandbox = (function () {
   const STORN = typeof STOR !== 'undefined' ? STOR : require('./storage.js');
   const WINN = typeof WIN !== 'undefined' ? WIN : require('./windows.js');
   const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
+  const GUIN = typeof WEBGUI !== 'undefined' ? WEBGUI : require('./webgui.js');
   const SH = NL.sh, MODELS = NL.MODELS, CARDS = NL.CARDS, XCVR = NL.XCVR, KIND = NL.KIND, hip = NL.hip;
   const RU = 42, UH = 30, RX = 46, RW = 470, VW = 1200, VH = 640;
   const VCOL = ['#2B66C8', '#1E8A57', '#8E44AD', '#D35400', '#16A085', '#C0392B', '#7F8C2D', '#2C7BB6', '#B5487E', '#5D6D7E'];
@@ -688,7 +689,8 @@ const Sandbox = (function () {
   function devCard(d) {
     const M = MODELS[d.model] || {}, u = uOf(d);
     let h = `<section class="card"><h3 class="hid">${esc(d.cfg.hostname)}</h3><div class="f"><label for="dhost">Hostname</label><div class="irow"><input id="dhost" value="${esc(d.cfg.hostname)}"><button class="btn small" id="dhostGo">Setzen</button></div></div>`;
-    if (d.type === 'server' && !(MODELS[d.model] && MODELS[d.model].cloud)) h += `<div class="f"><label for="dos">Betriebssystem</label><select id="dos"><option value="linux" ${d.os === 'windows' ? '' : 'selected'}>Ubuntu Linux 22.04</option><option value="windows" ${d.os === 'windows' ? 'selected' : ''}>Windows Server 2022</option></select></div>`;
+    if (d.type === 'server' && !(MODELS[d.model] && MODELS[d.model].cloud)) h += `<div class="f"><label for="dos">Betriebssystem (installiert)</label><select id="dos"><option value="linux" ${d.os === 'windows' ? '' : 'selected'}>Ubuntu Linux 22.04</option><option value="windows" ${d.os === 'windows' ? 'selected' : ''}>Windows Server 2022</option></select></div>`;
+    if (GUIN.hasGui(d)) h += `<div class="webbox"><b>Web-Verwaltung</b><span class="muted small">https://${esc(guiHost(d))}:${GUIN.PORT}</span><button class="btn primary small block" id="guiOpen">${d.vm ? 'Web-GUI der VM öffnen' : 'Web-GUI öffnen'}</button>${d.vm ? '<button class="btn small block" id="hvOpen">Im Virtualisierungs-Manager verwalten</button>' : ''}</div>`;
     if (canApps(d)) h += `<div class="appbtns"><button class="btn small" id="appDesk">Desktop öffnen</button>${d.type === 'server' ? '<button class="btn small" id="appSvc">Dienste</button>' : ''}</div>`;
     if (NL.isHost(d)) h += `<div class="f"><label for="hgw">Default-Gateway</label><div class="irow"><input id="hgw" value="${esc(d.cfg.gw || '')}" placeholder="z. B. 10.10.0.1"><button class="btn small" id="hgwGo">Setzen</button></div></div>`;
     if (d.cards) h += acc(`Steckplätze${d.type === 'storage' ? ' (je Controller)' : ''}`, d.cards.map((ck, i) => `<div class="f"><label for="sl${i}">Slot ${i + 1}</label><select id="sl${i}" data-slot="${i}">${opt('', ck || '', '– frei –')}${Object.entries(CARDS).filter(([k, C]) => C.for === d.type).map(([k, C]) => opt(k, ck || '', C.label)).join('')}</select></div>`).join(''), true);
@@ -699,58 +701,11 @@ const Sandbox = (function () {
         <div class="f"><label for="mgw">Default-Gateway</label><input id="mgw" value="${esc(d.cfg.gw || '')}" placeholder="z. B. 10.99.0.1"></div><label class="ck"><input type="checkbox" id="mrt" ${d.cfg.ipRouting ? 'checked' : ''}> Layer-3-Routing aktiv (ip routing)</label><button class="btn small" id="mgo">Übernehmen</button>`, false);
     }
     if (d.fw) h += acc('Firewall-Richtlinien', `<p class="muted small">${Object.values(d.cfg.acls).reduce((n, a) => n + a.length, 0)} ACL-Regeln, ${d.cfg.nat.length} NAT-Regeln, ${d.cfg.routes.length} Routen</p><button class="btn small" id="fwBtn">Regelwerk, NAT und Routen bearbeiten</button>`, true);
-    if (d.type === 'fc') h += acc('Fabric', `<div class="f"><label for="vsan">VSAN</label><input id="vsan" inputmode="numeric" value="${d.cfg.vsan || 10}"></div>`, false) + acc('Zoning', zoningHtml(d), true);
-    if (d.type === 'storage') h += acc('Pools und LUNs', storageHtml(d), true);
-    if (d.vm) h += acc('Virtuelle Maschine', vmHtml(d), true);
-    else if (d.type === 'server' && !isIcon(d) && !(MODELS[d.model] && MODELS[d.model].cloud)) h += acc('Virtualisierung', hvHtml(d), VIRTN.isHost(d));
     if (u) h += acc('Rack', `<div class="f2"><div class="f"><label for="rpos">Unterste HE (1–${RU})</label><input id="rpos" inputmode="numeric" value="${d.rack || ''}" placeholder="nicht eingebaut"></div><div class="f"><label>Höhe</label><span class="hv">${u} HE</span></div></div><div class="irow"><button class="btn small" id="rset">${d.rack ? 'Verschieben' : 'Einbauen'}</button>${d.rack ? '<button class="btn small ghost" id="runset">Ausbauen</button>' : ''}</div>`, false);
     return h + `<div class="drow"><button class="btn ghost small danger" id="ddel">Gerät löschen</button></div></section>`;
   }
-  // ---------------- Virtualisierung: Hypervisor-Host und VMs ----------------
-  const defSvcVm = () => defSvc();
-  function hvHtml(d) {
-    if (!VIRTN.isHost(d)) return `<p class="muted small">Ein Hypervisor (z. B. KVM oder VMware ESXi) lässt mehrere virtuelle Maschinen auf einem Server laufen. Die VMs hängen an einem virtuellen Switch (vSwitch), dessen Uplinks die physischen Netzwerkports des Servers sind.</p><button class="btn small primary" id="hvOn">Als Hypervisor einrichten</button>`;
-    const vms = VIRTN.vmsOf(S.net, d.id), ur = VIRTN.usedRam(S.net, d.id), uc = VIRTN.usedCpu(S.net, d.id), c = d.hv, ds = VIRTN.datastores(S.net, d);
-    const ports = d.ports.filter(p => d.pk[p] !== 'fc' && !isMg(p));
-    return `<div class="vmcap"><div class="obar" role="img" aria-label="RAM-Belegung"><i class="up" style="flex:${ur}"></i><i class="fr" style="flex:${Math.max(0, c.ramGb - ur)}"></i></div><p class="small muted">RAM ${ur} von ${c.ramGb} GB belegt, vCPUs ${uc} von ${c.cores} Kernen (bis ${c.cores * VIRTN.OVERCOMMIT} bei ${VIRTN.OVERCOMMIT}:1 Überbuchung)</p></div>
-      <h4>${esc(d.vsw.name)}: Uplinks</h4><div class="small">${ports.map(p => `<label class="ck"><input type="checkbox" data-upl="${esc(p)}" ${d.vsw.uplinks.includes(p) ? 'checked' : ''}> ${esc(SH(p))} <span class="muted">(${NL.portStatus(S.net, d.id, p).st === 'connected' ? 'Link up' : 'kein Link'})</span></label>`).join('')}</div>
-      <p class="muted small">Nur Kabel an Uplink-Ports verbinden die VMs mit dem Netz. Mit VLAN-Tag braucht der Switchport einen Trunk.</p>
-      <div class="f2"><div class="f"><label for="hvCl">Cluster</label><input id="hvCl" value="${esc(c.cluster)}" placeholder="z. B. CL1"></div><label class="ck"><input type="checkbox" id="hvHa" ${VIRTN.clusterHa(S.net, c.cluster) || c.ha ? 'checked' : ''}> HA aktiv (Cluster)</label></div>
-      <p class="muted small">Datastores (LUNs, die dieser Host sieht): ${ds.length ? ds.map(x => `${esc(x.name)} (${x.gb - VIRTN.dsUsed(S.net, x.id)} von ${x.gb} GB frei)`).join(', ') : 'keine. Für Migration und HA braucht der Cluster eine gemeinsame LUN.'}</p>
-      <h4>Virtuelle Maschinen (${vms.length})</h4>${vms.length ? vms.map(v => `<div class="lunrow"><div class="lunh"><button class="lnkbtn" data-vmsel="${v.id}"><b>${esc(v.cfg.hostname)}</b></button><span class="chip ${v.vm.state === 'running' ? 'g' : ''}">${v.vm.state === 'running' ? 'läuft' : 'aus'}</span></div><div class="muted small">${v.vm.cpu} vCPU, ${v.vm.ramGb} GB RAM, ${v.vm.diskGb} GB auf ${esc(VIRTN.dsName(S.net, v.vm.ds))}, VLAN ${v.vm.vlan || 'ohne Tag'}</div><div class="appbtns"><button class="btn small" data-vmgo="${v.id}">${v.vm.state === 'running' ? 'Stoppen' : 'Starten'}</button><button class="btn small ghost danger" data-vmdel="${v.id}">Löschen</button></div></div>`).join('') : '<p class="muted small">Noch keine VM.</p>'}
-      <h4>Neue VM</h4><div class="f2"><div class="f"><label for="vmn">Name</label><input id="vmn" placeholder="WEB-VM" maxlength="15"></div><div class="f"><label for="vmv">VLAN (0 = ohne Tag)</label><input id="vmv" type="number" min="0" max="4094" value="0"></div></div>
-      <div class="f3"><div class="f"><label for="vmc">vCPUs</label><input id="vmc" type="number" min="1" max="32" value="2"></div><div class="f"><label for="vmr">RAM (GB)</label><input id="vmr" type="number" min="1" max="512" value="4"></div><div class="f"><label for="vmd">Platte (GB)</label><input id="vmd" type="number" min="1" max="2000" value="40"></div></div>
-      <div class="f2"><div class="f"><label for="vms">Datastore</label><select id="vms"><option value="local">lokale Platte</option>${ds.map(x => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select></div><div class="f"><label for="vmo">Betriebssystem</label><select id="vmo"><option value="linux">Ubuntu Linux</option><option value="windows">Windows Server</option></select></div></div>
-      <div class="irow"><button class="btn small primary" id="vmGo">VM anlegen</button><button class="btn small ghost" id="hvOff">Hypervisor abbauen</button></div>`;
-  }
-  function vmHtml(d) {
-    const v = d.vm, h = S.net.devs[v.host], same = Object.values(S.net.devs).filter(x => VIRTN.isHost(x) && x.hv.cluster && x.hv.cluster === h.hv.cluster && x.id !== h.id), ds = VIRTN.datastores(S.net, h);
-    return `<p class="pst ${v.state === 'running' ? 's-connected' : 's-notconnect'}">Status: <b>${v.state === 'running' ? 'läuft' : 'ausgeschaltet'}</b> auf <b>${esc(h.cfg.hostname)}</b>${h.off ? ' (Host aus)' : ''}</p>
-      <div class="appbtns"><button class="btn small ${v.state === 'running' ? '' : 'primary'}" id="vmToggle">${v.state === 'running' ? 'VM stoppen' : 'VM starten'}</button><button class="btn small" id="vmHostSel" data-host="${h.id}">Host anzeigen</button></div>
-      <p class="muted small">${v.cpu} vCPU, ${v.ramGb} GB RAM, ${v.diskGb} GB auf ${esc(VIRTN.dsName(S.net, v.ds))}</p>
-      <div class="f2"><div class="f"><label for="vmVl">VLAN (0 = ohne Tag)</label><input id="vmVl" type="number" min="0" max="4094" value="${v.vlan}"></div><div class="f"><label>&nbsp;</label><button class="btn small" id="vmVlGo">Übernehmen</button></div></div>
-      <div class="f"><label for="vmMig">Auf anderen Host verschieben (Migration)</label><div class="irow"><select id="vmMig"><option value="">– Host wählen –</option>${same.map(x => `<option value="${x.id}">${esc(x.cfg.hostname)}</option>`).join('')}</select><button class="btn small" id="vmMigGo">Verschieben</button></div>${same.length ? '' : '<p class="muted small">Kein weiterer Host im Cluster. Cluster-Name im Host-Inspektor setzen.</p>'}</div>
-      <div class="f"><label for="vmDs">Datastore (nur bei ausgeschalteter VM)</label><select id="vmDs" ${v.state === 'running' ? 'disabled' : ''}><option value="local" ${v.ds === 'local' ? 'selected' : ''}>lokale Platte</option>${ds.map(x => `<option value="${x.id}" ${v.ds === x.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select></div>
-      ${v.events.length ? `<h4>Ereignisse</h4><ul class="small muted">${v.events.slice(-5).map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : ''}`;
-  }
-  // ---------------- Storage: Pools, LUNs, Zoning ----------------
   const fcLabel = () => { const m = {}; Object.values(S.net.devs).forEach(x => (x.type === 'server' || x.type === 'storage') && x.ports.filter(q => x.pk[q] === 'fc').forEach(q => { m[NL.wwpn(x, q)] = `${x.cfg.hostname} ${q}`; })); return m; };
-  function storageHtml(d) {
-    const T = STORN.st(d), servers = Object.values(S.net.devs).filter(x => x.type === 'server');
-    const pools = T.pools.length ? `<table class="vt"><tr><th>Pool</th><th>RAID</th><th>Platten</th><th>Nutzbar</th><th></th></tr>${T.pools.map(p => { const i = STORN.poolInfo(d, p); return `<tr><td>${esc(p.name)}</td><td>${STORN.RAID[p.raid].name}</td><td>${p.disks}× ${p.diskGb} GB</td><td>${i.usable} GB<br><span class="${i.over ? 'neg' : 'muted'} small">frei ${i.free} GB${i.over ? ', überprovisioniert' : ''}</span></td><td><button class="lnkbtn" data-delpool="${esc(p.name)}" aria-label="Pool ${esc(p.name)} löschen">löschen</button></td></tr>`; }).join('')}</table>` : '<p class="muted small">Noch kein Pool. Ein Pool fasst Platten zu einer RAID-Gruppe zusammen.</p>';
-    const poolForm = `<div class="f2"><div class="f"><label for="npn">Poolname</label><input id="npn" placeholder="POOL1" maxlength="24"></div><div class="f"><label for="npr">RAID-Level</label><select id="npr">${Object.entries(STORN.RAID).map(([k, r]) => `<option value="${k}" ${k === 'raid5' ? 'selected' : ''}>${r.name}</option>`).join('')}</select></div></div><div class="f2"><div class="f"><label for="npd">Platten</label><input id="npd" type="number" min="2" max="24" value="6"></div><div class="f"><label for="npg">Größe je Platte</label><select id="npg">${STORN.DISKS.map(g => `<option value="${g}">${g} GB</option>`).join('')}</select></div></div><button class="btn small" id="npgo">Pool anlegen</button>`;
-    const luns = T.luns.length ? T.luns.map(l => `<div class="lunrow"><div class="lunh"><b>LUN ${l.id}: ${esc(l.name)}</b><button class="lnkbtn" data-dellun="${l.id}" aria-label="LUN ${esc(l.name)} löschen">löschen</button></div><div class="muted small">${l.gb} GB, ${l.thin ? 'Thin' : 'Thick'}, Pool ${esc(l.pool)}</div><div class="small lunm"><b>Freigabe (LUN-Masking):</b>${servers.length ? servers.map(h => `<label class="ck"><input type="checkbox" data-mask="${l.id}|${h.id}" ${l.hosts.includes(h.id) ? 'checked' : ''}> ${esc(h.cfg.hostname)}</label>`).join('') : ' <span class="muted">Kein Server im Plan.</span>'}</div>${l.hosts.map(hid => { const h = S.net.devs[hid]; if (!h) return ''; const w = STORN.why(S.net, h, d, l.id), n = STORN.hostLuns(S.net, h).filter(x => x.sto === d.id && x.lun === l.id).map(x => x.paths.length)[0]; return w ? `<div class="small neg">${esc(h.cfg.hostname)}: ${esc(w)}</div>` : `<div class="small okmsg">${esc(h.cfg.hostname)} sieht die LUN über ${n} Pfad${n > 1 ? 'e' : ''}.</div>`; }).join('')}</div>`).join('') : '<p class="muted small">Noch keine LUN.</p>';
-    const lunForm = `<div class="f2"><div class="f"><label for="nln">LUN-Name</label><input id="nln" placeholder="DB01" maxlength="24"></div><div class="f"><label for="nlp">Pool</label><select id="nlp">${T.pools.map(p => `<option>${esc(p.name)}</option>`).join('') || '<option value="">– kein Pool –</option>'}</select></div></div><div class="f2"><div class="f"><label for="nlg">Größe (GB)</label><input id="nlg" type="number" min="1" value="100"></div><label class="ck"><input type="checkbox" id="nlt"> Thin Provisioning</label></div><button class="btn small" id="nlgo">LUN anlegen</button>`;
-    return `<h4>Pools</h4>${pools}${poolForm}<h4>LUNs</h4>${luns}${lunForm}<p class="muted small">Ein Server sieht eine LUN, wenn Masking, Zoning und Verkabelung stimmen. Danach braucht er einen Rescan.</p>`;
-  }
-  function zoningHtml(m) {
-    const Z = STORN.zs(m), att = STORN.attached(S.net, m), lab = fcLabel(), mem = w => esc(lab[w] || w);
-    const ini = att.filter(x => x.role === 'initiator'), tgt = att.filter(x => x.role === 'target'), o = list => list.map(x => `<option value="${x.wwpn}">${esc(x.dev.cfg.hostname)} ${esc(x.port)}</option>`).join('');
-    return `<p class="pst ${Z.active ? 's-connected' : 's-notconnect'}">Zoneset: <b>${Z.active ? 'aktiv' : 'nicht aktiv'}</b>${Z.active ? '' : ' (ohne aktives Zoneset gilt „deny“: keine Verbindung)'}</p>
-      <div class="appbtns"><button class="btn small" id="zAuto" ${att.length < 2 ? 'disabled' : ''}>Auto-Zoning aus Verkabelung</button><button class="btn small ${Z.active ? '' : 'primary'}" id="zAct">${Z.active ? 'Zoneset deaktivieren' : 'Zoneset aktivieren'}</button></div>
-      ${Z.zones.length ? `<table class="vt">${Z.zones.map(z => `<tr><td><b>${esc(z.name)}</b><br><span class="muted small">${z.members.map(mem).join('<br>')}</span></td><td><button class="lnkbtn" data-delzone="${esc(z.name)}" aria-label="Zone ${esc(z.name)} löschen">löschen</button></td></tr>`).join('')}</table>` : '<p class="muted small">Noch keine Zone. Angeschlossen: ' + (att.length ? att.map(x => esc(x.dev.cfg.hostname + ' ' + x.port)).join(', ') : 'nichts') + '.</p>'}
-      <h4>Neue Zone</h4><div class="f"><label for="znn">Zonenname</label><input id="znn" placeholder="Z_SRV01_STO01" maxlength="40"></div><div class="f2"><div class="f"><label for="zni">Initiator (Server)</label><select id="zni">${o(ini) || '<option value="">– keiner –</option>'}</select></div><div class="f"><label for="znt">Target (Storage)</label><select id="znt">${o(tgt) || '<option value="">– keiner –</option>'}</select></div></div><button class="btn small" id="zngo">Zone anlegen</button>`;
-  }
+  const defSvcVm = () => defSvc();
   function runOn(id, lines, label) {
     const d = S.net.devs[id];
     act(() => {
@@ -807,32 +762,9 @@ const Sandbox = (function () {
       if (gw !== (d.cfg.gw || '')) c.push(gw ? 'ip default-gateway ' + gw : 'no ip default-gateway'); if (g('mrt').checked !== d.cfg.ipRouting) c.push(g('mrt').checked ? 'ip routing' : 'no ip routing');
       if (c.length) runOn(d.id, c, 'Management aus der Oberfläche');
     };
-    const res = (r, ok) => toast(r.err ? `<span class="neg">${esc(r.err)}</span>` : ok);
-    if (g('npgo')) g('npgo').onclick = () => act(() => { res(STORN.createPool(d, { name: g('npn').value, raid: g('npr').value, disks: g('npd').value, diskGb: g('npg').value }), 'Pool angelegt.'); });
-    $$('[data-delpool]').forEach(b => b.onclick = () => act(() => { res(STORN.deletePool(d, b.dataset.delpool), 'Pool gelöscht.'); }));
-    if (g('nlgo')) g('nlgo').onclick = () => act(() => { res(STORN.createLun(d, { name: g('nln').value, pool: g('nlp').value, gb: g('nlg').value, thin: g('nlt').checked }), 'LUN angelegt. Gib sie jetzt einem Server frei (Masking).'); });
-    $$('[data-dellun]').forEach(b => b.onclick = () => act(() => { STORN.deleteLun(d, +b.dataset.dellun); toast('LUN gelöscht.'); }));
-    $$('[data-mask]').forEach(c => c.onchange = () => act(() => { const [l, h] = c.dataset.mask.split('|'); STORN.maskLun(d, +l, h, c.checked); }));
-    if (g('zAuto')) g('zAuto').onclick = () => act(() => { const r = STORN.autoZones(S.net, d); toast(r.n ? `${r.n} Zone${r.n > 1 ? 'n' : ''} angelegt (je ein Initiator und ein Target). Zoneset noch aktivieren.` : 'Keine neuen Zonen nötig.'); });
-    if (g('zAct')) g('zAct').onclick = () => act(() => { const r = STORN.zoneActive(d, !STORN.zs(d).active); res(r, STORN.zs(d).active ? 'Zoneset aktiviert.' : 'Zoneset deaktiviert: keine Verbindungen mehr.'); });
-    $$('[data-delzone]').forEach(b => b.onclick = () => act(() => { STORN.zoneDel(d, b.dataset.delzone); toast('Zone gelöscht.'); }));
-    if (g('zngo')) g('zngo').onclick = () => act(() => { res(STORN.zoneAdd(d, g('znn').value, [g('zni').value, g('znt').value]), 'Zone angelegt. Zoneset aktivieren, damit sie gilt.'); });
-    if (g('dos')) g('dos').onchange = () => act(() => { d.os = g('dos').value; delete S.out[d.id]; delete S.sess[d.id]; toast(`Betriebssystem: ${d.os === 'windows' ? 'Windows Server 2022' : 'Ubuntu Linux'}. Das Terminal startet neu (Konsole öffnen).`); });
-    const vres = (r, ok) => toast(r.err ? `<span class="neg">${esc(r.err)}</span>` : ok);
-    if (g('hvOn')) g('hvOn').onclick = () => act(() => { VIRTN.enable(S.net, d); toast('Hypervisor eingerichtet. Prüfe die Uplinks und lege VMs an.'); });
-    if (g('hvOff')) g('hvOff').onclick = () => act(() => { vres(VIRTN.disable(S.net, d), 'Hypervisor abgebaut.'); });
-    $$('[data-upl]').forEach(c => c.onchange = () => act(() => { VIRTN.setUplink(d, c.dataset.upl, c.checked); }));
-    if (g('hvCl')) g('hvCl').onchange = () => act(() => { d.hv.cluster = g('hvCl').value.trim(); });
-    if (g('hvHa')) g('hvHa').onchange = () => act(() => { VIRTN.setHa(S.net, d, g('hvHa').checked); toast(g('hvHa').checked ? 'HA aktiv: Fällt der Host aus, starten seine VMs auf anderen Cluster-Hosts neu (gemeinsamer Datastore nötig).' : 'HA aus.'); });
-    if (g('vmGo')) g('vmGo').onclick = () => act(() => { const r = VIRTN.createVm(S.net, d, { name: g('vmn').value, vlan: g('vmv').value, cpu: g('vmc').value, ramGb: g('vmr').value, diskGb: g('vmd').value, ds: g('vms').value, os: g('vmo').value }, defSvc); vres(r, 'VM angelegt. Starte sie und gib ihr eine IP-Adresse (Port eth0).'); if (r.id) { S.sel = r.id; S.port = null; S.selNote = null; S.multi = new Set(); } });
-    $$('[data-vmsel]').forEach(b => b.onclick = () => { S.sel = b.dataset.vmsel; S.port = null; render(); });
-    $$('[data-vmgo]').forEach(b => b.onclick = () => act(() => { const v = S.net.devs[b.dataset.vmgo]; vres(v.vm.state === 'running' ? VIRTN.stop(S.net, v) : VIRTN.start(S.net, v), v.vm.state === 'running' ? `${v.cfg.hostname} läuft.` : `${v.cfg.hostname} ist aus.`); }));
-    $$('[data-vmdel]').forEach(b => b.onclick = () => { const v = S.net.devs[b.dataset.vmdel]; if (!confirm(`VM ${v.cfg.hostname} löschen?`)) return; act(() => { VIRTN.del(S.net, v); toast('VM gelöscht.'); }); });
-    if (g('vmToggle')) g('vmToggle').onclick = () => act(() => { vres(d.vm.state === 'running' ? VIRTN.stop(S.net, d) : VIRTN.start(S.net, d), d.vm.state === 'running' ? `${d.cfg.hostname} läuft.` : `${d.cfg.hostname} ist ausgeschaltet.`); });
-    if (g('vmHostSel')) g('vmHostSel').onclick = () => { S.sel = g('vmHostSel').dataset.host; S.port = null; render(); };
-    if (g('vmVlGo')) g('vmVlGo').onclick = () => act(() => { vres(VIRTN.setVlan(d, g('vmVl').value), 'VLAN gesetzt.'); });
-    if (g('vmMigGo')) g('vmMigGo').onclick = () => act(() => { if (!g('vmMig').value) { toast('<span class="neg">Wähle einen Ziel-Host.</span>'); return; } vres(VIRTN.migrate(S.net, d, g('vmMig').value), `${d.cfg.hostname} läuft jetzt auf ${(S.net.devs[g('vmMig').value] || { cfg: {} }).cfg.hostname}.`); });
-    if (g('vmDs')) g('vmDs').onchange = () => act(() => { d.vm.ds = g('vmDs').value; toast('Datastore gewechselt.'); });
+    if (g('dos')) g('dos').onchange = () => act(() => { d.os = g('dos').value; delete S.out[d.id]; delete S.sess[d.id]; toast(`Betriebssystem: ${d.os === 'windows' ? 'Windows Server 2022' : 'Ubuntu Linux'}. Konsole und Web-GUI wechseln mit.`); });
+    if (g('guiOpen')) g('guiOpen').onclick = () => GUIN.open(d.id);
+    if (g('hvOpen')) g('hvOpen').onclick = () => GUIN.open(d.vm.host);
     if (g('appDesk')) g('appDesk').onclick = () => openApps(d.id, 'home');
     if (g('appSvc')) g('appSvc').onclick = () => openApps(d.id, 'svc');
     if (g('fwBtn')) g('fwBtn').onclick = () => fwModal(d);
@@ -881,11 +813,12 @@ const Sandbox = (function () {
 
   // ---------------- console ----------------
   function push(id, c, t) { (S.out[id] = S.out[id] || []).push({ c, t }); if (S.out[id].length > 800) S.out[id].splice(0, 150); }
+  function ensureOut(id) { const d = S.net.devs[id]; if (!S.sess[id]) S.sess[id] = NL.newSess(); if (!S.out[id]) push(id, 'sys', isWn(d) ? `${d.cfg.hostname} – ${d.type === 'pc' ? 'Windows 11' : 'Windows Server 2022'} (PowerShell). Beispiele: Get-NetIPAddress, ipconfig /all, Get-Service. Hilfe: Get-Command.` : isLx(d) ? `${d.cfg.hostname} – Ubuntu 22.04 LTS (Terminal). Hilfe mit help. Dienste: systemctl, Pakete: apt, Dateien: ls cat echo sed. Systemdateien brauchen sudo.` : NL.isHost(d) ? `${d.cfg.hostname} – Konsole. Befehle: ip [Port] <IP>/<Präfix> [Gateway], show ip, ping, nc <IP> <Port>, trace.` : d.type === 'fc' ? `${d.cfg.hostname} – FC-Switch: Konfiguration über die Oberfläche, Zoning im Export.` : d.fw ? `${d.cfg.hostname} – ASA-Konsole. Einrichten über die Port-Karte oder per CLI (nameif, security-level, access-list, nat, route).` : `${d.cfg.hostname} – Konsole. ? zeigt Befehle. Auch: show interfaces status, show cdp neighbors, show inventory.`); }
   function drawOut() {
     const id = S.sel, d = id && S.net.devs[id];
     if (!d) { $('#out').innerHTML = ''; $('#prompt').textContent = ''; $('#tname').textContent = 'Konsole'; return; }
     if (!S.sess[id]) S.sess[id] = NL.newSess();
-    if (!S.out[id]) push(id, 'sys', isWn(d) ? `${d.cfg.hostname} – ${d.type === 'pc' ? 'Windows 11' : 'Windows Server 2022'} (PowerShell). Beispiele: Get-NetIPAddress, ipconfig /all, Get-Service. Hilfe: Get-Command.` : isLx(d) ? `${d.cfg.hostname} – Ubuntu 22.04 LTS (Terminal). Hilfe mit help. Dienste: systemctl, Pakete: apt, Dateien: ls cat echo sed. Systemdateien brauchen sudo.` : NL.isHost(d) ? `${d.cfg.hostname} – Konsole. Befehle: ip [Port] <IP>/<Präfix> [Gateway], show ip, ping, nc <IP> <Port>, trace.` : d.type === 'fc' ? `${d.cfg.hostname} – FC-Switch: Konfiguration über die Oberfläche, Zoning im Export.` : d.fw ? `${d.cfg.hostname} – ASA-Konsole. Einrichten über die Port-Karte oder per CLI (nameif, security-level, access-list, nat, route).` : `${d.cfg.hostname} – Konsole. ? zeigt Befehle. Auch: show interfaces status, show cdp neighbors, show inventory.`);
+    ensureOut(id);
     $('#tname').textContent = 'Konsole: ' + d.cfg.hostname;
     $('#out').innerHTML = S.out[id].map(o => `<div class="ln k-${o.c}">${esc(o.t) || '&nbsp;'}</div>`).join(''); $('#out').scrollTop = 1e9; $('#prompt').textContent = promptOf(d, S.sess[id]).trim();
   }
@@ -1193,9 +1126,9 @@ const Sandbox = (function () {
     }
     function drawWeb() {
       const w = S.web[id] = S.web[id] || { url: '', res: null };
-      body.innerHTML = back('Webbrowser') + `<div class="browser"><div class="urlbar"><input id="url" value="${esc(w.url)}" placeholder="http://web.lab.local oder 10.10.0.11" aria-label="Adresse" autocomplete="off" spellcheck="false"><button class="btn primary small" id="go">Aufrufen</button></div><div class="page" id="page"></div></div>`;
-      const show = () => { const r = w.res; g('page').innerHTML = !r ? '<p class="muted">Gib eine Adresse ein. Namen werden über den DNS-Server der IP-Konfiguration aufgelöst.</p>' : r.err ? `<div class="neterr"><h2>Seite nicht erreichbar</h2><p>${esc(r.err)}</p>${r.why ? `<p class="muted small">${esc(r.why)}</p>` : ''}</div>` : `<h2>${esc(r.title)}</h2><p>${esc(r.body).replace(/\n/g, '<br>')}</p><p class="muted small">${r.scheme}://${esc(r.host)} → ${r.ip}:${r.port}</p>`; };
-      const go = () => { w.url = g('url').value; w.res = httpGet(d, w.url); show(); }; show(); g('go').onclick = go; g('url').onkeydown = e => { if (e.key === 'Enter') go(); }; g('url').focus();
+      body.innerHTML = back('Webbrowser') + `<div class="browser"><div class="urlbar"><input id="url" value="${esc(w.url)}" placeholder="http://web.lab.local oder https://10.0.0.10:8443" aria-label="Adresse" autocomplete="off" spellcheck="false"><button class="btn primary small" id="go">Aufrufen</button></div><div class="page" id="page"></div></div>`;
+      const show = () => { const r = w.res; if (w.gui && S.net.devs[w.gui]) { g('page').innerHTML = ''; GUIN.mount(g('page'), w.gui, {}); return; } g('page').innerHTML = !r ? '<p class="muted">Gib eine Adresse ein. Namen werden über den DNS-Server der IP-Konfiguration aufgelöst.</p>' : r.err ? `<div class="neterr"><h2>Seite nicht erreichbar</h2><p>${esc(r.err)}</p>${r.why ? `<p class="muted small">${esc(r.why)}</p>` : ''}</div>` : `<h2>${esc(r.title)}</h2><p>${esc(r.body).replace(/\n/g, '<br>')}</p><p class="muted small">${r.scheme}://${esc(r.host)} → ${r.ip}:${r.port}</p>`; };
+      const go = () => { w.url = g('url').value; w.gui = null; const gt = guiTarget(d, w.url); if (gt && gt.id) { w.gui = gt.id; w.res = null; } else w.res = gt || httpGet(d, w.url); show(); }; show(); g('go').onclick = go; g('url').onkeydown = e => { if (e.key === 'Enter') go(); }; g('url').focus();
     }
     function drawEdit() { body.innerHTML = back('Texteditor') + `<textarea id="note" class="ta" rows="12" aria-label="Notizen" placeholder="Notizen zu diesem Gerät …">${esc(d.notes || '')}</textarea><p class="muted small">Wird automatisch gespeichert.</p>`; g('note').oninput = e => { d.notes = e.target.value; save(); }; }
     function drawSvc() {
@@ -1386,7 +1319,7 @@ const Sandbox = (function () {
         { t: 'Das Zoneset auf MDS-A ist aktiv, SRV-DB erreicht den Storage über 4 Pfade', c: n => STORN.paths(n, hd(n, 'SRV-DB')).length === 4 },
         { t: 'SRV-DB hat die LUN gescannt und <code>multipath-tools</code> installiert', c: n => { const L = hd(n, 'SRV-DB').lx; return L.scsi.length === 1 && L.pkgs.includes('multipath-tools'); } },
         { t: 'Das Multipath-Gerät ist mit einem Dateisystem unter <code>/data</code> eingebunden', c: n => { const L = hd(n, 'SRV-DB').lx; return L.mounts['/data'] === '/dev/mapper/mpatha' && !!L.fmt['/dev/mapper/mpatha']; } }],
-      hints: ['Klicke STO-01 an: Im Inspektor findest du „Pools und LUNs“. Ein Pool aus 6× 600 GB mit RAID 5 liefert 3000 GB nutzbar.', 'Ohne Zoning sieht der Server nichts: Klicke MDS-A an → „Zoning“ → „Auto-Zoning aus Verkabelung“ → „Zoneset aktivieren“. Der Server hat zwei HBA-Ports und der Storage zwei Controller, deshalb entstehen 4 Pfade.', 'Terminal von SRV-DB: <code>sudo rescan-scsi-bus.sh</code>, dann <code>lsblk</code>. Dieselbe LUN taucht viermal auf, bis <code>sudo apt install multipath-tools</code> sie zu <code>mpatha</code> zusammenfasst. Danach <code>sudo mkdir /data</code>, <code>sudo mkfs.ext4 /dev/mapper/mpatha</code>, <code>sudo mount /dev/mapper/mpatha /data</code>.'],
+      hints: ['Klicke STO-01 an und öffne das Web-GUI (Storage-Manager) → „Speicherpools“ und „LUNs“. Ein Pool aus 6× 600 GB mit RAID 5 liefert 3000 GB nutzbar. Danach unter „LUNs“ → „Zuordnen“ den Server auswählen.', 'Ohne Zoning sieht der Server nichts: Web-GUI von MDS-A (Fabric-Manager) → „Zoning“ → „Auto-Zoning aus Verkabelung“ → „Zoneset aktivieren“. Der Server hat zwei HBA-Ports und der Storage zwei Controller, deshalb entstehen 4 Pfade.', 'Terminal von SRV-DB: <code>sudo rescan-scsi-bus.sh</code>, dann <code>lsblk</code>. Dieselbe LUN taucht viermal auf, bis <code>sudo apt install multipath-tools</code> sie zu <code>mpatha</code> zusammenfasst. Danach <code>sudo mkdir /data</code>, <code>sudo mkfs.ext4 /dev/mapper/mpatha</code>, <code>sudo mount /dev/mapper/mpatha /data</code>.'],
       sol(net) { const t = hd(net, 'STO-01'), srv = hd(net, 'SRV-DB'), m = hd(net, 'MDS-A'); STORN.createPool(t, { name: 'POOL1', raid: 'raid5', disks: 6, diskGb: 600 }); STORN.createLun(t, { name: 'DB01', pool: 'POOL1', gb: 200 }); STORN.maskLun(t, 0, srv.id, true); STORN.autoZones(net, m); STORN.zoneActive(m, true); lxr(net, 'SRV-DB', ['sudo rescan-scsi-bus.sh', 'sudo apt install multipath-tools', 'sudo rescan-scsi-bus.sh', 'sudo mkdir /data', 'sudo mkfs.ext4 /dev/mapper/mpatha', 'sudo mount /dev/mapper/mpatha /data']); } },
     { id: 'sc-st-zone', kind: 'Fehlersuche', title: 'Storage: Server sieht die LUN nicht', est: '15 min',
       intro: 'Die LUN <code>APP01</code> auf STO-01 soll SRV-APP bekommen, aber <code>lsblk</code> zeigt dort keine neue Platte. Verkabelung, Pool und LUN sind in Ordnung. Es stecken drei Fehler in Masking, Zoning und Betriebssystem.',
@@ -1397,7 +1330,7 @@ const Sandbox = (function () {
         { t: 'Das Zoneset auf MDS-A ist aktiv', c: n => !!STORN.zs(hd(n, 'MDS-A')).active },
         { t: 'SRV-APP erreicht APP01 über mindestens 2 Pfade', c: n => STORN.hostLuns(n, hd(n, 'SRV-APP')).some(x => x.name === 'APP01' && x.paths.length >= 2) },
         { t: 'SRV-APP hat neu gescannt und sieht die Platte (<code>lsblk</code>)', c: n => hd(n, 'SRV-APP').lx.scsi.length > 0 }],
-      hints: ['Klicke STO-01 an: Unter der LUN steht pro Server, ob er sie sieht und wenn nicht, warum. Die Freigabe geht an den falschen Server.', 'Zonen allein reichen nicht: MDS-A → „Zoning“. Es gibt Zonen, aber das Zoneset ist nicht aktiv (ohne aktives Zoneset gilt deny).', 'Neue LUNs erscheinen im Betriebssystem erst nach einem Rescan: <code>sudo rescan-scsi-bus.sh</code>.'],
+      hints: ['Web-GUI von STO-01 → „Hosts und Zugriff“: Dort steht pro Server, ob er die LUN sieht und wenn nicht, warum. Die Freigabe geht an den falschen Server (LUNs → Zuordnen).', 'Zonen allein reichen nicht: Web-GUI von MDS-A → „Zoning“. Es gibt Zonen, aber das Zoneset ist nicht aktiv (ohne aktives Zoneset gilt deny).', 'Neue LUNs erscheinen im Betriebssystem erst nach einem Rescan: <code>sudo rescan-scsi-bus.sh</code>.'],
       sol(net) { const t = hd(net, 'STO-01'); STORN.maskLun(t, 0, hd(net, 'SRV-DB').id, false); STORN.maskLun(t, 0, hd(net, 'SRV-APP').id, true); STORN.zoneActive(hd(net, 'MDS-A'), true); lxr(net, 'SRV-APP', 'sudo rescan-scsi-bus.sh'); } },
     { id: 'sc-st-raid', kind: 'Aufbau', title: 'Storage: RAID-Pool dimensionieren', est: '10 min',
       intro: 'Das Archiv braucht <b>mindestens 5000 GB nutzbaren Speicher</b> und muss <b>zwei gleichzeitige Plattenausfälle</b> überstehen. Verfügbar sind höchstens 12 Platten mit je 600 GB im STO-01. Wähle den passenden RAID-Level und lege die LUN <code>ARCHIV</code> mit 4800 GB an.',
@@ -1406,7 +1339,7 @@ const Sandbox = (function () {
         { t: 'Es gibt einen Pool, der zwei Plattenausfälle übersteht (RAID 6)', c: n => STORN.st(hd(n, 'STO-01')).pools.some(p => STORN.RAID[p.raid].fault >= 2) },
         { t: 'Der Pool nutzt höchstens 12 Platten à 600 GB und bietet mindestens 5000 GB', c: n => { const t = hd(n, 'STO-01'); return STORN.st(t).pools.some(p => p.diskGb === 600 && p.disks <= 12 && STORN.poolInfo(t, p).usable >= 5000); } },
         { t: 'Die LUN <code>ARCHIV</code> (4800 GB, Thick) liegt im Pool', c: n => STORN.st(hd(n, 'STO-01')).luns.some(l => l.name === 'ARCHIV' && l.gb === 4800 && !l.thin) }],
-      hints: ['RAID 5 verträgt nur eine Platte, RAID 10 liefert nur die Hälfte (12× 600 GB = 3600 GB), RAID 6 verliert zwei Platten an Parität: (12 − 2) × 600 = 6000 GB.', 'Klicke STO-01 an → „Pools und LUNs“ → Pool mit RAID 6, 12 Platten, 600 GB.'],
+      hints: ['RAID 5 verträgt nur eine Platte, RAID 10 liefert nur die Hälfte (12× 600 GB = 3600 GB), RAID 6 verliert zwei Platten an Parität: (12 − 2) × 600 = 6000 GB.', 'Web-GUI von STO-01 → „Speicherpools“ → Pool mit RAID 6, 12 Platten, 600 GB, dann „LUNs“ → LUN erstellen.'],
       sol(net) { const t = hd(net, 'STO-01'); STORN.createPool(t, { name: 'ARCHIV-POOL', raid: 'raid6', disks: 12, diskGb: 600 }); STORN.createLun(t, { name: 'ARCHIV', pool: 'ARCHIV-POOL', gb: 4800 }); } },
     { id: 'sc-st-mpath', kind: 'Fehlersuche', title: 'Storage: Pfade fehlen', est: '15 min',
       intro: 'SRV-DB nutzt die LUN <code>DB01</code> über Multipath, aber <code>multipath -ll</code> zeigt statt vier nur noch zwei Pfade. Das System läuft noch, hat aber keine Redundanz mehr. Finde die zwei Ursachen im Fibre-Channel-Netz.',
@@ -1418,7 +1351,7 @@ const Sandbox = (function () {
         { t: 'Der zweite HBA-Port von SRV-DB hat wieder einen Link (<code>slot2/2</code>)', c: n => NL.portStatus(n, hd(n, 'SRV-DB').id, 'slot2/2').st === 'connected' },
         { t: 'Beide Controller (A und B) sind für SRV-DB gezont', c: n => { const p = STORN.paths(n, hd(n, 'SRV-DB')); return ['A', 'B'].every(c => p.some(x => x.ctl === c)); } },
         { t: 'SRV-DB hat vier Pfade und <code>multipath -ll</code> zeigt nach dem Rescan vier aktive Pfade', c: n => STORN.paths(n, hd(n, 'SRV-DB')).length === 4 && hd(n, 'SRV-DB').lx.scsi[0].paths.length === 4 }],
-      hints: ['Zwei HBA-Ports × zwei Controller = 4 Pfade. Klicke SRV-DB an → Port-Reiter: Ein HBA-Port hat keinen Link (rot). Welcher Transceiver fehlt?', 'Der zweite Fehler liegt im Zoning: MDS-A → „Zoning“. Eine Zone ist weggefallen. „Auto-Zoning aus Verkabelung“ ergänzt sie.', 'Danach auf SRV-DB: <code>sudo rescan-scsi-bus.sh</code> und <code>multipath -ll</code>.'],
+      hints: ['Zwei HBA-Ports × zwei Controller = 4 Pfade. Klicke SRV-DB an → Port-Reiter: Ein HBA-Port hat keinen Link (rot). Welcher Transceiver fehlt?', 'Der zweite Fehler liegt im Zoning: Web-GUI von MDS-A → „Zoning“. Eine Zone ist weggefallen. „Auto-Zoning aus Verkabelung“ ergänzt sie.', 'Danach auf SRV-DB: <code>sudo rescan-scsi-bus.sh</code> und <code>multipath -ll</code>.'],
       sol(net) { const srv = hd(net, 'SRV-DB'), m = hd(net, 'MDS-A'); srv.xcvr['slot2/2'] = FCX; STORN.autoZones(net, m); lxr(net, 'SRV-DB', 'sudo rescan-scsi-bus.sh'); } }
     ,
     // ---- System Engineer: Windows Server und Active Directory ----
@@ -1488,7 +1421,7 @@ const Sandbox = (function () {
         { t: 'Der Switchport Gi1/0/1 ist ein Trunk, der VLAN 20 durchlässt', c: n => { const i = hd(n, 'SW').cfg.ifs[G + 1], a = i.allowed; return i.mode === 'trunk' && (a === null || a.includes(20)); } },
         { t: 'WEB-VM erreicht das Gateway <code>10.20.0.1</code>', c: n => pg(n, 'WEB-VM', '10.20.0.1') },
         { t: 'PC-20 erreicht WEB-VM', c: n => pg(n, 'PC-20', '10.20.0.10') }],
-      hints: ['Klicke HV1 an → „Virtualisierung“. Der vSwitch nutzt die Uplinks, die du ankreuzt. Das Kabel steckt in <code>eth1</code>.', 'Der Ping-Debugger sagt es danach direkt: Die VM sendet Frames mit VLAN-Tag 20. Ein Access-Port nimmt keine getaggten Frames an – der Port zum Host muss ein Trunk sein: <code>interface g1/0/1</code>, <code>switchport mode trunk</code>.', 'Beim Trunk die erlaubten VLANs prüfen: <code>switchport trunk allowed vlan 10,20</code>.'],
+      hints: ['Web-GUI von HV1 (Virtualisierungs-Manager) → „Virtueller Switch“. Der vSwitch nutzt nur die Uplinks, die aktiviert sind. Das Kabel steckt in <code>eth1</code>.', 'Der Ping-Debugger sagt es danach direkt: Die VM sendet Frames mit VLAN-Tag 20. Ein Access-Port nimmt keine getaggten Frames an – der Port zum Host muss ein Trunk sein: <code>interface g1/0/1</code>, <code>switchport mode trunk</code>.', 'Beim Trunk die erlaubten VLANs prüfen: <code>switchport trunk allowed vlan 10,20</code>.'],
       sol(net) { VIRTN.setUplink(hd(net, 'HV1'), 'eth1', true); rn(net, 'SW', ['interface g1/0/1', 'switchport mode trunk', 'switchport trunk allowed vlan 10,20']); } },
     { id: 'sc-vm-capacity', kind: 'Aufbau', title: 'Virtualisierung: VMs auf zwei Hosts verteilen', est: '15 min',
       intro: 'HV1 hat 256 GB RAM und trägt schon drei VMs mit je 80 GB (240 GB). Die neue VM <code>NEW-APP</code> braucht 32 GB und lässt sich nicht starten. Du darfst keine VM löschen und keine ausgeschaltet lassen. HV2 hat viel Platz. Bilde einen Cluster und verschiebe eine VM (die VMs liegen auf lokalen Platten, also nur kalt).',
@@ -1500,7 +1433,7 @@ const Sandbox = (function () {
         { t: 'Es gibt weiterhin vier VMs (keine gelöscht)', c: n => Object.values(n.devs).filter(d => d.vm).length === 4 },
         { t: 'NEW-APP läuft', c: n => hd(n, 'NEW-APP').vm.state === 'running' },
         { t: 'Alle vier VMs laufen, und HV1 überschreitet seine 256 GB nicht', c: n => Object.values(n.devs).filter(d => d.vm).every(d => d.vm.state === 'running') && VIRTN.usedRam(n, hd(n, 'HV1').id) <= 256 }],
-      hints: ['Die Fehlermeldung beim Start nennt, wie viel RAM frei ist. Auf HV1 sind es nur 16 GB.', 'HV1 anklicken → „Virtualisierung“ → Cluster z. B. <code>CL1</code> eintragen, dasselbe bei HV2. Ohne Cluster lässt sich keine VM verschieben.', 'Eine VM liegt auf der lokalen Platte: erst stoppen, dann beim VM-Inspektor „Auf anderen Host verschieben“, dann wieder starten. Danach NEW-APP starten.'],
+      hints: ['Die Fehlermeldung beim Start nennt, wie viel RAM frei ist. Auf HV1 sind es nur 16 GB.', 'Web-GUI von HV1 → „Cluster und HA“ → Cluster-Name z. B. <code>CL1</code> eintragen, dasselbe bei HV2. Ohne Cluster lässt sich keine VM verschieben.', 'Eine VM liegt auf der lokalen Platte: erst ausschalten, dann in „Virtuelle Maschinen“ → „Verschieben“, dann wieder einschalten. Danach NEW-APP starten.'],
       sol(net) { const h1 = hd(net, 'HV1'), h2 = hd(net, 'HV2'); h1.hv.cluster = 'CL1'; h2.hv.cluster = 'CL1'; const v = hd(net, 'APP-3'); VIRTN.stop(net, v); VIRTN.migrate(net, v, h2.id); VIRTN.start(net, v); VIRTN.start(net, hd(net, 'NEW-APP')); } },
     { id: 'sc-vm-migrate', kind: 'Aufbau', title: 'Virtualisierung: Live-Migration über SAN-Datastore', est: '20 min',
       intro: 'Die VMs <code>WEB-VM</code> und <code>DB-VM</code> laufen auf HV1 und liegen auf dem SAN-Datastore <code>DS01</code>. HV1 soll gewartet werden: Verschiebe beide VMs live auf HV2, ohne sie auszuschalten. Dafür muss HV2 den Datastore sehen.',
@@ -1510,7 +1443,7 @@ const Sandbox = (function () {
         { t: 'HV2 sieht den Datastore (<code>DS01</code>)', c: n => VIRTN.datastores(n, hd(n, 'HV2')).some(x => x.name === 'DS01') },
         { t: 'WEB-VM und DB-VM laufen auf HV2', c: n => ['WEB-VM', 'DB-VM'].every(v => hd(n, v).vm.host === hd(n, 'HV2').id && hd(n, v).vm.state === 'running') },
         { t: 'Beide VMs antworten auf Ping von R-GW', c: n => pg(n, 'R-GW', '10.0.0.60') && pg(n, 'R-GW', '10.0.0.61') }],
-      hints: ['Der Versuch zu verschieben meldet: Der Datastore ist auf HV2 nicht sichtbar. Das ist ein SAN-Problem: STO-01 anklicken → bei der LUN DS01 auch HV2 ankreuzen (Masking).', 'Danach auf der VM „Auf anderen Host verschieben“ wählen (beide Hosts sind schon im Cluster CL1). Eine laufende VM wandert nur mit gemeinsamem Datastore.', 'Zum Schluss prüfen, ob die VMs noch antworten: Sie bleiben im selben VLAN, der Uplink von HV2 führt in dasselbe Netz.'],
+      hints: ['Der Versuch zu verschieben meldet: Der Datastore ist auf HV2 nicht sichtbar. Das ist ein SAN-Problem: Web-GUI von STO-01 → „LUNs“ → bei DS01 „Zuordnen“ und auch HV2 ankreuzen (Masking).', 'Danach im Virtualisierungs-Manager von HV1 → „Virtuelle Maschinen“ → „Verschieben“ (beide Hosts sind schon im Cluster CL1). Eine laufende VM wandert nur mit gemeinsamem Datastore.', 'Zum Schluss prüfen, ob die VMs noch antworten: Sie bleiben im selben VLAN, der Uplink von HV2 führt in dasselbe Netz.'],
       sol(net) { STORN.maskLun(hd(net, 'STO-01'), 0, hd(net, 'HV2').id, true); ['WEB-VM', 'DB-VM'].forEach(v => VIRTN.migrate(net, hd(net, v), hd(net, 'HV2').id)); } },
     { id: 'sc-vm-ha', kind: 'Fehlersuche', title: 'Virtualisierung: Host-Ausfall und HA', est: '20 min',
       intro: 'HV1 ist ausgefallen (Hardwaredefekt, im Plan ausgeschaltet). Die VMs <code>WEB-VM</code> und <code>DB-VM</code> liegen auf dem SAN-Datastore, sind aber offline. HA ist im Cluster nicht aktiv. Bringe die VMs wieder zum Laufen, und zwar ohne HV1 einzuschalten.',
@@ -1520,7 +1453,7 @@ const Sandbox = (function () {
         { t: 'Der Datastore <code>DS01</code> ist auch auf HV2 sichtbar', c: n => VIRTN.datastores(n, hd(n, 'HV2')).some(x => x.name === 'DS01') },
         { t: 'WEB-VM und DB-VM laufen auf HV2', c: n => ['WEB-VM', 'DB-VM'].every(v => hd(n, v).vm.host === hd(n, 'HV2').id && hd(n, v).vm.state === 'running') },
         { t: 'Beide VMs antworten auf Ping von R-GW', c: n => pg(n, 'R-GW', '10.0.0.60') && pg(n, 'R-GW', '10.0.0.61') }],
-      hints: ['HA startet VMs eines ausgefallenen Hosts auf anderen Cluster-Hosts neu. Schalte es im Host-Inspektor ein (Haken „HA aktiv“).', 'Nach dem Einschalten steht im VM-Inspektor unter „Ereignisse“: „HA: kein Host mit gemeinsamem Datastore“. HV2 sieht die LUN nicht, weil sie nur für HV1 freigegeben ist (STO-01 → LUN DS01 → Masking).', 'Ohne gemeinsamen Datastore kann kein anderer Host die VM-Platten lesen. Deshalb baut man Cluster immer mit gemeinsamer LUN.'],
+      hints: ['HA startet VMs eines ausgefallenen Hosts auf anderen Cluster-Hosts neu. Schalte es im Web-GUI des Hosts ein (HV2 → „Cluster und HA“ → HA).', 'Nach dem Einschalten steht unter „Cluster und HA“ → Ereignisse: „HA: kein Host mit gemeinsamem Datastore“. HV2 sieht die LUN nicht, weil sie nur für HV1 freigegeben ist (Web-GUI von STO-01 → LUNs → Zuordnen).', 'Ohne gemeinsamen Datastore kann kein anderer Host die VM-Platten lesen. Deshalb baut man Cluster immer mit gemeinsamer LUN.'],
       sol(net) { VIRTN.setHa(net, hd(net, 'HV2'), true); STORN.maskLun(hd(net, 'STO-01'), 0, hd(net, 'HV2').id, true); VIRTN.haRun(net); } }
   ];
   function buildScen(id) { const sc = SC.find(x => x.id === id), net = newNet(); sc.build(net); return net; }
@@ -1773,6 +1706,28 @@ const Sandbox = (function () {
     img.onload = () => { const cv = document.createElement('canvas'); cv.width = Math.round(vb.w * sc); cv.height = Math.round(vb.h * sc); const g = cv.getContext('2d'); g.scale(sc, sc); g.drawImage(img, 0, 0, vb.w, vb.h); URL.revokeObjectURL(url); cv.toBlob(b => { if (b) dlBlob('netlab-plan.png', b); else { toast('PNG-Export fehlgeschlagen. Probiere SVG.'); render(); } }, 'image/png'); };
     img.onerror = () => { URL.revokeObjectURL(url); toast('PNG-Export fehlgeschlagen. Probiere SVG.'); render(); };
     img.src = url;
+  }
+
+  // ---------------- Web-GUI (Schnittstelle zu webgui.js) ----------------
+  const guiHost = d => { const h = d.ports.map(p => hip(d, p)).find(x => x && x.ip); return h ? h.ip : d.cfg.hostname.toLowerCase(); };
+  function termRun(d, line) {
+    const id = d.id, s = S.sess[id] || (S.sess[id] = NL.newSess()); ensureOut(id);
+    act(() => { push(id, 'cmd', promptOf(d, s) + line); if (/^\s*(clear|cls)\s*$/i.test(line)) { S.out[id] = []; return; } let r; try { r = hostRun(d, s, line); } catch (e) { r = '% Interner Fehler: ' + e.message; }
+      if (r) r.split('\n').forEach(l => push(id, /^\[(Ping-Debugger|Hinweis|Pfad|Debug|NAT)\]/.test(l) ? 'dbg' : (/^%/.test(l) && !/Creating vlan/.test(l) ? 'err' : 'out'), l)); });
+  }
+  GUIN.init({
+    net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
+    isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d), termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
+    hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
+  });
+  // Browser im Planer: https://<Gerät>:8443 öffnet die Web-GUI des Geräts, wenn es erreichbar ist
+  function guiTarget(c, url) {
+    const m = String(url || '').trim().match(/^https?:\/\/([^\/:]+):(\d+)(\/.*)?$/i); if (!m || +m[2] !== GUIN.PORT) return null;
+    let ip = m[1]; if (!NL.validIp(ip)) { const r = resolve(c, ip); if (r.err) return { err: r.err }; ip = r.ip; }
+    const r = NL.ping(S.net, c.id, ip, { proto: 'tcp', port: GUIN.PORT }); if (!r.ok) return { err: `Zeitüberschreitung: ${ip}:${GUIN.PORT} ist nicht erreichbar.`, why: r.reason };
+    const dev = allIps()[ip]; if (!dev || !GUIN.hasGui(dev)) return { err: `Verbindung abgelehnt: Auf ${dev ? dev.cfg.hostname : ip} gibt es keine Weboberfläche auf Port ${GUIN.PORT}.` };
+    return { id: dev.id };
   }
 
   function close() { document.removeEventListener('keydown', escKey); S = null; }

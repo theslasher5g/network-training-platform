@@ -16,8 +16,7 @@ const WIN = (function () {
   function init(d) {
     if (d.win) return d.win;
     d.win = { domain: null, feats: {}, svc: { Spooler: 'Running', W32Time: 'Running', LanmanServer: 'Running', MpsSvc: 'Running' }, startup: {}, pendingName: null, fwOn: true, fw: [], files: { 'C:\\Users\\Administrator': { d: 1 }, 'C:\\inetpub': { d: 1 }, 'C:\\inetpub\\wwwroot': { d: 1 }, 'D:\\': { d: 1 } }, shares: [], dnsZones: [], dhcp: { scope: null, auth: false }, ad: null, cwd: 'C:\\Users\\Administrator' };
-    const sv = d.svc || {};
-    if (sv.http && sv.http.on) { d.win.feats['Web-Server'] = true; d.win.svc.W3SVC = 'Running'; d.win.files['C:\\inetpub\\wwwroot\\index.html'] = { t: `<html><head><title>${sv.http.title || d.cfg.hostname}</title></head><body>${sv.http.body || 'IIS Windows Server'}</body></html>` }; d.win.fw.push({ name: FEATURES['Web-Server'].fw[0][0], port: 80, proto: 'TCP', on: true }); }
+    if (d.svc) { d.svc.http.on = false; d.svc.dns.on = false; d.svc.dhcp.on = false; } // frische Installation: keine Rollen
     return d.win;
   }
   const isClient = d => d.type === 'pc';

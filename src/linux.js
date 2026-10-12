@@ -415,6 +415,15 @@ const LX = (function () {
   function prompt(d) { const L = init(d), home = L.root ? '/root' : '/home/' + L.user, c = L.cwd === home ? '~' : L.cwd.startsWith(home + '/') ? '~' + L.cwd.slice(home.length) : L.cwd; return `${L.root ? 'root' : L.user}@${d.cfg.hostname}:${c}${L.root ? '#' : '$'} `; }
   const isLinux = d => !!d && d.type === 'server' && (!d.os || d.os === 'linux');
 
-  return { exec, prompt, init, isLinux, applyConf, startUnit, unitName, nginxCheck, readFile, writeFile, resolvePath, used, TOTAL, jl, diskFull };
+  // ---------- Hilfen für die Web-GUI ----------
+  const unitList = d => { const L = init(d); reconcile(d, L); return Object.keys(UNITS).filter(u => { const pk = Object.keys(PKGS).find(p => (PKGS[p].units || []).includes(u)); return !pk || L.pkgs.includes(pk); }).map(u => ({ name: u, desc: UNITS[u].d, active: L.units[u].active, enabled: L.units[u].enabled, failed: !!L.fail[u] && !L.units[u].active, port: UNITS[u].port || '' })); };
+  const pkgList = d => { const L = init(d); return Object.keys(PKGS).map(p => ({ name: p, desc: PKGS[p].d, installed: L.pkgs.includes(p) })); };
+  const saveFile = (d, p, t) => { const L = init(d); return writeFile(L, { root: true }, p, t, false); };
+  const fileList = d => { const L = init(d); return Object.keys(L.fs).filter(k => !L.fs[k].d && /^\/(etc\/(nginx|bind|dhcp)|var\/www|home\/[^/]+)\//.test(k) || k === '/etc/hosts').sort(); };
+  function blockInfo(ctx, d) { const L = init(d); if (L.scsi === null) L.scsi = scanList(ctx, d); return devTable(L).map(x => ({ name: x.e.name, gb: x.e.gb, mp: x.mp, multipath: isMp(L), paths: x.paths.map(q => q.name), dev: isMp(L) ? '/dev/mapper/' + x.mp : '/dev/' + x.paths[0].name, fs: L.fmt[isMp(L) ? '/dev/mapper/' + x.mp : '/dev/' + x.paths[0].name] || '', mounts: Object.keys(L.mounts).filter(k => L.mounts[k] === (isMp(L) ? '/dev/mapper/' + x.mp : '/dev/' + x.paths[0].name)) })); }
+  const diskUse = d => { const L = init(d); return { used: used(L), total: TOTAL, full: diskFull(L) }; };
+  const logLines = (d, u, n) => init(d).log.filter(l => !u || l.u === u).slice(-(n || 20)).map(l => l.t);
+  const ufwState = d => init(d).ufw;
+  return { unitList, pkgList, saveFile, fileList, blockInfo, diskUse, logLines, ufwState, exec, prompt, init, isLinux, applyConf, startUnit, unitName, nginxCheck, readFile, writeFile, resolvePath, used, TOTAL, jl, diskFull };
 })();
 if (typeof module !== 'undefined') module.exports = LX;
