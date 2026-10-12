@@ -7,6 +7,7 @@ const Sandbox = (function () {
     get(k, d) { try { const v = localStorage.getItem('netlab.' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
     set(k, v) { try { localStorage.setItem('netlab.' + k, JSON.stringify(v)); } catch (e) { } }
   };
+  const LXN = typeof LX !== 'undefined' ? LX : require('./linux.js');
   const SH = NL.sh, MODELS = NL.MODELS, CARDS = NL.CARDS, XCVR = NL.XCVR, KIND = NL.KIND, hip = NL.hip;
   const RU = 42, UH = 30, RX = 46, RW = 470, VW = 1200, VH = 640;
   const VCOL = ['#2B66C8', '#1E8A57', '#8E44AD', '#D35400', '#16A085', '#C0392B', '#7F8C2D', '#2C7BB6', '#B5487E', '#5D6D7E'];
@@ -802,14 +803,14 @@ const Sandbox = (function () {
     const id = S.sel, d = id && S.net.devs[id];
     if (!d) { $('#out').innerHTML = ''; $('#prompt').textContent = ''; $('#tname').textContent = 'Konsole'; return; }
     if (!S.sess[id]) S.sess[id] = NL.newSess();
-    if (!S.out[id]) push(id, 'sys', NL.isHost(d) ? `${d.cfg.hostname} – Konsole. Befehle: ip [Port] <IP>/<Präfix> [Gateway], show ip, ping, nc <IP> <Port>, trace.` : d.type === 'fc' ? `${d.cfg.hostname} – FC-Switch: Konfiguration über die Oberfläche, Zoning im Export.` : d.fw ? `${d.cfg.hostname} – ASA-Konsole. Einrichten über die Port-Karte oder per CLI (nameif, security-level, access-list, nat, route).` : `${d.cfg.hostname} – Konsole. ? zeigt Befehle. Auch: show interfaces status, show cdp neighbors, show inventory.`);
+    if (!S.out[id]) push(id, 'sys', isLx(d) ? `${d.cfg.hostname} – Ubuntu 22.04 LTS (Terminal). Hilfe mit help. Dienste: systemctl, Pakete: apt, Dateien: ls cat echo sed. Systemdateien brauchen sudo.` : NL.isHost(d) ? `${d.cfg.hostname} – Konsole. Befehle: ip [Port] <IP>/<Präfix> [Gateway], show ip, ping, nc <IP> <Port>, trace.` : d.type === 'fc' ? `${d.cfg.hostname} – FC-Switch: Konfiguration über die Oberfläche, Zoning im Export.` : d.fw ? `${d.cfg.hostname} – ASA-Konsole. Einrichten über die Port-Karte oder per CLI (nameif, security-level, access-list, nat, route).` : `${d.cfg.hostname} – Konsole. ? zeigt Befehle. Auch: show interfaces status, show cdp neighbors, show inventory.`);
     $('#tname').textContent = 'Konsole: ' + d.cfg.hostname;
-    $('#out').innerHTML = S.out[id].map(o => `<div class="ln k-${o.c}">${esc(o.t) || '&nbsp;'}</div>`).join(''); $('#out').scrollTop = 1e9; $('#prompt').textContent = NL.prompt(d, S.sess[id]).trim();
+    $('#out').innerHTML = S.out[id].map(o => `<div class="ln k-${o.c}">${esc(o.t) || '&nbsp;'}</div>`).join(''); $('#out').scrollTop = 1e9; $('#prompt').textContent = promptOf(d, S.sess[id]).trim();
   }
   function wireTerm() {
     const inp = $('#cmd');
     const runL = v => { const id = S.sel; if (!id) return; const d = S.net.devs[id], s = S.sess[id] || (S.sess[id] = NL.newSess());
-      act(() => { push(id, 'cmd', NL.prompt(d, s) + v); if (/^\s*(clear|cls)\s*$/i.test(v)) { S.out[id] = []; return; } let r; try { r = NL.isHost(d) ? hostLine(d, s, v) : NL.exec(S.net, id, s, v); } catch (e) { r = '% Interner Fehler: ' + e.message; }
+      act(() => { push(id, 'cmd', promptOf(d, s) + v); if (/^\s*(clear|cls)\s*$/i.test(v)) { S.out[id] = []; return; } let r; try { r = NL.isHost(d) ? hostRun(d, s, v) : NL.exec(S.net, id, s, v); } catch (e) { r = '% Interner Fehler: ' + e.message; }
         if (r) r.split('\n').forEach(l => push(id, /^\[(Ping-Debugger|Hinweis|Pfad|Debug|NAT)\]/.test(l) ? 'dbg' : (/^%/.test(l) && !/Creating vlan/.test(l) ? 'err' : 'out'), l)); }); };
     inp.addEventListener('keydown', e => {
       if (e.key === 'Enter') { const v = inp.value; inp.value = ''; if (v.trim()) S.hist.push(v); S.hi = S.hist.length; runL(v); $('#cmd').focus(); }
@@ -1017,6 +1018,7 @@ const Sandbox = (function () {
     if (!NL.validIp(host)) { const r = resolve(c, host); if (r.err) return { err: r.err }; ip = r.ip; }
     const r = NL.ping(S.net, c.id, ip, { proto: 'tcp', port }); if (!r.ok) return { err: `Zeitüberschreitung: ${ip}:${port} ist nicht erreichbar.`, why: r.reason };
     const srv = allIps()[ip], sv = srv && srv.svc;
+    if (srv && srv.lx && srv.lx.ufw && srv.lx.ufw.on && !srv.lx.ufw.allow.includes(String(port))) return { err: `Zeitüberschreitung: ${ip}:${port} antwortet nicht.`, why: `Die Firewall (ufw) auf ${srv.cfg.hostname} blockiert Port ${port}. Auf dem Server: sudo ufw allow ${port}` };
     if (!sv || !((port === 80 && sv.http.on) || (port === 443 && sv.http.on && sv.http.https))) return { err: `Verbindung abgelehnt: Auf ${srv ? srv.cfg.hostname : ip} lauscht kein ${port === 443 ? 'HTTPS' : 'HTTP'}-Server auf Port ${port}.` };
     return { ok: true, ip, host, scheme, port, title: sv.http.title || srv.cfg.hostname, body: sv.http.body };
   }
@@ -1037,6 +1039,19 @@ const Sandbox = (function () {
     }
     return { err: why };
   }
+  // Linux-Terminal für Server (siehe linux.js)
+  const isLx = d => !!d && LXN.isLinux(d) && !(MODELS[d.model] && MODELS[d.model].cloud);
+  const promptOf = (d, s) => isLx(d) ? LXN.prompt(d) : NL.prompt(d, s);
+  function lxCtx(net) {
+    net = net || S.net;
+    return {
+      net, ifaces: d => d.ports.filter(p => !isMg(p)).map((p, i) => { const h = hip(d, p) || {}; return { lin: 'eth' + i, port: p, ip: h.ip || null, mask: h.mask || null, up: NL.portStatus(net, d.id, p).st === 'connected' }; }),
+      setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => resolve(d, n), reach: (d, ip) => NL.ping(net, d.id, ip).ok,
+      fallback: (d, line) => hostLine(d, (S && S.sess && S.sess[d.id]) || NL.newSess(), line)
+    };
+  }
+  const hostRun = (d, s, v) => isLx(d) ? LXN.exec(lxCtx(), d, v) : hostLine(d, s, v);
+  const lxr = (net, h, lines) => { const d = hd(net, h); [].concat(lines).forEach(l => LXN.exec(lxCtx(net), d, l)); };
   function hostLine(d, s, raw) {
     const line = raw.trim().replace(/\s+/g, ' '), t = line.split(' '), c0 = (t[0] || '').toLowerCase(), ex = l => NL.exec(S.net, d.id, s, l);
     if (c0 === 'ping' && t[1] && !NL.validIp(t[1])) { const r = resolve(d, t[1]); return r.err ? `Ping-Anfrage konnte Host „${t[1]}“ nicht finden: ${r.err}` : `Ping ${t[1]} [${r.ip}]\n` + ex('ping ' + r.ip); }
@@ -1081,10 +1096,10 @@ const Sandbox = (function () {
     }
     function drawCmd() {
       const L = S.cmd[id] = S.cmd[id] || [{ c: 'sys', t: `Eingabeaufforderung ${d.cfg.hostname}\nBefehle: ipconfig [/all|/renew|/release], ping <Name|IP>, nslookup <Name>, curl <URL>, nc <IP> <Port>, trace <IP>` }];
-      body.innerHTML = back('Eingabeaufforderung') + `<div class="appterm"><div class="out" id="aout"></div><div class="inrow"><label for="acmd">${esc(d.cfg.hostname)}&gt;</label><input id="acmd" autocomplete="off" spellcheck="false" aria-label="Befehl"></div></div>`;
+      body.innerHTML = back('Eingabeaufforderung') + `<div class="appterm"><div class="out" id="aout"></div><div class="inrow"><label for="acmd">${esc(promptOf(d, null).trim())}</label><input id="acmd" autocomplete="off" spellcheck="false" aria-label="Befehl"></div></div>`;
       const show = () => { g('aout').innerHTML = L.map(o => `<div class="ln k-${o.c}">${esc(o.t).replace(/\n/g, '<br>') || '&nbsp;'}</div>`).join(''); g('aout').scrollTop = 1e9; }; show();
       const sess = S.sess[id] || (S.sess[id] = NL.newSess());
-      g('acmd').onkeydown = e => { if (e.key !== 'Enter') return; const v = e.target.value; e.target.value = ''; if (!v.trim()) return; L.push({ c: 'cmd', t: d.cfg.hostname + '> ' + v }); if (/^\s*(cls|clear)\s*$/i.test(v)) { L.length = 0; show(); return; } let r; try { r = hostLine(d, sess, v); } catch (x) { r = '% ' + x.message; } (r || '').split('\n').forEach(l => L.push({ c: /^\[(Ping-Debugger|Hinweis|NAT)\]/.test(l) ? 'dbg' : /^%/.test(l) ? 'err' : 'out', t: l })); show(); };
+      g('acmd').onkeydown = e => { if (e.key !== 'Enter') return; const v = e.target.value; e.target.value = ''; if (!v.trim()) return; L.push({ c: 'cmd', t: (isLx(d) ? promptOf(d) : d.cfg.hostname + '> ') + v }); if (/^\s*(cls|clear)\s*$/i.test(v)) { L.length = 0; show(); return; } let r; try { r = hostRun(d, sess, v); } catch (x) { r = '% ' + x.message; } (r || '').split('\n').forEach(l => L.push({ c: /^\[(Ping-Debugger|Hinweis|NAT)\]/.test(l) ? 'dbg' : /^%/.test(l) ? 'err' : 'out', t: l })); show(); };
       g('acmd').focus();
     }
     function drawWeb() {
@@ -1115,6 +1130,11 @@ const Sandbox = (function () {
   const rn = (net, h, lines) => run(net, hd(net, h).id, lines);
   const mk = (net, m, x, y, h) => addDev(net, m, x, y, h);
   const G = 'GigabitEthernet1/0/';
+  function lxBase(net, srv, bare) {
+    mk(net, 'C9200L-24P-4X', 450, 190, 'SW'); mk(net, 'ISR4331', 450, 50, 'R-GW'); mk(net, 'PC', 170, 320, 'PC-1'); mk(net, 'Server', 740, 320, srv); if (bare) hd(net, srv).svc.http.on = false;
+    lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24); lk(net, 'PC-1', 'eth0', 'SW', G + 1); lk(net, srv, 'eth0', 'SW', G + 2);
+    rn(net, 'R-GW', ['interface g0/0/1', 'ip address 10.0.0.1 255.255.255.0', 'no shutdown']); rn(net, 'PC-1', ['ip 10.0.0.20/24 10.0.0.1']); rn(net, srv, ['ip 10.0.0.10/24 10.0.0.1']); LXN.init(hd(net, srv));
+  }
   const SC = [
     { id: 'sc-l3', kind: 'Aufbau', title: 'Inter-VLAN-Routing am Switch', est: '10 min',
       intro: 'Vier PCs hängen an einem neuen Switch, alle mit IP-Adresse und Gateway. Trenne Vertrieb (VLAN 10) und IT (VLAN 20) – und lass den Switch zwischen den VLANs routen.',
@@ -1180,6 +1200,60 @@ const Sandbox = (function () {
         { t: 'Der Browser von PC-1 lädt <code>http://intranet.lab.local</code>', c: n => { const d = hd(n, 'PC-1'); return !!d && !!httpGet(d, 'http://intranet.lab.local').ok; } }],
       hints: ['Doppelklick auf PC-1 → Eingabeaufforderung: <code>ping 10.0.0.10</code> geht – <code>nslookup intranet.lab.local</code> nicht. Das trennt Netz von Namensauflösung.', 'DNS-Server des PCs: Desktop → IP-Konfiguration.', 'Dienste des Servers: Doppelklick auf SRV-INTRA → Reiter „Dienste“ (HTTP und DNS).'],
       sol(net) { hd(net, 'PC-1').cfg.dns = '10.0.0.10'; const sv = hd(net, 'SRV-INTRA').svc; sv.dns.records.push({ name: 'intranet.lab.local', ip: '10.0.0.10' }); sv.http.on = true; } }
+    ,
+    // ---- System Engineer: Linux-Server ----
+    { id: 'sc-lx-web', kind: 'Fehlersuche', title: 'Linux: nginx startet nicht', est: '10 min',
+      intro: 'Auf WEB-01 (Ubuntu) läuft der Webserver nicht, und die Seite ist von PC-1 aus nicht erreichbar. Seit der letzten Änderung an der Konfiguration ist nginx ausgefallen. Melde dich über das Terminal von WEB-01 an (Doppelklick auf das Gerät oder Reiter „Konsole“) und finde die Ursache mit <code>systemctl</code>, <code>journalctl</code> und <code>nginx -t</code>.',
+      build(net) { lxBase(net, 'WEB-01'); lxr(net, 'WEB-01', ["sudo sed -i 's/listen 80;/listen 80/' /etc/nginx/nginx.conf", 'sudo systemctl disable nginx', 'sudo systemctl restart nginx']); },
+      goals: [
+        { t: 'Die Konfiguration <code>/etc/nginx/nginx.conf</code> ist fehlerfrei', c: n => !!LXN.nginxCheck(hd(n, 'WEB-01').lx).ok },
+        { t: 'Der Dienst nginx läuft (<code>systemctl is-active nginx</code> = active)', c: n => !!hd(n, 'WEB-01').svc.http.on },
+        { t: 'nginx startet beim Booten automatisch (<code>enabled</code>)', c: n => !!hd(n, 'WEB-01').lx.units.nginx.enabled },
+        { t: 'PC-1 ruft <code>http://10.0.0.10</code> erfolgreich ab', c: n => { const d = hd(n, 'PC-1'); return !!d && !!httpGet(d, 'http://10.0.0.10').ok; } }],
+      hints: ['<code>systemctl status nginx</code> zeigt „failed“. Die Fehlermeldung steht im Journal: <code>journalctl -u nginx -n 10</code>.', 'Mit <code>sudo nginx -t</code> prüfst du die Konfiguration. Die Meldung nennt die Zeile und die Direktive, bei der ein Semikolon fehlt.', 'Datei ändern: <code>sudo sed -i \'s/listen 80$/listen 80;/\' /etc/nginx/nginx.conf</code>. Danach <code>sudo systemctl restart nginx</code> und <code>sudo systemctl enable nginx</code>.'],
+      sol(net) { lxr(net, 'WEB-01', ["sudo sed -i 's/listen 80$/listen 80;/' /etc/nginx/nginx.conf", 'sudo systemctl enable nginx', 'sudo systemctl restart nginx']); } },
+    { id: 'sc-lx-disk', kind: 'Fehlersuche', title: 'Linux: Festplatte ist voll', est: '10 min',
+      intro: 'Die Intranet-Seite auf WEB-01 ist ausgefallen. Ein Dienst schreibt seit Wochen Debug-Logs, und die Festplatte ist voll. Finde die große Datei, schaffe Platz, ohne die Datei zu löschen (der Dienst, der sie schreibt, braucht sie), und bringe nginx wieder hoch.',
+      build(net) { lxBase(net, 'WEB-01'); const d = hd(net, 'WEB-01'), L = LXN.init(d); L.fs['/var/log/app'] = { d: 1, o: 'root' }; L.fs['/var/log/app/debug.log'] = { t: '', s: 19 * 1024 ** 3, o: 'root', m: '644' }; lxr(net, 'WEB-01', 'sudo systemctl restart nginx'); },
+      goals: [
+        { t: 'Die Festplatte ist wieder unter 90 % belegt (<code>df -h</code>)', c: n => LXN.used(hd(n, 'WEB-01').lx) < 0.9 * LXN.TOTAL },
+        { t: 'Die Datei <code>/var/log/app/debug.log</code> existiert noch, ist aber leer', c: n => { const e = hd(n, 'WEB-01').lx.fs['/var/log/app/debug.log']; return !!e && !e.s && !(e.t || '').length; } },
+        { t: 'nginx läuft wieder', c: n => !!hd(n, 'WEB-01').svc.http.on },
+        { t: 'PC-1 lädt <code>http://10.0.0.10</code>', c: n => { const d = hd(n, 'PC-1'); return !!d && !!httpGet(d, 'http://10.0.0.10').ok; } }],
+      hints: ['<code>df -h</code> zeigt 100 % auf <code>/</code>. Den Verursacher findest du mit <code>sudo find / -size +1G</code> oder <code>sudo du -sh /var/log/*</code>.', 'Eine Logdatei, die ein Prozess offen hält, leert man mit <code>sudo truncate -s 0 &lt;Datei&gt;</code>. Löschen würde den Platz nicht sauber freigeben.', 'Danach: <code>sudo systemctl restart nginx</code>.'],
+      sol(net) { lxr(net, 'WEB-01', ['sudo truncate -s 0 /var/log/app/debug.log', 'sudo systemctl restart nginx']); } },
+    { id: 'sc-lx-dns', kind: 'Aufbau', title: 'Linux: DNS-Server mit bind9', est: '15 min',
+      intro: 'NS-01 ist ein frischer Ubuntu-Server mit IP-Adresse, aber ohne Dienste. Installiere bind9, lege die Zone <code>lab.local</code> mit dem Eintrag <code>intranet.lab.local → 10.0.0.10</code> an und sorge dafür, dass PC-1 den Namen auflöst. Den Gateway-Router erreicht der Server, deshalb funktioniert <code>apt</code>.',
+      build(net) { lxBase(net, 'NS-01', true); },
+      goals: [
+        { t: 'Das Paket <code>bind9</code> ist installiert', c: n => hd(n, 'NS-01').lx.pkgs.includes('bind9') },
+        { t: 'Die Zonendatei <code>/etc/bind/db.lab</code> enthält einen A-Record für <code>intranet</code> mit 10.0.0.10', c: n => /intranet\s+IN\s+A\s+10\.0\.0\.10/.test(LXN.readFile(hd(n, 'NS-01').lx, '/etc/bind/db.lab') || '') },
+        { t: 'Der Dienst bind9 läuft und kennt den Eintrag', c: n => { const sv = hd(n, 'NS-01').svc; return !!sv.dns.on && sv.dns.records.some(r => r.name === 'intranet.lab.local'); } },
+        { t: 'PC-1 nutzt <code>10.0.0.10</code> als DNS-Server', c: n => hd(n, 'PC-1').cfg.dns === '10.0.0.10' },
+        { t: 'PC-1 löst <code>intranet.lab.local</code> auf', c: n => { const d = hd(n, 'PC-1'); return !!d && !!resolve(d, 'intranet.lab.local').ip; } }],
+      hints: ['<code>sudo apt update</code> und <code>sudo apt install bind9</code>.', 'Eintrag anhängen: <code>echo "intranet IN A 10.0.0.10" | sudo tee -a /etc/bind/db.lab</code>. Die Datei <code>db.lab</code> gibt es noch nicht, <code>tee -a</code> legt sie an. Der Zonenname ist <code>lab.local</code>.', 'Zone laden: <code>sudo systemctl restart bind9</code>. Der Client trägt den DNS-Server in der IP-Konfiguration (Desktop) ein. Prüfen mit <code>nslookup intranet.lab.local</code> auf PC-1.'],
+      sol(net) { lxr(net, 'NS-01', ['sudo apt install bind9', "echo '$ORIGIN lab.local.' | sudo tee /etc/bind/db.lab", 'echo "intranet IN A 10.0.0.10" | sudo tee -a /etc/bind/db.lab', 'sudo systemctl restart bind9']); hd(net, 'PC-1').cfg.dns = '10.0.0.10'; } },
+    { id: 'sc-lx-dhcp', kind: 'Aufbau', title: 'Linux: DHCP-Server einrichten', est: '15 min',
+      intro: 'PC-2 soll seine Adresse automatisch bekommen. Richte auf DHCP-01 (Ubuntu) den Dienst <code>isc-dhcp-server</code> ein: Pool 10.0.0.100 bis 10.0.0.150, Gateway 10.0.0.1. Danach holt PC-2 eine Adresse (im Planer: Doppelklick auf PC-2 → Eingabeaufforderung → <code>ipconfig /renew</code>).',
+      build(net) { lxBase(net, 'DHCP-01', true); mk(net, 'PC', 170, 420, 'PC-2'); lk(net, 'PC-2', 'eth0', 'SW', G + 3); hd(net, 'PC-2').cfg.dhcp = true; },
+      goals: [
+        { t: 'Das Paket <code>isc-dhcp-server</code> ist installiert', c: n => hd(n, 'DHCP-01').lx.pkgs.includes('isc-dhcp-server') },
+        { t: '<code>/etc/dhcp/dhcpd.conf</code> hat ein subnet mit range 10.0.0.100 bis 10.0.0.150 und Gateway 10.0.0.1', c: n => { const t = LXN.readFile(hd(n, 'DHCP-01').lx, '/etc/dhcp/dhcpd.conf') || '', c = t.split('\n').filter(l => !l.trim().startsWith('#')).join('\n'); return /subnet\s+10\.0\.0\.0\s+netmask\s+255\.255\.255\.0/.test(c) && /range\s+10\.0\.0\.100\s+10\.0\.0\.150\s*;/.test(c) && /option\s+routers\s+10\.0\.0\.1\s*;/.test(c); } },
+        { t: 'Der Dienst läuft', c: n => !!hd(n, 'DHCP-01').svc.dhcp.on },
+        { t: 'PC-2 hat per DHCP eine Adresse aus dem Pool', c: n => { const p = hd(n, 'PC-2'); return !!p.cfg.ip && NL.ip2n(p.cfg.ip) >= NL.ip2n('10.0.0.100') && NL.ip2n(p.cfg.ip) <= NL.ip2n('10.0.0.150'); } }],
+      hints: ['<code>sudo apt install isc-dhcp-server</code>. Der Start direkt nach der Installation scheitert: Die Konfiguration ist noch leer, das ist normal.', 'Die Datei besteht aus einem Block: <code>subnet 10.0.0.0 netmask 255.255.255.0 { … }</code> mit den Zeilen <code>range 10.0.0.100 10.0.0.150;</code> und <code>option routers 10.0.0.1;</code>. Schreibe sie zeilenweise mit <code>echo "…" | sudo tee -a /etc/dhcp/dhcpd.conf</code>.', 'Danach <code>sudo systemctl restart isc-dhcp-server</code> und auf PC-2 <code>ipconfig /renew</code>.'],
+      sol(net) { lxr(net, 'DHCP-01', ['sudo apt install isc-dhcp-server', 'echo "subnet 10.0.0.0 netmask 255.255.255.0 {" | sudo tee /etc/dhcp/dhcpd.conf', 'echo "  range 10.0.0.100 10.0.0.150;" | sudo tee -a /etc/dhcp/dhcpd.conf', 'echo "  option routers 10.0.0.1;" | sudo tee -a /etc/dhcp/dhcpd.conf', 'echo "}" | sudo tee -a /etc/dhcp/dhcpd.conf', 'sudo systemctl restart isc-dhcp-server']); hostLine(hd(net, 'PC-2'), NL.newSess(), 'ipconfig /renew'); } },
+    { id: 'sc-lx-ufw', kind: 'Fehlersuche', title: 'Linux: Firewall blockt den Webserver', est: '8 min',
+      intro: 'nginx läuft auf WEB-01, trotzdem lädt <code>http://10.0.0.10</code> auf PC-1 nicht. Ein Kollege hat die Host-Firewall <code>ufw</code> aktiviert und nur SSH freigegeben. Gib den Webport frei, ohne SSH zu sperren.',
+      build(net) { lxBase(net, 'WEB-01'); lxr(net, 'WEB-01', ['sudo ufw allow 22', 'sudo ufw enable']); },
+      goals: [
+        { t: 'nginx läuft', c: n => !!hd(n, 'WEB-01').svc.http.on },
+        { t: 'ufw ist weiterhin aktiv', c: n => !!hd(n, 'WEB-01').lx.ufw.on },
+        { t: 'SSH (Port 22) bleibt erlaubt', c: n => hd(n, 'WEB-01').lx.ufw.allow.includes('22') },
+        { t: 'Port 80 ist freigegeben', c: n => hd(n, 'WEB-01').lx.ufw.allow.includes('80') },
+        { t: 'PC-1 lädt <code>http://10.0.0.10</code>', c: n => { const d = hd(n, 'PC-1'); return !!d && !!httpGet(d, 'http://10.0.0.10').ok; } }],
+      hints: ['<code>sudo ufw status</code> zeigt die Regeln. Der Dienst läuft, also liegt das Problem davor.', 'Mit <code>sudo ufw allow 80</code> gibst du den Webport frei. <code>ufw disable</code> wäre die falsche Abkürzung: Die Firewall soll an bleiben.'],
+      sol(net) { lxr(net, 'WEB-01', 'sudo ufw allow 80'); } }
   ];
   function buildScen(id) { const sc = SC.find(x => x.id === id), net = newNet(); sc.build(net); return net; }
   const sdone = () => store.get('scendone', []);
@@ -1435,7 +1509,7 @@ const Sandbox = (function () {
 
   function close() { document.removeEventListener('keydown', escKey); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;
