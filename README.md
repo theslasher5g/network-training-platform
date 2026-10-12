@@ -33,6 +33,14 @@ npm test        # Labs, Apps, Internet, Szenarien (Musterlösung muss alle Ziele
 
 Voraussetzungen: Node.js und Python 3. Die gebaute Datei lädt nur Schriftarten von Google Fonts und JSZip (für den ZIP-Export) von cdnjs; alles andere läuft lokal. Fortschritt und Projekte speichert der Browser per `localStorage`.
 
+## Mit Docker starten
+
+```bash
+docker compose up -d --build   # baut das Image und startet NetLab
+```
+
+Danach läuft NetLab unter <http://localhost:8080>. Stoppen mit `docker compose down`. Ohne Compose: `docker build -t netlab . && docker run -d -p 8080:80 netlab`. Der Port lässt sich in `docker-compose.yml` ändern.
+
 ## Hinweise
 
 Der Simulator bildet Cisco IOS/IOS-XE und ASA vereinfacht nach. Slot-Zahlen und Standardbestückung der Huawei-Geräte sind Planungsannahmen – vor einer Bestellung mit dem Datenblatt abgleichen. Exportierte Konfigurationen sind Vorlagen: Passwörter, Keys, Interface-Namen und WWPNs vor dem Rollout prüfen.
