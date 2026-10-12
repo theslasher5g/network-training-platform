@@ -380,14 +380,24 @@ const WEBGUI = (function () {
   }
 
   // ---------- Öffentliche Schnittstelle ----------
+  const OPEN = {}; let ZTOP = 40, CASCADE = 0;
   function open(devId) {
-    const host = document.createElement('div'); host.className = 'wg-overlay'; document.body.appendChild(host);
-    const win = document.createElement('div'); win.className = 'wg-frame'; host.appendChild(win);
-    const close = () => { host.remove(); document.removeEventListener('keydown', esc_); };
-    const esc_ = e => { if (e.key === 'Escape' && !(win.querySelector('.wg-dlg'))) close(); };
-    document.addEventListener('keydown', esc_);
-    host.addEventListener('mousedown', e => { if (e.target === host) close(); });
-    const G = bind(create(devId, win, { chrome: true, onClose: close })); G.draw(); return G;
+    const ex = OPEN[devId]; if (ex && document.body.contains(ex.host)) { ex.host.style.zIndex = ++ZTOP; ex.host.classList.remove('min'); return ex.G; }
+    const vw = window.innerWidth, vh = window.innerHeight, w = Math.min(1040, vw - 24), h = Math.min(700, vh - 24), off = (CASCADE++ % 6) * 28;
+    const host = document.createElement('div'); host.className = 'wg-float'; host.style.cssText = `left:${Math.max(8, Math.round((vw - w) / 2) + off - 70)}px;top:${Math.max(8, 40 + off)}px;width:${w}px;height:${h}px;z-index:${++ZTOP}`;
+    const win = document.createElement('div'); host.appendChild(win); document.body.appendChild(host);
+    const close = () => { host.remove(); delete OPEN[devId]; };
+    // Verschieben an der Titelleiste, Doppelklick maximiert, Ziehen an der unteren rechten Ecke ändert die Größe
+    let drag = null, saved = null;
+    host.addEventListener('pointerdown', e => {
+      host.style.zIndex = ++ZTOP;
+      const bar = e.target.closest('.wg-chrome'); if (!bar || e.target.closest('button') || host.classList.contains('max')) return;
+      drag = { x: e.clientX, y: e.clientY, l: host.offsetLeft, t: host.offsetTop }; host.setPointerCapture(e.pointerId); host.classList.add('moving');
+    });
+    host.addEventListener('pointermove', e => { if (!drag) return; const L = Math.min(window.innerWidth - 80, Math.max(80 - host.offsetWidth, drag.l + e.clientX - drag.x)), T = Math.min(window.innerHeight - 40, Math.max(0, drag.t + e.clientY - drag.y)); host.style.left = L + 'px'; host.style.top = T + 'px'; });
+    const end = () => { drag = null; host.classList.remove('moving'); }; host.addEventListener('pointerup', end); host.addEventListener('pointercancel', end);
+    host.addEventListener('dblclick', e => { const bar = host.querySelector('.wg-chrome'), r = bar && bar.getBoundingClientRect(); if (!r || e.clientY < r.top || e.clientY > r.bottom || e.target.closest('button')) return; if (host.classList.toggle('max')) { saved = host.style.cssText; host.style.cssText = `z-index:${ZTOP}`; } else if (saved) host.style.cssText = saved + `;z-index:${++ZTOP}`; });
+    const G = bind(create(devId, win, { chrome: true, onClose: close })); OPEN[devId] = { host, G }; G.draw(); return G;
   }
   function mount(root, devId, o) { const G = bind(create(devId, root, Object.assign({ chrome: false }, o || {}))); G.draw(); return G; }
   // Testhilfe: Seitenaufbau ohne DOM

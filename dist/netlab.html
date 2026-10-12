@@ -636,10 +636,12 @@ table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vert
 /* ===== Web-GUIs der Geräte (immer hell, wie echte Weboberflächen) ===== */
 .webbox{display:flex;flex-direction:column;gap:.35rem;border:1px solid var(--line);border-radius:14px;padding:.7rem .8rem;margin:.6rem 0;background:color-mix(in srgb,var(--blue) 6%,var(--panel))}
 .webbox b{font:700 .92rem var(--display)}.webbox .btn{margin-top:.2rem}
-.wg-overlay{position:fixed;inset:0;z-index:40;background:rgba(8,12,22,.62);display:grid;place-items:center;padding:clamp(.4rem,2.5vw,2rem);backdrop-filter:blur(3px)}
-.wg-frame{width:min(1280px,100%);height:min(860px,100%);display:flex}
+.wg-float{position:fixed;display:flex;min-width:520px;min-height:360px;max-width:100vw;max-height:100vh;resize:both;overflow:hidden;border-radius:14px;box-shadow:0 24px 70px rgba(8,12,22,.45),0 0 0 1px rgba(8,12,22,.12)}
+.wg-float>div{flex:1;display:flex;min-width:0;min-height:0}.wg-float.moving{user-select:none}.wg-float.moving .wg-chrome{cursor:grabbing}
+.wg-float.max{left:8px!important;top:8px!important;width:calc(100vw - 16px)!important;height:calc(100vh - 16px)!important;resize:none}
+@media (max-width:600px){.wg-float{min-width:0;width:calc(100vw - 12px)!important;left:6px!important}}
 .wg-win{flex:1;display:flex;flex-direction:column;min-width:0;background:#fff;color:#1b2430;border-radius:14px;overflow:hidden;box-shadow:0 30px 90px rgba(0,0,0,.45);font:14px/1.5 var(--sans)}
-.wg-chrome{display:flex;align-items:center;gap:.8rem;padding:.55rem .8rem;background:#e9edf3;border-bottom:1px solid #cfd6e0}
+.wg-chrome{cursor:grab;user-select:none;display:flex;align-items:center;gap:.8rem;padding:.55rem .8rem;background:#e9edf3;border-bottom:1px solid #cfd6e0}
 .wg-dots{display:flex;gap:6px}.wg-dots i{width:11px;height:11px;border-radius:50%;background:#c3ccd8}
 .wg-url{flex:1;display:flex;align-items:center;gap:.5rem;background:#fff;border:1px solid #cfd6e0;border-radius:999px;padding:.28rem .8rem;font-size:.84rem;min-width:0}
 .wg-url svg{width:14px;height:14px;fill:none;stroke:#2f7d4f;stroke-width:2;flex:none}.wg-url span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wg-url em{margin-left:auto;font-size:.74rem;color:#7a5a00;font-style:normal;white-space:nowrap}
@@ -3690,14 +3692,24 @@ const WEBGUI = (function () {
   }
 
   // ---------- Öffentliche Schnittstelle ----------
+  const OPEN = {}; let ZTOP = 40, CASCADE = 0;
   function open(devId) {
-    const host = document.createElement('div'); host.className = 'wg-overlay'; document.body.appendChild(host);
-    const win = document.createElement('div'); win.className = 'wg-frame'; host.appendChild(win);
-    const close = () => { host.remove(); document.removeEventListener('keydown', esc_); };
-    const esc_ = e => { if (e.key === 'Escape' && !(win.querySelector('.wg-dlg'))) close(); };
-    document.addEventListener('keydown', esc_);
-    host.addEventListener('mousedown', e => { if (e.target === host) close(); });
-    const G = bind(create(devId, win, { chrome: true, onClose: close })); G.draw(); return G;
+    const ex = OPEN[devId]; if (ex && document.body.contains(ex.host)) { ex.host.style.zIndex = ++ZTOP; ex.host.classList.remove('min'); return ex.G; }
+    const vw = window.innerWidth, vh = window.innerHeight, w = Math.min(1040, vw - 24), h = Math.min(700, vh - 24), off = (CASCADE++ % 6) * 28;
+    const host = document.createElement('div'); host.className = 'wg-float'; host.style.cssText = `left:${Math.max(8, Math.round((vw - w) / 2) + off - 70)}px;top:${Math.max(8, 40 + off)}px;width:${w}px;height:${h}px;z-index:${++ZTOP}`;
+    const win = document.createElement('div'); host.appendChild(win); document.body.appendChild(host);
+    const close = () => { host.remove(); delete OPEN[devId]; };
+    // Verschieben an der Titelleiste, Doppelklick maximiert, Ziehen an der unteren rechten Ecke ändert die Größe
+    let drag = null, saved = null;
+    host.addEventListener('pointerdown', e => {
+      host.style.zIndex = ++ZTOP;
+      const bar = e.target.closest('.wg-chrome'); if (!bar || e.target.closest('button') || host.classList.contains('max')) return;
+      drag = { x: e.clientX, y: e.clientY, l: host.offsetLeft, t: host.offsetTop }; host.setPointerCapture(e.pointerId); host.classList.add('moving');
+    });
+    host.addEventListener('pointermove', e => { if (!drag) return; const L = Math.min(window.innerWidth - 80, Math.max(80 - host.offsetWidth, drag.l + e.clientX - drag.x)), T = Math.min(window.innerHeight - 40, Math.max(0, drag.t + e.clientY - drag.y)); host.style.left = L + 'px'; host.style.top = T + 'px'; });
+    const end = () => { drag = null; host.classList.remove('moving'); }; host.addEventListener('pointerup', end); host.addEventListener('pointercancel', end);
+    host.addEventListener('dblclick', e => { const bar = host.querySelector('.wg-chrome'), r = bar && bar.getBoundingClientRect(); if (!r || e.clientY < r.top || e.clientY > r.bottom || e.target.closest('button')) return; if (host.classList.toggle('max')) { saved = host.style.cssText; host.style.cssText = `z-index:${ZTOP}`; } else if (saved) host.style.cssText = saved + `;z-index:${++ZTOP}`; });
+    const G = bind(create(devId, win, { chrome: true, onClose: close })); OPEN[devId] = { host, G }; G.draw(); return G;
   }
   function mount(root, devId, o) { const G = bind(create(devId, root, Object.assign({ chrome: false }, o || {}))); G.draw(); return G; }
   // Testhilfe: Seitenaufbau ohne DOM
