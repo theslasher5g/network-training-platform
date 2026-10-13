@@ -35,4 +35,19 @@ ok(pages > 80, pages + ' Seiten gerendert');
   ok(/GAST_IN/.test(GUI.renderPage(fw.id, 'rules')), 'Regelseite zeigt die neue Liste');
   const o2 = api.ios('FW-01', ['no access-group x in interface ' + Object.values(fw.cfg.ifs).find(i => i.nameif).nameif]); ok(!/^%/m.test(o2), 'Bindung loesen funktioniert');
 }
+{
+  const net = SB.example(), api = SB.testApi(net), sw = Object.values(net.devs).find(d => d.cfg.hostname === 'SW-ACC-01'), pc = Object.values(net.devs).find(d => d.cfg.hostname === 'PC-101');
+  const reach = () => NL.ping(net, pc.id, '10.10.0.1').ok;
+  const before = reach(); ok(before, 'Ausgangslage: PC-101 erreicht SW-CORE');
+  api.ios('SW-ACC-01', ['hostname UNGESPEICHERT']); api.powerOff(sw.id);
+  ok(NL.isDown(sw) && !reach(), 'ausgeschalteter Access-Switch: PC nicht mehr erreichbar');
+  ok(/ausgeschaltet/.test(api.iosShow(sw.cfg.hostname, 'show version')), 'CLI meldet: ausgeschaltet');
+  api.powerOn(sw.id);
+  ok(NL.booting(sw) && !reach(), 'beim Booten noch nicht erreichbar');
+  ok(/startet noch/.test(api.iosShow(sw.cfg.hostname, 'show version')), 'CLI meldet: startet noch');
+  ok(sw.cfg.hostname === 'SW-ACC-01', 'nicht gespeicherte Config ist nach dem Neustart weg (Startup-Config geladen)');
+  api.finishBoot(sw.id); ok(!NL.booting(sw) && reach(), 'nach dem Booten wieder erreichbar');
+  api.ios(sw.cfg.hostname, ['hostname GESPEICHERT']); api.ios(sw.cfg.hostname, ['write memory'], { conf: false }); api.powerOff(sw.id); api.powerOn(sw.id); api.finishBoot(sw.id);
+  ok(sw.cfg.hostname === 'GESPEICHERT', 'gespeicherte Config bleibt nach Neustart erhalten');
+}
 process.exit(bad ? 1 : 0);

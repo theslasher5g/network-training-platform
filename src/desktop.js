@@ -30,19 +30,24 @@ const DESKTOP = (function () {
 
   function open(devId) {
     const ex = OPEN[devId]; if (ex && document.body.contains(ex.host)) { ex.host.style.zIndex = 9000; ex.host.classList.remove('min'); return ex; }
+    const f = A.GUI.floatFrame({ w: 1120, h: 720, cls: 'dk-host', handle: '.dk-title', onClose: () => { delete OPEN[devId]; } });
+    const h = build(devId, f.body, f); OPEN[devId] = h; return h;
+  }
+  // Eingebettet (Tab "Systeme"): kein eigener Fensterrahmen
+  function mount(root, devId) { return build(devId, root, null); }
+  function build(devId, root, f) {
     const dev = () => A.net().devs[devId], W = () => A.WIN.init(dev()), files = () => W().files;
-    const f = A.GUI.floatFrame({ w: 1120, h: 720, cls: 'dk-host', handle: '.dk-title', onClose: () => { delete OPEN[devId]; clearInterval(tick); } });
-    const root = f.body; let z = 10, seq = 0, menu = false; const wins = [];
-    root.innerHTML = `<div class="dk" tabindex="-1"><div class="dk-title" role="presentation"><span class="wg-dots"><i></i><i></i><i></i></span><b>${esc(dev().cfg.hostname)}</b><span class="dk-sub">Windows 11 · Desktop</span><button class="wg-x" data-g="close" aria-label="Desktop schließen">✕</button></div>
+    let z = 10, seq = 0, menu = false; const wins = []; f = f || { host: root, close() { } };
+    root.innerHTML = `<div class="dk ${f.body ? '' : 'emb'}" tabindex="-1">${f.body ? `<div class="dk-title" role="presentation"><span class="wg-dots"><i></i><i></i><i></i></span><b>${esc(dev().cfg.hostname)}</b><span class="dk-sub">Windows 11 · Desktop</span><button class="wg-x" data-g="close" aria-label="Desktop schließen">✕</button></div>` : ''}
       <div class="dk-screen" id="dk-screen"><div class="dk-icons" id="dk-icons"></div></div>
-      <div class="dk-menu" id="dk-menu" hidden></div>
+      <div class="dk-off" id="dk-off" hidden></div><div class="dk-menu" id="dk-menu" hidden></div>
       <div class="dk-task"><button class="dk-start" data-g="menu" aria-label="Startmenü" aria-expanded="false">${ico('start')}</button><div class="dk-run" id="dk-run"></div><div class="dk-tray" id="dk-tray"></div></div></div>`;
     const $ = s => root.querySelector(s), screen = $('#dk-screen');
 
     // ---------- Desktop-Symbole, Startmenü, Taskleiste ----------
     const desk = () => Object.keys(files()).filter(k => parentOf(k) === HOME + '\\Desktop' && !files()[k].d);
     const drawIcons = () => {
-      const base = [['explorer', 'Dieser PC', 'pc'], ['cmd', 'Eingabeaufforderung', 'cmd'], ['browser', 'Webbrowser', 'browser'], ['net', 'Netzwerk', 'net'], ['edit', 'Editor', 'edit'], ['settings', 'Einstellungen', 'settings']];
+      const base = [['explorer', 'Dieser PC', 'pc'], ['cmd', 'Eingabeauf&shy;forderung', 'cmd'], ['browser', 'Webbrowser', 'browser'], ['net', 'Netzwerk', 'net'], ['edit', 'Editor', 'edit'], ['settings', 'Einstellungen', 'settings']];
       $('#dk-icons').innerHTML = base.map(([a, n, i]) => `<button class="dk-ic" data-app="${a}" ${a === 'explorer' ? 'data-arg="PC"' : ''}>${ico(i)}<span>${n}</span></button>`).join('') + desk().map(p => `<button class="dk-ic" data-app="edit" data-arg="${esc(p)}">${ico('file')}<span>${esc(baseOf(p))}</span></button>`).join('');
     };
     const drawMenu = () => {
@@ -56,7 +61,13 @@ const DESKTOP = (function () {
       const n = ipOf(), t = new Date();
       $('#dk-tray').innerHTML = `<span class="dk-net ${n.up ? 'up' : 'dn'}" title="${n.up ? 'Verbunden' + (n.ip ? ', ' + esc(n.ip) : ', keine IP-Adresse') : 'Kein Netzwerkkabel verbunden'}">${ico('net')}</span><span class="dk-clock">${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}</span>`;
     };
-    const tick = setInterval(() => { if (!document.body.contains(f.host)) { clearInterval(tick); return; } drawTask(); }, 15000);
+    let lastPs = null, lastMin = -1;
+    const drawPower = () => {
+      const ps = A.powerState(dev()), el = $('#dk-off'); if (ps === lastPs) return; lastPs = ps; el.hidden = ps === 'on';
+      if (ps === 'off') { el.innerHTML = `${ico('pc')}<h2>${esc(dev().cfg.hostname)} ist ausgeschaltet</h2><p>Schalte den PC ein, dann startet Windows.</p><button class="dk-b pri" data-g="pwron">Einschalten</button>`; }
+      else if (ps === 'boot') { el.innerHTML = `${ico('pc')}<h2>Windows startet …</h2><div class="wg-boot"><i style="animation-duration:${A.bootLeft(dev())}ms"></i></div>`; }
+    };
+    const tick = setInterval(() => { if (!document.body.contains(f.host)) { clearInterval(tick); return; } drawPower(); const m = new Date().getMinutes(); if (m !== lastMin) { lastMin = m; drawTask(); } }, 1000);
 
     // ---------- Fenster ----------
     const place = w => { const e = w.el; e.classList.toggle('max', !!w.max); e.hidden = !!w.min; e.style.zIndex = w.z; if (!w.max) { e.style.left = w.x + 'px'; e.style.top = w.y + 'px'; e.style.width = w.w + 'px'; e.style.height = w.h + 'px'; } else { e.style.left = e.style.top = e.style.width = e.style.height = ''; } e.classList.toggle('foc', w === focused()); };
@@ -189,7 +200,7 @@ const DESKTOP = (function () {
     root.addEventListener('dblclick', e => { const bar = e.target.closest('.dk-wt'); if (bar && !e.target.closest('button')) { const w = winOf(bar); w.max = !w.max; place(w); return; } const ic = e.target.closest('.dk-ic'); if (ic) { launch(ic.dataset.app, ic.dataset.arg); } });
     root.addEventListener('click', e => {
       const t = e.target, g = t.closest('[data-g]'), wb = t.closest('[data-w]'), tb = t.closest('[data-tb]'), ap = t.closest('#dk-menu [data-app]'), ic = t.closest('.dk-ic');
-      if (g) { if (g.dataset.g === 'close') f.close(); else if (g.dataset.g === 'menu') { menu = !menu; drawMenu(); } return; }
+      if (g) { if (g.dataset.g === 'pwron') { A.powerOn(devId); drawPower(); } else if (g.dataset.g === 'close') f.close(); else if (g.dataset.g === 'menu') { menu = !menu; drawMenu(); } return; }
       if (wb) { const w = winOf(wb); if (wb.dataset.w === 'x') closeWin(w); else if (wb.dataset.w === 'min') { w.min = true; wins.forEach(place); drawTask(); } else { w.max = !w.max; place(w); } return; }
       if (tb) { const w = wins.find(x => x.id === tb.dataset.tb); if (w === focused()) { w.min = true; wins.forEach(place); drawTask(); } else focus(w); return; }
       if (ap) { menu = false; drawMenu(); launch(ap.dataset.app, ap.dataset.arg); return; }
@@ -197,9 +208,9 @@ const DESKTOP = (function () {
       if (t.closest('#dk-screen') && !t.closest('.dk-win')) root.querySelectorAll('.dk-ic.sel').forEach(x => x.classList.remove('sel'));
     });
     root.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('dk-ic')) launch(e.target.dataset.app, e.target.dataset.arg); if (e.key === 'Escape' && menu) { menu = false; drawMenu(); } });
-    const h = { host: f.host, close: f.close, launch, wins }; OPEN[devId] = h; drawIcons(); drawTask();
-    return h;
+    drawIcons(); drawTask(); drawPower();
+    return { host: f.host, close: f.close, launch, wins };
   }
-  return { init, open };
+  return { init, open, mount };
 })();
 if (typeof module !== 'undefined') module.exports = DESKTOP;

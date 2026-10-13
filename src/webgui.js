@@ -38,6 +38,13 @@ const WEBGUI = (function () {
       const d = dev(); if (!d) { root.innerHTML = '<p class="wg-empty">Das Gerät gibt es nicht mehr.</p>'; return; }
       const k = kind(), main = root.querySelector('.wg-main'), top = main ? main.scrollTop : 0, ip = hostIp(d);
       if (!k) { root.innerHTML = '<p class="wg-empty">Dieses Gerät hat keine Weboberfläche.</p>'; return; }
+      clearTimeout(G._bt); const ps = A.powerState ? A.powerState(d) : 'on';
+      if (ps !== 'on') {
+        const left = A.bootLeft(d), name = PRODUCT[k][0];
+        root.innerHTML = `<div class="wg-win">${G.chrome ? `<div class="wg-chrome"><span class="wg-dots"><i></i><i></i><i></i></span><div class="wg-url"><span>${esc(d.cfg.hostname)}</span></div><button class="wg-x" data-act="close" aria-label="Fenster schließen">✕</button></div>` : ''}<div class="wg-off ${ps}"><div>${logo(k)}<h2>${ps === 'off' ? esc(d.cfg.hostname) + ' ist ausgeschaltet' : esc(d.cfg.hostname) + ' startet …'}</h2><p>${ps === 'off' ? 'Die Weboberfläche ist erst nach dem Einschalten und Booten erreichbar.' : name + ' ist gleich bereit.'}</p>${ps === 'off' ? btn('Einschalten', 'pwron', null, 'primary') : `<div class="wg-boot"><i style="animation-duration:${left}ms"></i></div>`}</div></div></div>`;
+        if (ps === 'boot') G._bt = setTimeout(() => { if (document.body.contains(root)) draw(); }, left + 80);
+        return;
+      }
       const url = `https://${ip || d.cfg.hostname.toLowerCase()}${isNet(k) ? '' : ':' + PORT}/`;
       const chrome = G.chrome ? `<div class="wg-chrome"><span class="wg-dots"><i></i><i></i><i></i></span><div class="wg-url" title="${esc(url)}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>${esc(url)}</span>${ip ? '' : '<em>Direktzugriff (keine IP-Adresse)</em>'}</div><button class="wg-x" data-act="close" aria-label="Fenster schließen">✕</button></div>` : '';
       if (!G.auth) { root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-login wg-${k}"><form class="wg-lc" data-act="login"><div class="wg-logo">${logo(k)}</div><h2>${PRODUCT[k][0]}</h2><p>${esc(d.cfg.hostname)} · ${PRODUCT[k][1]}</p>${field('user', 'Benutzername', k === 'windows' ? 'Administrator' : 'admin')}${field('pw', 'Kennwort', 'NetLab-2026', { type: 'password' })}<button type="submit" class="wg-b primary wide" data-act="login">Anmelden</button><small>Simulator-Zugangsdaten sind vorausgefüllt.</small></form></div></div>`; return; }
@@ -553,6 +560,7 @@ const WEBGUI = (function () {
         case 'hostname': { const n = v(G, 'hn').trim().replace(/\s+/g, '-'); if (n) ios(G, 'hostname ' + n, 'Hostname geändert.'); break; }
         case 'iosave': { const o = A.ios(dv, ['write memory'], { conf: false }); G.log.push({ cmd: 'write memory', err: false }); G.msg = /OK/.test(o) ? { t: 'Konfiguration gespeichert (Startup-Config).' } : { err: true, t: o }; break; }
         case 'close': if (G.onClose) G.onClose(); return;
+        case 'pwron': A.powerOn(G.id); break;
         case 'logout': SESS[G.id] = false; G.auth = false; G.msg = null; break;
         case 'nav': G.page = D.p; G.dlg = null; break;
         case 'tab': G.tab[D.t] = D.v; break;

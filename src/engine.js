@@ -142,21 +142,25 @@ const NL = (function () {
     for (const l of net.links) { if (l.a === d && l.ap === p) return { dev: l.b, port: l.bp }; if (l.b === d && l.bp === p) return { dev: l.a, port: l.ap }; }
     return null;
   }
-  function portAdminUp(net, dId, p) { const d = net.devs[dId]; if (d.off) return false; if (isHost(d)) return true; const i = d.cfg.ifs[p]; return !!i && !i.shutdown; }
+  // Ausgeschaltet oder noch beim Booten (d.boot = { t0, ms })
+  let clockFn = null; const now = () => clockFn ? clockFn() : Date.now(), setClock = f => { clockFn = f; };
+  const booting = d => !!(d.boot && now() < d.boot.t0 + d.boot.ms), isDown = d => !!(d.off || booting(d));
+  const downWhy = d => d.off ? 'ist ausgeschaltet' : 'startet noch (Bootvorgang läuft)';
+  function portAdminUp(net, dId, p) { const d = net.devs[dId]; if (isDown(d)) return false; if (isHost(d)) return true; const i = d.cfg.ifs[p]; return !!i && !i.shutdown; }
   function linkOf(net, d, p) { return net.links.find(l => (l.a === d && l.ap === p) || (l.b === d && l.bp === p)) || null; }
   const cfgSpeed = (d, p) => { const i = d.cfg.ifs && d.cfg.ifs[p]; const e = i && i.extra.find(x => /^speed \d+$/.test(x)); return e ? +e.split(' ')[1] : null; };
   function phys(net, l) {
     if (l.virt) { // virtueller Link VM ↔ vSwitch des Hypervisor-Hosts
       const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], h = net.devs[vm.vm.host];
       if (vm.vm.state !== 'running') return { ok: false, reason: `${vm.cfg.hostname} ist ausgeschaltet (VM gestoppt)` };
-      if (h.off) return { ok: false, reason: `Der Host ${h.cfg.hostname} ist ausgeschaltet (Ausfall-Simulation)` };
+      if (isDown(h)) return { ok: false, reason: `Der Host ${h.cfg.hostname} ${downWhy(h)}` };
       return { ok: true, speed: 10000, proto: 'eth' };
     }
     const cab = l.cable || 'cu';
     const S = [[l.a, l.ap], [l.b, l.bp]].map(([id, p]) => { const d = net.devs[id]; return { d, p, h: d.cfg.hostname, k: (d.pk && d.pk[p]) || 'rj45', x: d.xcvr && d.xcvr[p] }; });
     const bad = r => ({ ok: false, reason: r });
     if (l.cut) return bad('Kabel ist gezogen (Ausfall-Simulation)');
-    const offs = S.filter(s => s.d.off); if (offs.length) return bad(`${offs[0].h} ist ausgeschaltet (Ausfall-Simulation)`);
+    const offs = S.filter(s => isDown(s.d)); if (offs.length) return bad(`${offs[0].h} ${downWhy(offs[0].d)}`);
     const fcA = S[0].k === 'fc', fcB = S[1].k === 'fc';
     if (fcA !== fcB) { const f = S[fcA ? 0 : 1], e = S[fcA ? 1 : 0]; return bad(`Fibre-Channel-Port (${f.h} ${sh(f.p)}) und Ethernet-Port (${e.h} ${sh(e.p)}) lassen sich nicht verbinden`); }
     const sp = [];
@@ -692,7 +696,7 @@ const NL = (function () {
     if (!fromConf && M(t, 'disable')) { s.mode = 'user'; return ''; }
     if (!fromConf && (M(t, 'exit') || M(t, 'logout'))) { s.mode = 'user'; return ''; }
     if (priv && !fromConf && M(t, 'configure') && (t.length === 1 || M(t.slice(1), 'terminal'))) { s.mode = 'conf'; return 'Enter configuration commands, one per line.  End with CNTL/Z.'; }
-    if (priv && (M(t, 'write') || M(t, 'copy', 'running-config', 'startup-config'))) { d.saved = true; return 'Building configuration...\n[OK]'; }
+    if (priv && (M(t, 'write') || M(t, 'copy', 'running-config', 'startup-config'))) { d.saved = true; d.startup = JSON.stringify(d.cfg); return 'Building configuration...\n[OK]'; }
     if (M(t, 'ping') && t[1]) return pingOut(net, d, t[1]);
     if (M(t, 'traceroute') && t[1]) return traceOut(net, d, t[1]);
     if (M(t, 'show')) {
@@ -992,6 +996,6 @@ const NL = (function () {
   function snapshot(net) { const o = {}; for (const id in net.devs) o[id] = { cfg: net.devs[id].cfg, saved: net.devs[id].saved }; return o; }
   function restore(net, snap) { for (const id in snap) if (net.devs[id]) { net.devs[id].cfg = snap[id].cfg; net.devs[id].saved = snap[id].saved; } }
 
-  return { l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
+  return { isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
 })();
 if (typeof module !== 'undefined') module.exports = NL;

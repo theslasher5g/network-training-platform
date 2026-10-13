@@ -56,6 +56,7 @@ const Sandbox = (function () {
     const fresh = []; net.notes = net.notes || [];
     for (const d of Object.values(net.devs)) {
       if (d.type === 'server' && !d.svc) d.svc = defSvc();
+      if (d.startup === undefined && (d.type === 'switch' || d.type === 'router')) d.startup = JSON.stringify(d.cfg);
       d.cfg.nic = d.cfg.nic || {}; d.cfg.nat = d.cfg.nat || []; d.pcard = d.pcard || {}; d.grp = d.grp || {}; d.use = d.use || {};
       if (d.rack === undefined) { d.rack = null; fresh.push(d.id); }
     }
@@ -126,14 +127,15 @@ const Sandbox = (function () {
     app = root; document.title = 'Netzplaner – NetLab'; initDL(); document.removeEventListener('keydown', escKey);
     const sid = store.get('sbxscen', null), sc = sid && SC.find(x => x.id === sid), net = sc ? (store.get('scen.' + sid) || buildScen(sid)) : (store.get('sandbox') || example()); migrate(net);
     S = { net, scen: sc ? sid : null, undo: [], redo: [], sel: null, port: null, cable: 'cu', cabling: false, pend: null, view: store.get('sbxview', 'plan'), mode: store.get('sbxmode', 'rt'), tool: 'select', pcat: 0, flyout: null, dock: 'ports', dockOpen: true, itab: 'port', _sp: null, pdus: [], pduN: 0, pduSrc: null, sim: null, ptab: 'pdu', tf: 'all', out: {}, sess: {}, hist: [], hi: 0, drag: null, toast: '' };
-    S.snap = !!store.get('sbxsnap', false); S.multi = new Set(); S.selNote = null;
+    S.dockOpen = false; S.inspOpen = false; S.snap = !!store.get('sbxsnap', false); S.multi = new Set(); S.selNote = null;
     S.sel = Object.keys(net.devs).find(id => net.devs[id].type === 'switch') || Object.keys(net.devs)[0] || null;
     app.innerHTML = `<div class="sbx">
       <header class="sbar">
-        <div class="seg2" id="segv" role="group" aria-label="Ansicht"><button data-v="plan">Netzplan</button><button data-v="rack">Rack</button></div>
+        <div class="seg2" id="segv" role="group" aria-label="Ansicht"><button data-v="plan">Netzplan</button><button data-v="rack">Rack</button><button data-v="sys">Systeme</button></div>
         <div class="seg2" id="segm" role="group" aria-label="Modus"><button data-m="rt">Echtzeit</button><button data-m="sim">Simulation</button></div>
         <button class="ibtn" id="undoBtn" title="Rückgängig (Strg+Z)" aria-label="Rückgängig"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button><button class="ibtn" id="redoBtn" title="Wiederholen (Strg+Y)" aria-label="Wiederholen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg></button>
         <button class="pill" id="scenpill" hidden></button>
+        <button class="ibtn" id="inspBtn" title="Details ein- oder ausblenden" aria-label="Details ein- oder ausblenden" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
         <div class="sp"></div>
         <details class="menu"><summary class="btn">Mehr</summary><div class="mlist"><button data-m="png">Plan als Bild (PNG)</button><button data-m="svg">Plan als SVG</button><button data-m="desc">Ports automatisch beschriften</button><button data-m="example">Beispielnetz laden</button><button data-m="empty">Leeres Projekt</button><button data-m="json">Projekt als JSON</button><button data-m="import">Projekt importieren</button></div></details>
         <button class="btn primary" id="xBtn">Prüfen &amp; exportieren</button>
@@ -142,6 +144,7 @@ const Sandbox = (function () {
       <div class="stage"><div class="hint" id="hint" aria-live="polite" hidden></div><div class="fly" id="fly" hidden></div>
         <div class="srch" id="srch"><svg viewBox="0 0 24 24" class="ri" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="srchIn" type="search" placeholder="Suchen: Gerät, IP, VLAN, Port" aria-label="Im Plan suchen" autocomplete="off" spellcheck="false"><div class="srchres" id="srchRes" hidden></div></div>
         <div class="mbar" id="mbar" hidden></div>
+        <div class="sys" id="sys" hidden></div>
         <div class="canvas" id="cvwrap"><svg id="cv" role="group" aria-label="Netzplan"></svg></div>
         <div class="mini" id="mini" hidden><svg id="miniSvg" aria-label="Übersicht" role="img"></svg></div>
         <div class="zoom" role="group" aria-label="Zoom"><button class="ibtn" id="zIn" title="Vergrößern (+)" aria-label="Vergrößern"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button class="ibtn" id="zOut" title="Verkleinern (-)" aria-label="Verkleinern"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button><button class="ibtn" id="zSnap" title="Am Raster einrasten" aria-label="Am Raster einrasten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 12h16M12 4v16"/></svg></button><button class="ibtn" id="zFit" title="Alles einpassen (0)" aria-label="Alles einpassen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button></div></div>
@@ -157,6 +160,7 @@ const Sandbox = (function () {
     </div>`;
     $$('#segv button').forEach(b => b.onclick = () => { S.view = b.dataset.v; store.set('sbxview', S.view); render(); });
     $$('#segm button').forEach(b => b.onclick = () => { S.mode = b.dataset.m; store.set('sbxmode', S.mode); S.sim = null; S.ptab = 'pdu'; render(); });
+    $('#inspBtn').onclick = () => { S.inspOpen = !S.inspOpen; render(); };
     $('#xBtn').onclick = exportModal; $('#undoBtn').onclick = undo; $('#redoBtn').onclick = redo; $('#scenpill').onclick = () => { S.dock = 'task'; S.dockOpen = true; drawDock(); };
     $$('.mlist button').forEach(b => b.onclick = () => { b.closest('details').open = false; menu(b.dataset.m); });
     $$('#dock [data-d]').forEach(b => b.onclick = () => { S.dock = b.dataset.d; S.dockOpen = true; drawDock(); if (S.dock === 'cli') setTimeout(() => $('#cmd').focus(), 0); });
@@ -201,6 +205,8 @@ const Sandbox = (function () {
     const sd = S.net.devs[S.sel]; if (S.port && (!sd || !sd.pk[S.port])) S.port = null;
     if (S.pduSrc && !S.net.devs[S.pduSrc]) S.pduSrc = null;
     $$('#segv button').forEach(b => b.classList.toggle('act', b.dataset.v === S.view)); $$('#segm button').forEach(b => b.classList.toggle('act', b.dataset.m === S.mode));
+    if (S._ls !== undefined && S.sel !== S._ls && S.view !== 'sys') S.inspOpen = true; S._ls = S.sel;
+    { const sb = $('.sbx'); sb.classList.toggle('noinsp', !S.inspOpen || S.view === 'sys'); sb.classList.toggle('vsys', S.view === 'sys'); $('#inspBtn').setAttribute('aria-pressed', !!S.inspOpen); }
     $('#cvwrap').dataset.tool = S.cabling ? 'cable' : S.tool;
     let h = '';
     if (S.cabling) h = S.pend ? `<b>Kabel:</b> Ende A ist ${esc(dh(S.pend.dev))} ${esc(SH(S.pend.port))} – jetzt freien Port am anderen Gerät anklicken (Esc: Abbruch)` : `<b>Kabel (${CABSHORT[S.cable]}):</b> freien Port anklicken (Esc: Ende)`;
@@ -212,7 +218,7 @@ const Sandbox = (function () {
     const wasToast = !!S.toast; if (S.toast) h = S.toast;
     $('#hint').innerHTML = h; $('#hint').hidden = !h; S.toast = '';
     clearTimeout(S._ht); if (wasToast) S._ht = setTimeout(() => { const el = $('#hint'); if (el && S && !S.cabling && S.tool === 'select') el.hidden = true; }, 6500);
-    if (!S.vbUser) S.vb = null; vmap(); drawView(); drawPal(); drawPanel(); drawInsp(); drawMulti(); drawOut(); drawPdu(); drawTask(); drawDock(); $('#undoBtn').disabled = !S.undo.length; $('#redoBtn').disabled = !S.redo.length;
+    if (!S.vbUser) S.vb = null; vmap(); drawView(); drawPal(); drawPanel(); drawInsp(); drawSys(); drawMulti(); drawOut(); drawPdu(); drawTask(); drawDock(); scheduleBoot(); $('#undoBtn').disabled = !S.undo.length; $('#redoBtn').disabled = !S.redo.length;
   }
 
   // ---------------- Palette (Packet-Tracer-Stil) ----------------
@@ -226,7 +232,7 @@ const Sandbox = (function () {
   };
   function tileIcon(M) { const k = M.icon || (M.fw ? 'fw' : M.type); const g = ICON[M.icon] || TICON[k] || ICON[k] || TICON[M.type] || ''; return `<svg viewBox="-28 -24 56 48" class="tic" aria-hidden="true">${g}</svg>`; }
   function addAt(model, x, y) {
-    act(() => { const n = Object.keys(S.net.devs).length; if (x == null && S.vbUser && S.vb && S.view === 'plan') { x = Math.round(S.vb.x + S.vb.w / 2 + (n % 5 - 2) * 40); y = Math.round(S.vb.y + S.vb.h / 2 + (n % 5 - 2) * 30); } const id = addDev(S.net, model, x == null ? 160 + (n * 143) % 860 : x, y == null ? 120 + (n * 101) % 400 : y); S.sel = id; S.port = null; S.cabling = false; S.tool = 'select'; S.flyout = null; });
+    act(() => { const n = Object.keys(S.net.devs).length; if (x == null && S.vbUser && S.vb && S.view === 'plan') { x = Math.round(S.vb.x + S.vb.w / 2 + (n % 5 - 2) * 40); y = Math.round(S.vb.y + S.vb.h / 2 + (n % 5 - 2) * 30); } const id = addDev(S.net, model, x == null ? 160 + (n * 143) % 860 : x, y == null ? 120 + (n * 101) % 400 : y); if (isNetOs(S.net.devs[id])) S.net.devs[id].startup = JSON.stringify(S.net.devs[id].cfg); S.sel = id; S.port = null; S.cabling = false; S.tool = 'select'; S.flyout = null; });
   }
   const RI = {
     select: '<path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.95.06z"/>',
@@ -241,6 +247,7 @@ const Sandbox = (function () {
     clip: '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 14 2 2 4-4"/>',
     plug: '<path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
     terminal: '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
     globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
     file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8M16 17H8M10 9H8"/>'
   };
@@ -252,21 +259,55 @@ const Sandbox = (function () {
   const ico = k => `<svg viewBox="0 0 24 24" class="ri" aria-hidden="true">${RI[k]}</svg>`;
   const CATIC = ['network', 'shield', 'server', 'database', 'monitor', 'plug'], CATSH = ['Netzwerk', 'Firewall', 'Server', 'Storage', 'Endgeräte', 'Kabel'];
   function drawPal() {
-    const rail = $('#rail'), fly = $('#fly'); if (!rail) return; const tools = [['select', 'Auswählen', 'select'], ['marquee', 'Rahmen', 'marquee'], ['delete', 'Löschen', 'trash'], ['pdu', 'Paket', 'send'], ['fail', 'Ausfall', 'power'], ['note', 'Notiz', 'note'], ['zone', 'Zone', 'zone']];
-    rail.innerHTML = tools.map(([k, n, i]) => `<button class="rb ${S.tool === k && !S.cabling ? 'act' : ''}" data-tool="${k}" title="${n === 'Paket' ? 'Paket senden' : n}">${ico(i)}<span>${n}</span></button>`).join('') + '<i class="rsep"></i>'
-      + PCATS.map((c, i) => `<button class="rb ${S.flyout === i || (i === 5 && S.cabling) ? 'act' : ''}" data-c="${i}" aria-expanded="${S.flyout === i}" title="${c[0]}">${ico(CATIC[i])}<span>${CATSH[i]}</span></button>`).join('') + `<i class="rsep"></i><button class="rb ${S.flyout === 'scen' || S.scen ? 'act' : ''}" data-s="scen" title="Aufgaben">${ico('clip')}<span>Aufgaben</span></button>`;
+    const rail = $('#rail'), fly = $('#fly'); if (!rail) return; const T = (k, n, i) => `<button class="rb ${S.tool === k && !S.cabling ? 'act' : ''}" data-tool="${k}" title="${n}" aria-label="${n}" aria-pressed="${S.tool === k && !S.cabling}">${ico(i)}</button>`;
+    rail.hidden = S.view === 'sys';
+    rail.innerHTML = T('select', 'Auswählen', 'select') + T('marquee', 'Mehrere auswählen (Rahmen ziehen)', 'marquee') + T('delete', 'Löschen', 'trash') + T('pdu', 'Paket senden', 'send') + T('fail', 'Ein- und ausschalten', 'power') + '<i class="rsep"></i>'
+      + `<button class="rb add ${typeof S.flyout === 'number' && S.flyout < 5 ? 'act' : ''}" data-add title="Gerät hinzufügen" aria-expanded="${typeof S.flyout === 'number' && S.flyout < 5}">${ico('plus')}<span>Gerät</span></button>`
+      + `<button class="rb ${S.flyout === 5 || S.cabling ? 'act' : ''}" data-c="5" title="Kabel ziehen" aria-label="Kabel ziehen">${ico('plug')}</button><i class="rsep"></i>`
+      + T('note', 'Notiz', 'note') + T('zone', 'Zone', 'zone') + '<i class="rsep"></i>'
+      + `<button class="rb ${S.flyout === 'scen' || S.scen ? 'act' : ''}" data-s="scen" title="Aufgaben" aria-label="Aufgaben">${ico('clip')}</button>`;
     $$('.rb[data-tool]', rail).forEach(b => b.onclick = () => { if (b.dataset.tool === 'note' || b.dataset.tool === 'zone') { addNote(b.dataset.tool); return; } S.tool = b.dataset.tool; S.cabling = false; S.pend = null; S.pduSrc = null; S.flyout = null; render(); });
-    $$('.rb[data-c]', rail).forEach(b => b.onclick = () => { const i = +b.dataset.c; S.flyout = S.flyout === i ? null : i; S.pcat = i; drawPal(); });
+    $$('.rb[data-add]', rail).forEach(b => b.onclick = () => { S.flyout = typeof S.flyout === 'number' && S.flyout < 5 ? null : (S.pcat < 5 ? S.pcat : 0); S.pcat = S.flyout == null ? S.pcat : S.flyout; drawPal(); });
+    $$('.rb[data-c]', rail).forEach(b => b.onclick = () => { const i = +b.dataset.c; S.flyout = S.flyout === i ? null : i; if (S.flyout != null) S.pcat = i; drawPal(); });
     $$('.rb[data-s]', rail).forEach(b => b.onclick = () => { S.flyout = S.flyout === 'scen' ? null : 'scen'; drawPal(); });
     if (S.flyout == null) { fly.hidden = true; fly.innerHTML = ''; return; }
     if (S.flyout === 'scen') { scenFly(fly); return; }
     const cat = PCATS[S.flyout], items = cat[1] ? Object.entries(MODELS).filter(([k, M]) => cat[1](M)).map(([k, M]) => `<button class="tile" draggable="true" data-model="${k}" title="${esc(M.label + (M.info ? ' – ' + M.info.replace(' (vereinfachtes Planungsmodell)', '') : ''))}">${tileIcon(M)}<span>${esc(M.label.replace(/^(Huawei|Cisco) /, '').replace(/ \(.*\)$/, ''))}</span></button>`).join('')
       : Object.keys(CABSHORT).map(c => `<button class="tile cabt ${S.cabling && S.cable === c ? 'act' : ''}" data-cab="${c}" title="${CABSHORT[c]}"><svg viewBox="-28 -24 56 48" class="tic" aria-hidden="true"><path d="M-22 10C-6 10 -6 -10 6 -10S22 -2 24 -10" fill="none" stroke="${CABCOL[c]}" stroke-width="4" stroke-linecap="round"/><circle cx="-22" cy="10" r="3.5" fill="${CABCOL[c]}"/><circle cx="24" cy="-10" r="3.5" fill="${CABCOL[c]}"/></svg><span>${CABSHORT[c]}</span></button>`).join('');
     fly.hidden = false;
-    fly.innerHTML = `<div class="flyh"><h2>${cat[0]}</h2><button class="x" id="flyX" aria-label="Schließen">✕</button></div><p class="flyp">${cat[1] ? 'In den Plan ziehen oder anklicken.' : 'Kabeltyp wählen, dann zwei Ports anklicken.'}</p><div class="tiles">${items}</div>`;
+    fly.innerHTML = `<div class="flyh"><h2>${cat[1] ? 'Gerät hinzufügen' : 'Kabel'}</h2><button class="x" id="flyX" aria-label="Schließen">✕</button></div>${cat[1] ? `<div class="flyc" role="tablist">${PCATS.slice(0, 5).map((c, i) => `<button role="tab" class="${S.flyout === i ? 'act' : ''}" aria-selected="${S.flyout === i}" data-fc="${i}">${CATSH[i]}</button>`).join('')}</div>` : ''}<p class="flyp">${cat[1] ? 'In den Plan ziehen oder anklicken.' : 'Kabeltyp wählen, dann zwei Ports anklicken.'}</p><div class="tiles">${items}</div>`;
     $('#flyX').onclick = () => { S.flyout = null; drawPal(); };
+    $$('[data-fc]', fly).forEach(b => b.onclick = () => { S.flyout = +b.dataset.fc; S.pcat = S.flyout; drawPal(); });
     $$('.tile[data-model]', fly).forEach(b => { b.onclick = () => addAt(b.dataset.model); b.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', b.dataset.model); e.dataTransfer.effectAllowed = 'copy'; setTimeout(() => { fly.hidden = true; }, 0); }); });
     $$('.tile[data-cab]', fly).forEach(b => b.onclick = () => { S.cable = b.dataset.cab; S.cabling = true; S.tool = 'select'; S.pend = null; S.flyout = null; render(); });
+  }
+  // ---------------- Systeme: alle Weboberflächen an einem Ort ----------------
+  const sysUi = d => isPc(d) ? 'desktop' : GUIN.hasGui(d) ? 'web' : null;
+  function sysMount(d, box) {
+    box.innerHTML = ''; const c = document.createElement('div'); c.className = 'sysmount'; box.appendChild(c); S._sysG = null;
+    if (isPc(d)) { DESKN.mount(c, d.id); return; }
+    if (GUIN.hasGui(d)) { S._sysG = GUIN.mount(c, d.id, {}); return; }
+    c.innerHTML = `<div class="sysnone"><b>${esc(d.cfg.hostname)} hat keine Weboberfläche.</b><p>${NL.isHost(d) ? 'Dieses Gerät lässt sich über sein Terminal bedienen: Doppelklick im Netzplan öffnet die Konsole.' : 'Konfiguriere es über die Konsole im Netzplan.'}</p></div>`;
+  }
+  function drawSys() {
+    const el = $('#sys'); if (!el) return; el.hidden = S.view !== 'sys'; if (S.view !== 'sys') { S._sysId = null; if (el.firstChild) { el.innerHTML = ''; S._sysG = null; } return; }
+    const all = Object.values(S.net.devs).filter(d => !(MODELS[d.model] && MODELS[d.model].cloud)), order = GROUPS.map(g => g[0]);
+    const grp = d => { const M = MODELS[d.model] || {}; const g = GROUPS.find(([n, f]) => f(M)); return g ? g[0] : 'Sonstige'; };
+    const withUi = all.filter(sysUi); if (!S.sysSel || !S.net.devs[S.sysSel]) S.sysSel = (withUi.find(d => d.id === S.sel) || withUi[0] || all[0] || {}).id || null;
+    if (!el.firstChild) el.innerHTML = '<aside class="sysl" id="sysl" aria-label="Systeme"></aside><section class="sysm"><header class="syst" id="syst"></header><div class="sysb" id="sysb"></div></section>';
+    const q = (S.sysQ || '').toLowerCase(), sel = S.net.devs[S.sysSel];
+    const groups = {}; all.filter(d => !q || (d.cfg.hostname + ' ' + (MODELS[d.model] || {}).label).toLowerCase().includes(q)).forEach(d => (groups[grp(d)] = groups[grp(d)] || []).push(d));
+    $('#sysl').innerHTML = `<input class="sysq" id="sysq" type="search" placeholder="System suchen" value="${esc(S.sysQ || '')}" aria-label="System suchen" autocomplete="off">` + (all.length ? Object.keys(groups).sort((a, b) => order.indexOf(a) - order.indexOf(b)).map(g => `<h4>${g}</h4>` + groups[g].map(d => { const ps = powerState(d), ui = sysUi(d); const vmOff = d.vm && d.vm.state !== 'running'; return `<button class="sysi ${d.id === S.sysSel ? 'act' : ''} ${ui ? '' : 'nogui'}" data-sys="${d.id}"><span class="sdot ${vmOff ? 'off' : ps}" title="${vmOff ? 'aus' : ps === 'on' ? 'läuft' : ps === 'boot' ? 'startet' : 'aus'}"></span><span class="snm"><b>${esc(d.cfg.hostname)}</b><small>${esc(((MODELS[d.model] || {}).label || d.type).replace(/^(Huawei|Cisco) /, ''))}</small></span>${ui ? ico(ui === 'desktop' ? 'monitor' : 'globe') : ''}</button>`; }).join('')).join('') : '<p class="empty-note">Noch keine Geräte im Plan.</p>');
+    const qi = $('#sysq'); qi.oninput = e => { S.sysQ = e.target.value; const pos = e.target.selectionStart; drawSys(); const n = $('#sysq'); n.focus(); n.setSelectionRange(pos, pos); };
+    $$('#sysl [data-sys]').forEach(b => b.onclick = () => { S.sysSel = b.dataset.sys; S.sel = b.dataset.sys; drawSys(); });
+    const t = $('#syst');
+    if (!sel) { t.innerHTML = ''; $('#sysb').innerHTML = '<div class="sysnone"><b>Noch kein System im Plan.</b><p>Füge im Netzplan Geräte hinzu. Ihre Weboberflächen erscheinen dann hier.</p></div>'; S._sysId = null; return; }
+    const ps = powerState(sel), ui = sysUi(sel), canPwr = !sel.vm && !(MODELS[sel.model] && MODELS[sel.model].cloud);
+    t.innerHTML = `<div class="sysh"><b>${esc(sel.cfg.hostname)}</b>${ui === 'web' ? `<span class="sysurl">https://${esc(guiHost(sel))}${GUIN.portOf(sel) === 443 ? '' : ':' + GUIN.portOf(sel)}</span>` : ''}</div><div class="sysact">${canPwr ? `<button class="btn small ${ps === 'on' ? '' : 'primary'}" id="sysPwr" ${ps === 'boot' ? 'disabled' : ''}>${ps === 'on' ? 'Ausschalten' : ps === 'off' ? 'Einschalten' : 'Startet …'}</button>` : ''}${ui ? '<button class="btn small ghost" id="sysWin">Eigenes Fenster</button>' : ''}<button class="btn small ghost" id="sysPlan">Im Plan zeigen</button></div>`;
+    if ($('#sysPwr')) $('#sysPwr').onclick = () => togglePower(sel.id);
+    if ($('#sysWin')) $('#sysWin').onclick = () => { if (isPc(sel)) DESKN.open(sel.id); else GUIN.open(sel.id); };
+    $('#sysPlan').onclick = () => { S.view = 'plan'; store.set('sbxview', 'plan'); S.sel = sel.id; S.inspOpen = true; render(); };
+    if (S._sysId !== sel.id) { S._sysId = sel.id; sysMount(sel, $('#sysb')); } else if (S._sysG) S._sysG.draw();
   }
   function drawDock() {
     const dk = $('#dock'); if (!dk) return; dk.classList.toggle('closed', !S.dockOpen); const tt = $('#dtTask'); if (tt) tt.hidden = !S.scen; if (!S.scen && S.dock === 'task') S.dock = 'ports';
@@ -443,18 +484,18 @@ const Sandbox = (function () {
       cab += `<g class="lw ${rel ? 'rel' : ''}" data-d="${l.a}" data-p="${esc(l.ap)}"><title>${esc(dh(l.a))} ${esc(SH(l.ap))} ↔ ${esc(dh(l.b))} ${esc(SH(l.bp))}, ${CABSHORT[l.cable || 'cu']}${up ? ', Link up' : ', kein Link: ' + esc(st.reason)}</title>`
         + `<path d="${c.d}" class="wire hit"/><path d="${c.d}" data-li="${li}" class="wire ${up ? '' : 'dn'} ${l.cut ? 'cut' : ''}" style="stroke:${CABCOL[l.cable || 'cu']}"/><circle class="lamp" cx="${c.la.x.toFixed(1)}" cy="${c.la.y.toFixed(1)}" r="2.7" style="fill:${lamp(st)}"/><circle class="lamp" cx="${c.lb.x.toFixed(1)}" cy="${c.lb.y.toFixed(1)}" r="2.7" style="fill:${lamp(NL.portStatus(net, l.b, l.bp))}"/>${up ? '' : `<circle cx="${c.mx}" cy="${c.my}" r="7" class="xdot"/><path class="xmark" d="M${c.mx - 3} ${c.my - 3}l6 6m0 -6l-6 6"/>`}</g>`;
     });
-    let vl = ''; net.links.forEach(l => { if (!l.virt) return; const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], hh = net.devs[vm.vm.host]; if (!hh || !LC[hh.id]) return; vl += `<line class="vlink ${vm.vm.state === 'running' && !hh.off ? '' : 'dn'}" x1="${hh.x}" y1="${(hh.y + LC[hh.id].h / 2).toFixed(1)}" x2="${vm.x}" y2="${vm.y - 24}"/>`; });
+    let vl = ''; net.links.forEach(l => { if (!l.virt) return; const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], hh = net.devs[vm.vm.host]; if (!hh || !LC[hh.id]) return; vl += `<line class="vlink ${vm.vm.state === 'running' && !NL.isDown(hh) ? '' : 'dn'}" x1="${hh.x}" y1="${(hh.y + LC[hh.id].h / 2).toFixed(1)}" x2="${vm.x}" y2="${vm.y - 24}"/>`; });
     s += zonesSvg() + vl + cab;
     for (const id in net.devs) {
       const d = net.devs[id], L = LC[id], x = d.x - L.w / 2, y = d.y - L.h / 2, h0 = hip(d, d.ports[0]) || {}, M = MODELS[d.model] || {};
       const sub = L.icon ? (NL.isHost(d) ? (h0.ip ? h0.ip + '/' + NL.maskLen(h0.mask) : 'keine IP') : '') : (M.label || '').replace(/^(Huawei|Cisco) /, '');
       const stt = L.icon ? null : stats(d);
-      s += `<g class="dev ${isSelDev(id) ? 'sel' : ''} ${id === S.pduSrc ? 'src' : ''} ${d.off || (d.vm && d.vm.state !== 'running') ? 'off' : ''}" data-dev="${id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen">`
+      s += `<g class="dev ${isSelDev(id) ? 'sel' : ''} ${id === S.pduSrc ? 'src' : ''} ${NL.isDown(d) || (d.vm && d.vm.state !== 'running') ? 'off' : ''} ${NL.booting(d) ? 'booting' : ''}" data-dev="${id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen">`
         + `<rect class="selbox" x="-5" y="-5" width="${L.w + 10}" height="${L.h + 10}" rx="7"/>`
         + (L.icon ? `<g transform="translate(32,34) scale(.85)" class="ic">${ICON[d.icon] || ICON[d.type]}</g>` : `<rect class="fpl t-${d.fw ? 'fw' : d.type}" width="${L.w}" height="${L.h}" rx="4"/>${groupsSvg(L, 0, 0, false)}`)
         + portsSvg(d, L, 0, 0, false)
         + (L.icon ? `<text class="hn" x="${L.w / 2}" y="${L.h + 14}">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="${L.h + 26}">${esc(sub)}</text>`
-          : `<text class="hn" x="${L.w / 2}" y="-18">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="-6">${esc(sub)} · ${stt.used}/${stt.total} belegt</text>`) + '</g>';
+          : `<text class="hn" x="${L.w / 2}" y="-18">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="-6">${stt.used}/${stt.total} Ports belegt</text>`) + '</g>';
     }
     s += notesSvg();
     s += simOverlay();
@@ -473,7 +514,7 @@ const Sandbox = (function () {
     placed.forEach(d => {
       const L = layout(d), h = uOf(d) * UH, k = Math.min(1, (h - 4) / L.h), y = 28 + (RU - (d.rack + uOf(d) - 1)) * UH, ox = RW - L.w * k - 10, oy = (h - L.h * k) / 2;
       LC[d.id] = { L, k, ox, oy, y };
-      s += `<g class="rdev ${d.id === S.sel ? 'sel' : ''} ${d.off ? 'off' : ''}" data-dev="${d.id}" transform="translate(${RX},${y})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen"><rect class="rface t-${d.fw ? 'fw' : d.type}" width="${RW}" height="${h - 1}" rx="2"/><rect class="rear" x="-5" y="3" width="5" height="${h - 7}"/><rect class="rear" x="${RW}" y="3" width="5" height="${h - 7}"/>`
+      s += `<g class="rdev ${d.id === S.sel ? 'sel' : ''} ${NL.isDown(d) ? 'off' : ''} ${NL.booting(d) ? 'booting' : ''}" data-dev="${d.id}" transform="translate(${RX},${y})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen"><rect class="rface t-${d.fw ? 'fw' : d.type}" width="${RW}" height="${h - 1}" rx="2"/><rect class="rear" x="-5" y="3" width="5" height="${h - 7}"/><rect class="rear" x="${RW}" y="3" width="5" height="${h - 7}"/>`
         + `<text class="rname" x="10" y="${h / 2 - 2}">${esc(d.cfg.hostname)}</text><text class="rmod" x="10" y="${h / 2 + 9}">${esc(((MODELS[d.model] || {}).label || '').replace(/^(Huawei|Cisco) /, '').slice(0, 24))}</text>`
         + `<g transform="translate(${ox.toFixed(1)},${oy.toFixed(1)}) scale(${k.toFixed(3)})">${groupsSvg(L, 0, 0, false)}${portsSvg(d, L, 0, 0, false)}</g></g>`;
     });
@@ -495,6 +536,7 @@ const Sandbox = (function () {
     return { x: Math.round(cx - w / 2), y: Math.round(cy - h / 2), w: Math.round(w), h: Math.round(h) };
   }
   function drawView() {
+    if (S.view === 'sys') return;
     const svg = $('#cv'), wrap = $('#cvwrap'); wrap.classList.toggle('rack', S.view === 'rack');
     if (S.view === 'rack') { svg.setAttribute('viewBox', `0 0 700 ${RU * UH + 52}`); svg.style.width = '700px'; svg.style.height = (RU * UH + 52) + 'px'; svg.style.maxWidth = 'none'; svg.innerHTML = drawRack(); }
     else { const v = S.vb || (S.vb = fitVB()); svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); svg.style.width = ''; svg.style.height = ''; svg.style.maxWidth = ''; svg.innerHTML = drawPlan(); }
@@ -578,8 +620,47 @@ const Sandbox = (function () {
   }
   function dblDev(id) { const d = S.net.devs[id]; if (!d) return; if (isPc(d)) { S.sel = id; render(); DESKN.open(id); } else if (canApps(d)) { S.sel = id; render(); openApps(id, 'home'); } else if (!NL.isHost(d) && d.type !== 'fc') { S.sel = id; S.dock = 'cli'; S.dockOpen = true; render(); setTimeout(() => $('#cmd').focus(), 0); } }
   function delDev(id) { act(() => { VIRTN.cascade(S.net, id); S.net.links = S.net.links.filter(l => l.a !== id && l.b !== id); delete S.net.devs[id]; delete S.out[id]; if (S.sel === id) { S.sel = null; S.port = null; } }); }
-  function toggleOff(id) { const d = S.net.devs[id]; act(() => { d.off = !d.off; toast(d.off ? `<b>${esc(d.cfg.hostname)}</b> ist ausgeschaltet – alle Links daran sind down.` : `${esc(d.cfg.hostname)} läuft wieder.`); }); }
-  function clickDev(id) { if (S.tool === 'delete' && !S.cabling) { delDev(id); return; } if (S.tool === 'fail' && !S.cabling) { toggleOff(id); return; } if (S.tool === 'pdu' && !S.cabling) { pduPick(id); return; } const d = S.net.devs[id]; if (S.cabling && S.pend && isIcon(d) && S.pend.dev !== id) { portClick(id, d.ports[0]); return; } S.selNote = null; S.multi = new Set(); S.sel = id; S.port = isIcon(d) ? d.ports[0] : null; render(); }
+  // ---------------- Ein- und Ausschalten mit Bootvorgang ----------------
+  const BOOT_MS = { switch: 9000, router: 11000, fc: 8000, server: 12000, storage: 14000, pc: 6000 };
+  const bootMs = d => d.fw ? 11000 : (BOOT_MS[d.type] || 8000);
+  const isNetOs = d => d.type === 'switch' || d.type === 'router';
+  const bootLines = d => {
+    const h = d.cfg.hostname, M = MODELS[d.model] || {}, lbl = (M.label || d.type);
+    if (d.fw) return ['Cisco Adaptive Security Appliance Software wird geladen …', `${lbl}: Selbsttest bestanden`, 'Lade Startup-Konfiguration …', 'Schnittstellen werden initialisiert …', `${h}: Firewall bereit`];
+    if (isNetOs(d)) return ['System Bootstrap, Version 17.x, RELEASE SOFTWARE', `${lbl}: Prüfe Flash und Speicher …`, 'Lade IOS-XE-Image aus flash: …', 'Selbsttest beim Einschalten bestanden', `Lade Startup-Konfiguration: ${d.startup ? 'gefunden' : 'keine vorhanden'}`, `${h} bereit.`];
+    if (d.type === 'server' || d.type === 'storage') return ['BIOS: Hardware-Test …', 'Bootloader startet …', 'Betriebssystem wird geladen …', 'Dienste werden gestartet …', `${h}: Anmeldung möglich`];
+    return ['Firmware-Test …', 'Betriebssystem wird geladen …', `${h}: Anmeldung möglich`];
+  };
+  const powerState = d => d.off ? 'off' : NL.booting(d) ? 'boot' : 'on';
+  function powerOff(id) {
+    const d = S.net.devs[id]; if (!d || d.off) return;
+    act(() => { d.off = true; d.boot = null; delete S.sess[id]; push(id, 'sys', `— ${d.cfg.hostname} ausgeschaltet —`); toast(`<b>${esc(d.cfg.hostname)}</b> ist ausgeschaltet. Alle Links daran sind down.`); });
+  }
+  function powerOn(id) {
+    const d = S.net.devs[id]; if (!d || !d.off) return; let lost = false;
+    act(() => {
+      d.off = false; d.boot = { t0: Date.now(), ms: bootMs(d) }; S.sess[id] = NL.newSess();
+      if (isNetOs(d) && d.startup) { lost = !d.saved; d.cfg = JSON.parse(d.startup); d.saved = true; }
+      toast(`<b>${esc(d.cfg.hostname)}</b> startet …${lost ? ' Nicht gespeicherte Änderungen sind verloren (nur die Startup-Config wird geladen).' : ''}`);
+    });
+    push(id, 'sys', `— ${d.cfg.hostname} startet —`); const lines = bootLines(d);
+    lines.forEach((l, i) => setTimeout(() => { if (S && S.net.devs[id] && S.net.devs[id].boot && !S.net.devs[id].off) { push(id, 'out', l); const o = $('#out'); if (o && S.sel === id) drawOut(); } }, Math.round(d.boot.ms * (i + 1) / (lines.length + 1))));
+    scheduleBoot(); redraw();
+  }
+  const redraw = () => { if (typeof document !== 'undefined') render(); };
+  function finishBoot(id) {
+    if (!S) return; const d = S.net.devs[id]; if (!d || !d.boot) return; const end = d.boot.t0 + d.boot.ms;
+    NL.setClock(() => end - 1); const prev = states(); NL.setClock(null); d.boot = null; logDiff(prev); push(id, 'sys', `— ${d.cfg.hostname} ist gestartet —`); save(); toast(`<b>${esc(d.cfg.hostname)}</b> ist gestartet.`); redraw();
+  }
+  function scheduleBoot() {
+    if (!S) return; S._bt = S._bt || {};
+    for (const id in S.net.devs) { const d = S.net.devs[id]; if (!d.boot || S._bt[id]) continue; const rest = d.boot.t0 + d.boot.ms - Date.now(); if (rest <= 0) { d.boot = null; continue; } S._bt[id] = setTimeout(() => { delete S._bt[id]; finishBoot(id); }, rest + 40); }
+  }
+  const downMsg = d => d.off ? `${d.cfg.hostname} ist ausgeschaltet. Schalte das Gerät ein, dann startet es.` : NL.booting(d) ? `${d.cfg.hostname} startet noch (Bootvorgang läuft).` : '';
+  function togglePower(id) { const d = S.net.devs[id]; if (d) { if (d.off) powerOn(id); else powerOff(id); } }
+  function toggleOff(id) { togglePower(id); }
+  function toggleOffOld(id) { const d = S.net.devs[id]; act(() => { d.off = !d.off; toast(d.off ? `<b>${esc(d.cfg.hostname)}</b> ist ausgeschaltet – alle Links daran sind down.` : `${esc(d.cfg.hostname)} läuft wieder.`); }); }
+  function clickDev(id) { S.inspOpen = true; if (S.tool === 'delete' && !S.cabling) { delDev(id); return; } if (S.tool === 'fail' && !S.cabling) { toggleOff(id); return; } if (S.tool === 'pdu' && !S.cabling) { pduPick(id); return; } const d = S.net.devs[id]; if (S.cabling && S.pend && isIcon(d) && S.pend.dev !== id) { portClick(id, d.ports[0]); return; } S.selNote = null; S.multi = new Set(); S.sel = id; S.port = isIcon(d) ? d.ports[0] : null; render(); }
 
   // ---------------- cabling ----------------
   function connect(id, p) {
@@ -642,8 +723,9 @@ const Sandbox = (function () {
     if (!d) { el.innerHTML = '<p class="empty-note">Wähle ein Gerät im Plan aus.</p>'; return; }
     if (S.port !== S._sp) { S._sp = S.port; if (S.port) S.itab = 'port'; }
     const M = MODELS[d.model] || {}, hp = !!S.port, tab = hp && S.itab !== 'dev' ? 'port' : 'dev';
-    el.innerHTML = `<div class="ihead"><b>${esc(d.cfg.hostname)}</b><span class="muted">${esc((M.label || d.type).replace(/^(Huawei|Cisco) /, ''))}${d.model ? ` <a class="wk-ctx" href="#wiki/hw-${esc(d.model.toLowerCase())}">Wiki</a>` : ''}</span></div>` + (hp ? `<div class="itabs" role="tablist"><button role="tab" class="${tab === 'port' ? 'act' : ''}" data-i="port">Port ${esc(SH(S.port))}</button><button role="tab" class="${tab === 'dev' ? 'act' : ''}" data-i="dev">Gerät</button></div>` : '')
+    el.innerHTML = `<button class="insx" id="inspX" aria-label="Details schließen" title="Details schließen">✕</button><div class="ihead"><b>${esc(d.cfg.hostname)}</b><span class="muted">${esc((M.label || d.type).replace(/^(Huawei|Cisco) /, ''))}${d.model ? ` <a class="wk-ctx" href="#wiki/hw-${esc(d.model.toLowerCase())}">Wiki</a>` : ''}</span></div>` + (hp ? `<div class="itabs" role="tablist"><button role="tab" class="${tab === 'port' ? 'act' : ''}" data-i="port">Port ${esc(SH(S.port))}</button><button role="tab" class="${tab === 'dev' ? 'act' : ''}" data-i="dev">Gerät</button></div>` : '')
       + `<div class="ibody">${tab === 'port' ? portCard(d, S.port) : devCard(d)}</div>`;
+    if ($('#inspX')) $('#inspX').onclick = () => { S.inspOpen = false; render(); };
     $$('.itabs [data-i]', el).forEach(b => b.onclick = () => { S.itab = b.dataset.i; drawInsp(); });
     wireInsp(d);
   }
@@ -690,6 +772,7 @@ const Sandbox = (function () {
   function devCard(d) {
     const M = MODELS[d.model] || {}, u = uOf(d);
     let h = `<section class="card"><h3 class="hid">${esc(d.cfg.hostname)}</h3><div class="f"><label for="dhost">Hostname</label><div class="irow"><input id="dhost" value="${esc(d.cfg.hostname)}"><button class="btn small" id="dhostGo">Setzen</button></div></div>`;
+    if (!d.vm && !(MODELS[d.model] && MODELS[d.model].cloud)) { const ps = powerState(d), left = d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0; h += `<div class="pwr ${ps}"><span class="pdot" aria-hidden="true"></span><div class="ptx"><b>${ps === 'off' ? 'Ausgeschaltet' : ps === 'boot' ? 'Startet …' : 'Eingeschaltet'}</b><small>${ps === 'off' ? 'Alle Links daran sind down.' : ps === 'boot' ? 'Noch nicht erreichbar.' : (isNetOs(d) ? (d.saved ? 'Konfiguration gespeichert' : 'Änderungen nicht gespeichert') : 'Läuft')}</small></div><button class="btn small ${ps === 'on' ? '' : 'primary'}" id="pwrBtn" ${ps === 'boot' ? 'disabled' : ''}>${ps === 'on' ? 'Ausschalten' : ps === 'off' ? 'Einschalten' : 'Bootet'}</button>${ps === 'boot' ? `<i class="pbar" style="animation-duration:${left}ms"></i>` : ''}</div>`; }
     if (d.type === 'server' && !(MODELS[d.model] && MODELS[d.model].cloud)) h += `<div class="f"><label for="dos">Betriebssystem (installiert)</label><select id="dos"><option value="linux" ${d.os === 'windows' ? '' : 'selected'}>Ubuntu Linux 22.04</option><option value="windows" ${d.os === 'windows' ? 'selected' : ''}>Windows Server 2022</option></select></div>`;
     if (GUIN.hasGui(d)) h += `<div class="webbox"><b>Web-Verwaltung</b><span class="muted small">https://${esc(guiHost(d))}${GUIN.portOf(d) === 443 ? '' : ':' + GUIN.portOf(d)}</span><button class="btn primary small block" id="guiOpen">${d.vm ? 'Web-GUI der VM öffnen' : 'Web-GUI öffnen'}</button>${d.vm ? '<button class="btn small block" id="hvOpen">Im Virtualisierungs-Manager verwalten</button>' : ''}</div>`;
     if (canApps(d)) h += `<div class="appbtns"><button class="btn small" id="appDesk">Desktop öffnen</button>${d.type === 'server' ? '<button class="btn small" id="appSvc">Dienste</button>' : ''}</div>`;
@@ -764,6 +847,7 @@ const Sandbox = (function () {
       if (c.length) runOn(d.id, c, 'Management aus der Oberfläche');
     };
     if (g('dos')) g('dos').onchange = () => act(() => { d.os = g('dos').value; delete S.out[d.id]; delete S.sess[d.id]; toast(`Betriebssystem: ${d.os === 'windows' ? 'Windows Server 2022' : 'Ubuntu Linux'}. Konsole und Web-GUI wechseln mit.`); });
+    if (g('pwrBtn')) g('pwrBtn').onclick = () => togglePower(d.id);
     if (g('guiOpen')) g('guiOpen').onclick = () => GUIN.open(d.id);
     if (g('hvOpen')) g('hvOpen').onclick = () => GUIN.open(d.vm.host);
     if (g('appDesk')) g('appDesk').onclick = () => { if (isPc(d)) DESKN.open(d.id); else openApps(d.id, 'home'); };
@@ -826,7 +910,7 @@ const Sandbox = (function () {
   function wireTerm() {
     const inp = $('#cmd');
     const runL = v => { const id = S.sel; if (!id) return; const d = S.net.devs[id], s = S.sess[id] || (S.sess[id] = NL.newSess());
-      act(() => { push(id, 'cmd', promptOf(d, s) + v); if (/^\s*(clear|cls)\s*$/i.test(v)) { S.out[id] = []; return; } let r; try { r = NL.isHost(d) ? hostRun(d, s, v) : NL.exec(S.net, id, s, v); } catch (e) { r = '% Interner Fehler: ' + e.message; }
+      act(() => { push(id, 'cmd', promptOf(d, s) + v); if (/^\s*(clear|cls)\s*$/i.test(v)) { S.out[id] = []; return; } let r; try { r = downMsg(d) || (NL.isHost(d) ? hostRun(d, s, v) : NL.exec(S.net, id, s, v)); } catch (e) { r = '% Interner Fehler: ' + e.message; }
         if (r) r.split('\n').forEach(l => push(id, /^\[(Ping-Debugger|Hinweis|Pfad|Debug|NAT)\]/.test(l) ? 'dbg' : (/^%/.test(l) && !/Creating vlan/.test(l) ? 'err' : 'out'), l)); }); };
     inp.addEventListener('keydown', e => {
       if (e.key === 'Enter') { const v = inp.value; inp.value = ''; if (v.trim()) S.hist.push(v); S.hi = S.hist.length; runL(v); $('#cmd').focus(); }
@@ -1714,12 +1798,12 @@ const Sandbox = (function () {
   const guiHost = d => { if (!NL.isHost(d)) { const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip); return n ? d.cfg.ifs[n].ip : d.cfg.hostname.toLowerCase(); } const h = d.ports.map(p => hip(d, p)).find(x => x && x.ip); return h ? h.ip : d.cfg.hostname.toLowerCase(); };
   function termRun(d, line) {
     const id = d.id, s = S.sess[id] || (S.sess[id] = NL.newSess()); ensureOut(id);
-    act(() => { push(id, 'cmd', promptOf(d, s) + line); if (/^\s*(clear|cls)\s*$/i.test(line)) { S.out[id] = []; return; } let r; try { r = NL.isHost(d) ? hostRun(d, s, line) : NL.exec(S.net, id, s, line); } catch (e) { r = '% Interner Fehler: ' + e.message; }
+    act(() => { push(id, 'cmd', promptOf(d, s) + line); if (/^\s*(clear|cls)\s*$/i.test(line)) { S.out[id] = []; return; } let r; try { r = downMsg(d) || (NL.isHost(d) ? hostRun(d, s, line) : NL.exec(S.net, id, s, line)); } catch (e) { r = '% Interner Fehler: ' + e.message; }
       if (r) r.split('\n').forEach(l => push(id, /^\[(Ping-Debugger|Hinweis|Pfad|Debug|NAT)\]/.test(l) ? 'dbg' : (/^%/.test(l) && !/Creating vlan/.test(l) ? 'err' : 'out'), l)); });
   }
   // Konfiguration der Cisco-Geräte aus der Web-GUI: dieselben IOS-Befehle wie im Terminal, Ausgabe zurück an die GUI
   function iosRun(d, lines, o) {
-    o = o || {}; let out = '';
+    o = o || {}; let out = ''; if (downMsg(d)) return '% ' + downMsg(d);
     act(() => {
       const id = d.id; push(id, 'sys', '— Web-GUI —');
       const s = S.sess[id] = NL.newSess(), all = o.conf === false ? ['enable', ...lines] : ['enable', 'configure terminal', ...lines, 'end'];
@@ -1727,16 +1811,16 @@ const Sandbox = (function () {
     });
     return out;
   }
-  function iosShow(d, line) { const s = NL.newSess(); s.mode = 'priv'; return NL.exec(S.net, d.id, s, line); }
+  function iosShow(d, line) { if (downMsg(d)) return '% ' + downMsg(d); const s = NL.newSess(); s.mode = 'priv'; return NL.exec(S.net, d.id, s, line); }
   GUIN.init({
-    net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
-    isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
+    isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
+    ios: iosRun, iosShow, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
-    net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => hostRun(d, (S.sess && S.sess[d.id]) || (S.sess[d.id] = NL.newSess()), line),
-    prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; }, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st,
+    net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || (S.sess[d.id] = NL.newSess()), line),
+    prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; }, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st,
     guiTarget: (d, u) => guiTarget(d, u), httpGet: (d, u) => httpGet(d, u), dhcp: d => dhcpRequest(d), setIp: setHostIp, validIp: NL.validIp, maskLen: NL.maskLen, inNet: NL.inNet, WIN: WINN, GUI: GUIN
   });
   // Browser im Planer: https://<Gerät>:8443 öffnet die Web-GUI des Geräts, wenn es erreichbar ist
@@ -1751,9 +1835,9 @@ const Sandbox = (function () {
     return { id: dev.id };
   }
 
-  function close() { document.removeEventListener('keydown', escKey); S = null; }
+  function close() { document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;

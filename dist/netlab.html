@@ -679,6 +679,20 @@ table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vert
 .wg-leg{display:flex;gap:1rem;margin-top:.5rem;font-size:.76rem;color:#6a7686}.wg-leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;background:#4b5563}.wg-leg i.up{background:#34d399}.wg-leg i.adm{background:#f59e0b}.wg-leg i.err{background:#ef4444}
 .wg-b.disabled{opacity:.45;pointer-events:none}
 
+
+/* ---------- Strom und Bootvorgang ---------- */
+.wg-off{flex:1;display:grid;place-items:center;text-align:center;background:#12161c;color:#cfd8e6;padding:2rem;min-height:320px}.wg-off .wg-ico{width:44px;height:44px;opacity:.55;margin-bottom:.4rem}.wg-off h2{margin:.2rem 0;font:700 1.25rem var(--display);color:#fff}.wg-off p{margin:.2rem 0 1rem;color:#8d9bb0}
+.wg-boot{width:min(280px,70vw);height:6px;border-radius:99px;background:#27303c;overflow:hidden;margin:1rem auto 0}.wg-boot i,.pbar{display:block;height:100%;width:0;background:linear-gradient(90deg,#2563eb,#60a5fa);animation:bootbar linear forwards}
+@keyframes bootbar{to{width:100%}}
+.pwr{position:relative;display:flex;align-items:center;gap:.7rem;padding:.65rem .8rem;border-radius:12px;background:var(--paper);border:1px solid var(--line);margin:0 0 .9rem;overflow:hidden}
+.pwr .ptx{flex:1;display:flex;flex-direction:column;line-height:1.25}.pwr .ptx b{font-size:.9rem}.pwr .ptx small{color:var(--muted);font-size:.76rem}
+.pdot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 22%,transparent);flex:none}.pwr.off .pdot{background:var(--muted);box-shadow:none}.pwr.boot .pdot{background:var(--amber);animation:blink .9s ease-in-out infinite}
+.pwr .pbar{position:absolute;left:0;bottom:0;height:3px}
+@keyframes blink{50%{opacity:.25}}
+.dev.booting{animation:blink 1s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.dev.booting,.pwr.boot .pdot{animation:none}}
+.dk-off{position:absolute;inset:0;z-index:50;background:#0a0d12;color:#cfd8e6;display:grid;place-items:center;text-align:center}.dk-off h2{margin:.3rem 0;font:700 1.2rem var(--display);color:#fff}.dk-off p{margin:.2rem 0 1rem;color:#8d9bb0}.dk-off .dk-i{width:46px;height:46px;opacity:.5}
+.dk-off[hidden]{display:none}
 /* ---------- PC-Desktop ---------- */
 .dk-host{min-width:640px;min-height:440px}
 .dk{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:#0b1220;color:#1b2430;font:14px/1.45 var(--sans);position:relative;border-radius:14px;overflow:hidden}
@@ -777,6 +791,59 @@ table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vert
 .term{border-radius:0}
 footer{padding:1.5rem 1rem 2.5rem}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ===== Netzplaner: ruhiges Layout (Werkbank) ===== */
+@media (min-width:981px){
+  .sbx{grid-template-columns:minmax(0,1fr) 340px;grid-template-rows:56px minmax(0,1fr) auto;grid-template-areas:"bar bar" "stage insp" "dock insp";transition:grid-template-columns .22s ease}
+  .sbx.noinsp{grid-template-columns:minmax(0,1fr) 0}
+  .sbx.noinsp .insp{border-left:0;box-shadow:none;visibility:hidden;overflow:hidden}
+  .sbx.vsys{grid-template-areas:"bar bar" "stage stage" "stage stage"}.sbx.vsys .dock,.sbx.vsys .insp{display:none}
+  .rail{grid-area:stage;align-self:end;justify-self:center;margin-bottom:20px;flex-direction:row;align-items:center;gap:2px;padding:6px;overflow:visible;background:color-mix(in srgb,var(--panel) 94%,transparent);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:18px;box-shadow:0 14px 40px -14px rgba(14,23,38,.45),0 2px 6px rgba(14,23,38,.06);z-index:6}
+  .rail[hidden]{display:none}
+  .rb{flex:none;width:40px;height:40px;padding:0;border-radius:12px;flex-direction:row;justify-content:center}
+  .rb span{display:none}.rb::before,.rb.act::before{display:none}
+  .rb.add{width:auto;padding:0 .95rem 0 .75rem;gap:.4rem;background:var(--ink);color:var(--paper);font-weight:600;font-size:.86rem}
+  .rb.add span{display:inline}.rb.add:hover{background:color-mix(in srgb,var(--ink) 86%,var(--blue));color:var(--paper)}.rb.add.act{background:var(--blue);color:var(--on-blue)}
+  .rsep{width:1px;height:22px;margin:0 6px}
+}
+.rb.act{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--blue) 40%,transparent)}
+/* Plan: weniger Text, Details erst bei Hover oder Auswahl */
+.dev .ipl{opacity:0;transition:opacity .15s}.dev:hover .ipl,.dev.sel .ipl{opacity:1}
+.sbx .canvas{background-color:var(--paper);background-image:radial-gradient(color-mix(in srgb,var(--ink) 13%,transparent) 1px,transparent 1.3px);background-size:22px 22px}
+.hint{top:auto;bottom:84px}
+.fly{left:50%;top:auto;bottom:84px;transform:translateX(-50%);max-height:min(440px,calc(100% - 110px))}
+.flyc{display:flex;gap:2px;margin:.55rem 0 .15rem;padding:3px;background:var(--paper);border-radius:10px;overflow-x:auto}
+.flyc button{flex:none;border:0;background:transparent;border-radius:8px;padding:.28rem .65rem;font:inherit;font-size:.8rem;font-weight:500;color:var(--muted);cursor:pointer}.flyc button.act{background:var(--panel);color:var(--ink);box-shadow:0 1px 3px rgba(15,23,42,.14)}
+.srch{left:14px;right:auto;top:14px}
+.zoom{bottom:20px;right:16px}
+.mini{bottom:84px;right:16px}
+.sbar{gap:.55rem;padding:0 1.1rem}
+.sbar .seg2 button{padding:.34rem .95rem}
+.insp{position:relative;top:auto}.sbx.vsys #inspBtn{display:none}.sbx.vsys .srch,.sbx.vsys .zoom,.sbx.vsys .mini,.sbx.vsys .hint,.sbx.vsys .fly,.sbx.vsys .mbar{display:none!important}.insx{position:absolute;right:.7rem;top:.7rem;z-index:2;border:0;background:var(--paper);border-radius:9px;width:28px;height:28px;cursor:pointer;color:var(--muted)}.insx:hover{color:var(--ink)}
+#inspBtn[aria-pressed=true]{background:color-mix(in srgb,var(--blue) 14%,transparent);color:var(--blue)}
+.ihead{padding:1.1rem 3rem .4rem 1.2rem}.ibody{padding:.6rem 1.2rem 1.6rem}
+.dock{height:260px}
+.dtabs{padding:0 1rem}
+/* ===== Systeme ===== */
+.sys{position:absolute;inset:0;display:grid;grid-template-columns:260px minmax(0,1fr);background:var(--paper);z-index:3}
+.sys[hidden]{display:none}
+.sysl{overflow:auto;padding:.9rem .7rem 1.2rem;border-right:1px solid var(--line);background:var(--panel)}
+.sysq{width:100%;border:1px solid var(--line);border-radius:10px;padding:.5rem .75rem;font:inherit;font-size:.88rem;background:var(--paper);color:var(--ink);margin-bottom:.4rem}
+.sysl h4{margin:1.1rem .5rem .35rem;font:600 .78rem var(--sans);color:var(--muted)}
+.sysi{display:flex;align-items:center;gap:.65rem;width:100%;border:0;background:transparent;border-radius:11px;padding:.5rem .6rem;font:inherit;color:var(--ink);cursor:pointer;text-align:left}
+.sysi:hover{background:var(--paper)}.sysi.act{background:color-mix(in srgb,var(--blue) 11%,var(--panel));box-shadow:inset 3px 0 var(--blue)}
+.sysi .snm{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.25}.sysi .snm b{font-size:.9rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sysi .snm small{color:var(--muted);font-size:.74rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sysi .ri{width:16px;height:16px;color:var(--muted);flex:none}.sysi.nogui{opacity:.55}
+.sdot{width:9px;height:9px;border-radius:50%;flex:none;background:var(--green)}.sdot.off{background:var(--muted);opacity:.5}.sdot.boot{background:var(--amber);animation:blink .9s ease-in-out infinite}
+.sysm{display:flex;flex-direction:column;min-width:0;min-height:0;padding:.9rem 1.1rem 1.1rem;gap:.7rem}
+.syst{display:flex;align-items:center;gap:1rem;flex-wrap:wrap}.sysh{display:flex;align-items:center;gap:.8rem;flex:1;min-width:0}.sysh b{font:800 1.3rem var(--display);letter-spacing:-.02em}
+.sysurl{font:500 .8rem var(--mono);color:var(--muted);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:.2rem .7rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sysact{display:flex;gap:.4rem}
+.sysb{flex:1;min-height:0;display:flex;border-radius:16px;overflow:hidden;border:1px solid var(--line);background:var(--panel);box-shadow:0 18px 50px -30px rgba(14,23,38,.5)}
+.sysmount{flex:1;display:flex;min-width:0;min-height:0}
+.sysmount>.wg-win,.sysmount>.dk{border-radius:0;box-shadow:none}.sysmount .dk.emb{border-radius:0}
+.sysnone{margin:auto;max-width:380px;text-align:center;padding:2rem;color:var(--muted)}.sysnone b{color:var(--ink);font-size:1.05rem}
+@media (max-width:980px){.sys{position:relative;grid-template-columns:1fr;min-height:70vh}.sysl{border-right:0;border-bottom:1px solid var(--line);max-height:200px}.rb{width:44px}}
 </style>
 </head>
 <body>
@@ -934,21 +1001,25 @@ const NL = (function () {
     for (const l of net.links) { if (l.a === d && l.ap === p) return { dev: l.b, port: l.bp }; if (l.b === d && l.bp === p) return { dev: l.a, port: l.ap }; }
     return null;
   }
-  function portAdminUp(net, dId, p) { const d = net.devs[dId]; if (d.off) return false; if (isHost(d)) return true; const i = d.cfg.ifs[p]; return !!i && !i.shutdown; }
+  // Ausgeschaltet oder noch beim Booten (d.boot = { t0, ms })
+  let clockFn = null; const now = () => clockFn ? clockFn() : Date.now(), setClock = f => { clockFn = f; };
+  const booting = d => !!(d.boot && now() < d.boot.t0 + d.boot.ms), isDown = d => !!(d.off || booting(d));
+  const downWhy = d => d.off ? 'ist ausgeschaltet' : 'startet noch (Bootvorgang läuft)';
+  function portAdminUp(net, dId, p) { const d = net.devs[dId]; if (isDown(d)) return false; if (isHost(d)) return true; const i = d.cfg.ifs[p]; return !!i && !i.shutdown; }
   function linkOf(net, d, p) { return net.links.find(l => (l.a === d && l.ap === p) || (l.b === d && l.bp === p)) || null; }
   const cfgSpeed = (d, p) => { const i = d.cfg.ifs && d.cfg.ifs[p]; const e = i && i.extra.find(x => /^speed \d+$/.test(x)); return e ? +e.split(' ')[1] : null; };
   function phys(net, l) {
     if (l.virt) { // virtueller Link VM ↔ vSwitch des Hypervisor-Hosts
       const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], h = net.devs[vm.vm.host];
       if (vm.vm.state !== 'running') return { ok: false, reason: `${vm.cfg.hostname} ist ausgeschaltet (VM gestoppt)` };
-      if (h.off) return { ok: false, reason: `Der Host ${h.cfg.hostname} ist ausgeschaltet (Ausfall-Simulation)` };
+      if (isDown(h)) return { ok: false, reason: `Der Host ${h.cfg.hostname} ${downWhy(h)}` };
       return { ok: true, speed: 10000, proto: 'eth' };
     }
     const cab = l.cable || 'cu';
     const S = [[l.a, l.ap], [l.b, l.bp]].map(([id, p]) => { const d = net.devs[id]; return { d, p, h: d.cfg.hostname, k: (d.pk && d.pk[p]) || 'rj45', x: d.xcvr && d.xcvr[p] }; });
     const bad = r => ({ ok: false, reason: r });
     if (l.cut) return bad('Kabel ist gezogen (Ausfall-Simulation)');
-    const offs = S.filter(s => s.d.off); if (offs.length) return bad(`${offs[0].h} ist ausgeschaltet (Ausfall-Simulation)`);
+    const offs = S.filter(s => isDown(s.d)); if (offs.length) return bad(`${offs[0].h} ${downWhy(offs[0].d)}`);
     const fcA = S[0].k === 'fc', fcB = S[1].k === 'fc';
     if (fcA !== fcB) { const f = S[fcA ? 0 : 1], e = S[fcA ? 1 : 0]; return bad(`Fibre-Channel-Port (${f.h} ${sh(f.p)}) und Ethernet-Port (${e.h} ${sh(e.p)}) lassen sich nicht verbinden`); }
     const sp = [];
@@ -1484,7 +1555,7 @@ const NL = (function () {
     if (!fromConf && M(t, 'disable')) { s.mode = 'user'; return ''; }
     if (!fromConf && (M(t, 'exit') || M(t, 'logout'))) { s.mode = 'user'; return ''; }
     if (priv && !fromConf && M(t, 'configure') && (t.length === 1 || M(t.slice(1), 'terminal'))) { s.mode = 'conf'; return 'Enter configuration commands, one per line.  End with CNTL/Z.'; }
-    if (priv && (M(t, 'write') || M(t, 'copy', 'running-config', 'startup-config'))) { d.saved = true; return 'Building configuration...\n[OK]'; }
+    if (priv && (M(t, 'write') || M(t, 'copy', 'running-config', 'startup-config'))) { d.saved = true; d.startup = JSON.stringify(d.cfg); return 'Building configuration...\n[OK]'; }
     if (M(t, 'ping') && t[1]) return pingOut(net, d, t[1]);
     if (M(t, 'traceroute') && t[1]) return traceOut(net, d, t[1]);
     if (M(t, 'show')) {
@@ -1784,7 +1855,7 @@ const NL = (function () {
   function snapshot(net) { const o = {}; for (const id in net.devs) o[id] = { cfg: net.devs[id].cfg, saved: net.devs[id].saved }; return o; }
   function restore(net, snap) { for (const id in snap) if (net.devs[id]) { net.devs[id].cfg = snap[id].cfg; net.devs[id].saved = snap[id].saved; } }
 
-  return { l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
+  return { isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
 })();
 if (typeof module !== 'undefined') module.exports = NL;
 
@@ -2770,6 +2841,7 @@ const WIKI = (function () {
   art('vm-datastore', 'server', 'Datastore: wo die VM-Platte liegt', 'Lokal oder gemeinsam auf einer SAN-LUN.', `<p>Die Dateien einer VM liegen auf einem <b>Datastore</b>. Auf einer <b>lokalen Platte</b> sieht nur der eine Host sie. Auf einer <b>gemeinsamen LUN</b> (Fibre Channel, iSCSI, NFS) sehen sie <b>alle Hosts des Clusters</b>. Das ist die Voraussetzung für Live-Migration und HA. Dafür muss die LUN allen Hosts freigegeben sein ([[lun-masking]]) und die Zonen müssen stimmen ([[zoning]]).</p><p>Kapazität: Summe der VM-Platten auf einer LUN darf deren Größe nicht überschreiten.</p>`, ['vm-migration-ha', 'lun', 'zoning']);
   art('vm-migration-ha', 'server', 'Migration, Cluster und HA', 'VMs verschieben und Ausfälle überstehen.', tbl(['Verfahren', 'Voraussetzung', 'Wirkung'], [['Kalte Migration', 'VM aus; Hosts im selben Cluster', 'VM zieht um, Platte bleibt, wenn sie auf dem Ziel erreichbar ist'], ['Live-Migration (vMotion)', 'VM auf gemeinsamem Datastore; Ziel sieht ihn; Ziel hat freien RAM', 'VM läuft ohne Unterbrechung auf anderem Host weiter'], ['HA (High Availability)', 'Cluster, gemeinsamer Datastore, Reserve-Kapazität', 'Fällt ein Host aus, starten seine VMs auf anderen Hosts neu (kurze Unterbrechung)']]) + `<p>Ein <b>Cluster</b> ist eine Gruppe von Hosts mit gleicher Netz- und Storage-Anbindung. Typische Fehler: Datastore nur für einen Host freigegeben, Hosts mit unterschiedlichen VLANs am vSwitch, kein RAM für den Ausfall eines Hosts (<b>N+1</b>-Kapazität fehlt).</p>` + plan('Szenarien: „VMs auf zwei Hosts verteilen“, „Live-Migration über SAN-Datastore“, „Host-Ausfall und HA“.'), ['vm-datastore', 'virt-grundlagen', 'spof']);
   art('virsh-kvm', 'server', 'virsh: VMs auf einem KVM-Host', 'Befehle im Terminal des Hypervisors.', tbl(['Befehl', 'Wirkung'], [['<code>virsh list --all</code>', 'Alle VMs mit Zustand'], ['<code>sudo virsh start WEB-VM</code>', 'VM starten'], ['<code>sudo virsh shutdown WEB-VM</code>', 'VM herunterfahren'], ['<code>virsh dominfo WEB-VM</code>', 'vCPU, RAM, VLAN, Datastore'], ['<code>virsh nodeinfo</code>', 'Kerne und RAM des Hosts'], ['<code>sudo virsh migrate --live WEB-VM HV2</code>', 'Live auf einen Cluster-Host verschieben']]) + `<p>Auf einem Server ohne Hypervisor-Rolle meldet <code>virsh</code>, dass es nicht zum Hypervisor verbinden kann.</p>`, ['virt-grundlagen', 'linux-grundlagen']);
+  art('power-boot', 'l3', 'Ein- und Ausschalten, Booten und Startup-Config', 'Warum eine Konfiguration ohne Speichern verloren geht.', `<p>Jedes Gerät im Planer lässt sich ein- und ausschalten (Schalter im Detailfeld oder Werkzeug „Ein- und ausschalten“). Ein ausgeschaltetes Gerät ist nicht erreichbar, und alle Links daran sind down. Nach dem Einschalten <b>bootet</b> es: Der Planer zeigt den Bootvorgang in der Konsole, und das Gerät antwortet erst, wenn er fertig ist. Das dauert bei Switches und Routern etwa 10 Sekunden, bei Servern und Storage-Systemen länger.</p><p>Cisco-Geräte kennen zwei Konfigurationen: die <b>Running-Config</b> im Arbeitsspeicher und die <b>Startup-Config</b> im Flash. Beim Start lädt das Gerät nur die Startup-Config. Was du mit <code>write memory</code> (oder „Konfiguration speichern“ in der Weboberfläche) nicht gespeichert hast, ist nach dem Neustart weg.</p>` + ul(['Switch ausschalten: angeschlossene Geräte verlieren ihr Netz', 'Ohne <code>write memory</code> verschwinden neue VLANs, IP-Adressen und ACLs beim Neustart', 'Server behalten ihre Dateien und Dienste, sie starten nur neu']) + plan('Gerät anklicken → im Detailfeld „Ausschalten“, danach „Einschalten“. Im Tab „Systeme“ gibt es denselben Schalter über der Weboberfläche.'), ['trunk', 'web-gui']);
   art('pc-desktop', 'server', 'Der PC-Desktop', 'Windows-Arbeitsplatz im Planer: Netz einstellen, testen, Weboberflächen aufrufen.', `<p>Ein Doppelklick auf einen PC öffnet seinen <b>Desktop</b>. Er verhält sich wie ein Windows-Arbeitsplatz: Fenster lassen sich verschieben, vergrößern und minimieren, unten gibt es Taskleiste, Startmenü und Uhr. Das Netzwerksymbol rechts zeigt, ob ein Kabel Verbindung hat.</p>` + tbl(['Programm', 'Wofür'], [['Netzwerkverbindungen', 'IP-Adresse, Subnetzmaske, Gateway und DNS setzen oder DHCP einschalten'], ['Eingabeaufforderung', '<code>ipconfig /all</code>, <code>ping</code>, <code>nslookup</code>, <code>tracert</code> und PowerShell-Befehle'], ['Webbrowser', 'Webseiten aufrufen und die Weboberfläche von Switches (<code>https://&lt;IP&gt;/</code>) und Servern (<code>:8443</code>) öffnen'], ['Datei-Explorer und Editor', 'Ordner und Textdateien anlegen, bearbeiten und löschen'], ['Einstellungen', 'Gerät umbenennen und einer Domäne beitreten']]) + `<p>Typischer Ablauf bei einem Fehler: Kabel und Netzwerksymbol prüfen, in den Netzwerkverbindungen die IP-Daten kontrollieren, dann <code>ping</code> zum Gateway, danach zum Ziel, und zuletzt mit dem Browser die Dienste testen.</p>`, ['web-gui', 'win-powershell', 'subnetting']);
   art('web-gui', 'server', 'Web-Verwaltung der Geräte', 'Switches, Router, Server, Storage und FC-Switch im Browser verwalten.', `<p>Wie in der Praxis haben Cisco-Switches und -Router, Server, Storage-Systeme und FC-Switches eine <b>Weboberfläche</b> mit Anmeldung, Menü, Tabellen und Dialogen. Im Planer öffnest du sie über „Web-GUI öffnen“ am Gerät. Alternativ rufst du sie von einem PC aus im Webbrowser auf: <code>https://&lt;IP-Adresse&gt;:8443</code> (Server, Storage, FC-Switch) oder <code>https://&lt;Management-IP&gt;/</code> (Cisco-Switch, -Router und ASA-Firewall, Port 443). Dann muss das Gerät erreichbar sein (IP, Gateway, VLAN).</p>` + tbl(['Gerät', 'Oberfläche', 'Was du dort machst'], [['Cisco-Switch', 'Catalyst Web-Oberfläche', 'Dashboard mit Portansicht, Schnittstellen (mehrere markieren und gemeinsam ändern), VLAN, Layer 3 mit SVI und Routen, ACL, Konfiguration speichern, Konsole, Ping und Traceroute'], ['ASA-Firewall', 'Firewall-Oberfläche (Stil von OPNsense)', 'Zonen mit Security-Level, Regeln und Bindung, NAT, Routen, Sicherung, Konsole, Ping'], ['Cisco-Router', 'Router Web-Oberfläche', 'Schnittstellen mit IP, statische Routen, ACL, Konfiguration speichern, Konsole, Ping und Traceroute'], ['Linux-Server', 'Server-Web-Konsole', 'Netzwerk, Dienste, Konfigurationsdateien, Speicher, Firewall, Software, Terminal'], ['Hypervisor', 'Virtualisierungs-Manager', 'VMs, virtueller Switch, Datastores, Cluster und HA'], ['Windows-Server', 'Server-Manager', 'Rollen, Active Directory, DNS, DHCP, Freigaben, Dienste, Firewall, PowerShell'], ['Storage', 'Storage-Manager', 'Pools, LUNs, Zuordnung, Ports'], ['FC-Switch', 'Fabric-Manager', 'Ports, Zoning, VSAN']]) + `<p>Jede Aktion in der Oberfläche führt dieselben Schritte aus wie das Terminal (bei Cisco-Geräten sind das IOS-Befehle). Bei Cisco-Geräten gilt: Änderungen landen in der Running-Config und gehen ohne „Konfiguration speichern“ (<code>write memory</code>) beim Neustart verloren. Unten zeigt ein Streifen „Letzte Aktionen“ den gleichwertigen Befehl. So lernst du beides: die Oberfläche für den Alltag und die Befehle für Skripte und Fehlersuche. Anmeldedaten im Simulator: <code>admin</code> und <code>NetLab-2026</code> (vorausgefüllt).</p>`, ['linux-grundlagen', 'win-powershell', 'virt-grundlagen', 'lun']);
   art('syslog', 'server', 'Syslog und Journal', 'Wo Meldungen landen.', `<p>Geräte und Dienste melden Ereignisse an einen Logserver (UDP 514). Cisco-Meldungen haben einen Schweregrad von 0 (Notfall) bis 7 (Debug), zum Beispiel <code>%LINK-3-UPDOWN</code> (Level 3 = Error). Unter Linux sammelt <b>journald</b> die Dienstlogs (<code>journalctl</code>), klassische Dateien liegen in <code>/var/log</code>.</p>`, ['linux-systemd']);
@@ -3413,6 +3485,13 @@ const WEBGUI = (function () {
       const d = dev(); if (!d) { root.innerHTML = '<p class="wg-empty">Das Gerät gibt es nicht mehr.</p>'; return; }
       const k = kind(), main = root.querySelector('.wg-main'), top = main ? main.scrollTop : 0, ip = hostIp(d);
       if (!k) { root.innerHTML = '<p class="wg-empty">Dieses Gerät hat keine Weboberfläche.</p>'; return; }
+      clearTimeout(G._bt); const ps = A.powerState ? A.powerState(d) : 'on';
+      if (ps !== 'on') {
+        const left = A.bootLeft(d), name = PRODUCT[k][0];
+        root.innerHTML = `<div class="wg-win">${G.chrome ? `<div class="wg-chrome"><span class="wg-dots"><i></i><i></i><i></i></span><div class="wg-url"><span>${esc(d.cfg.hostname)}</span></div><button class="wg-x" data-act="close" aria-label="Fenster schließen">✕</button></div>` : ''}<div class="wg-off ${ps}"><div>${logo(k)}<h2>${ps === 'off' ? esc(d.cfg.hostname) + ' ist ausgeschaltet' : esc(d.cfg.hostname) + ' startet …'}</h2><p>${ps === 'off' ? 'Die Weboberfläche ist erst nach dem Einschalten und Booten erreichbar.' : name + ' ist gleich bereit.'}</p>${ps === 'off' ? btn('Einschalten', 'pwron', null, 'primary') : `<div class="wg-boot"><i style="animation-duration:${left}ms"></i></div>`}</div></div></div>`;
+        if (ps === 'boot') G._bt = setTimeout(() => { if (document.body.contains(root)) draw(); }, left + 80);
+        return;
+      }
       const url = `https://${ip || d.cfg.hostname.toLowerCase()}${isNet(k) ? '' : ':' + PORT}/`;
       const chrome = G.chrome ? `<div class="wg-chrome"><span class="wg-dots"><i></i><i></i><i></i></span><div class="wg-url" title="${esc(url)}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>${esc(url)}</span>${ip ? '' : '<em>Direktzugriff (keine IP-Adresse)</em>'}</div><button class="wg-x" data-act="close" aria-label="Fenster schließen">✕</button></div>` : '';
       if (!G.auth) { root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-login wg-${k}"><form class="wg-lc" data-act="login"><div class="wg-logo">${logo(k)}</div><h2>${PRODUCT[k][0]}</h2><p>${esc(d.cfg.hostname)} · ${PRODUCT[k][1]}</p>${field('user', 'Benutzername', k === 'windows' ? 'Administrator' : 'admin')}${field('pw', 'Kennwort', 'NetLab-2026', { type: 'password' })}<button type="submit" class="wg-b primary wide" data-act="login">Anmelden</button><small>Simulator-Zugangsdaten sind vorausgefüllt.</small></form></div></div>`; return; }
@@ -3928,6 +4007,7 @@ const WEBGUI = (function () {
         case 'hostname': { const n = v(G, 'hn').trim().replace(/\s+/g, '-'); if (n) ios(G, 'hostname ' + n, 'Hostname geändert.'); break; }
         case 'iosave': { const o = A.ios(dv, ['write memory'], { conf: false }); G.log.push({ cmd: 'write memory', err: false }); G.msg = /OK/.test(o) ? { t: 'Konfiguration gespeichert (Startup-Config).' } : { err: true, t: o }; break; }
         case 'close': if (G.onClose) G.onClose(); return;
+        case 'pwron': A.powerOn(G.id); break;
         case 'logout': SESS[G.id] = false; G.auth = false; G.msg = null; break;
         case 'nav': G.page = D.p; G.dlg = null; break;
         case 'tab': G.tab[D.t] = D.v; break;
@@ -4022,19 +4102,24 @@ const DESKTOP = (function () {
 
   function open(devId) {
     const ex = OPEN[devId]; if (ex && document.body.contains(ex.host)) { ex.host.style.zIndex = 9000; ex.host.classList.remove('min'); return ex; }
+    const f = A.GUI.floatFrame({ w: 1120, h: 720, cls: 'dk-host', handle: '.dk-title', onClose: () => { delete OPEN[devId]; } });
+    const h = build(devId, f.body, f); OPEN[devId] = h; return h;
+  }
+  // Eingebettet (Tab "Systeme"): kein eigener Fensterrahmen
+  function mount(root, devId) { return build(devId, root, null); }
+  function build(devId, root, f) {
     const dev = () => A.net().devs[devId], W = () => A.WIN.init(dev()), files = () => W().files;
-    const f = A.GUI.floatFrame({ w: 1120, h: 720, cls: 'dk-host', handle: '.dk-title', onClose: () => { delete OPEN[devId]; clearInterval(tick); } });
-    const root = f.body; let z = 10, seq = 0, menu = false; const wins = [];
-    root.innerHTML = `<div class="dk" tabindex="-1"><div class="dk-title" role="presentation"><span class="wg-dots"><i></i><i></i><i></i></span><b>${esc(dev().cfg.hostname)}</b><span class="dk-sub">Windows 11 · Desktop</span><button class="wg-x" data-g="close" aria-label="Desktop schließen">✕</button></div>
+    let z = 10, seq = 0, menu = false; const wins = []; f = f || { host: root, close() { } };
+    root.innerHTML = `<div class="dk ${f.body ? '' : 'emb'}" tabindex="-1">${f.body ? `<div class="dk-title" role="presentation"><span class="wg-dots"><i></i><i></i><i></i></span><b>${esc(dev().cfg.hostname)}</b><span class="dk-sub">Windows 11 · Desktop</span><button class="wg-x" data-g="close" aria-label="Desktop schließen">✕</button></div>` : ''}
       <div class="dk-screen" id="dk-screen"><div class="dk-icons" id="dk-icons"></div></div>
-      <div class="dk-menu" id="dk-menu" hidden></div>
+      <div class="dk-off" id="dk-off" hidden></div><div class="dk-menu" id="dk-menu" hidden></div>
       <div class="dk-task"><button class="dk-start" data-g="menu" aria-label="Startmenü" aria-expanded="false">${ico('start')}</button><div class="dk-run" id="dk-run"></div><div class="dk-tray" id="dk-tray"></div></div></div>`;
     const $ = s => root.querySelector(s), screen = $('#dk-screen');
 
     // ---------- Desktop-Symbole, Startmenü, Taskleiste ----------
     const desk = () => Object.keys(files()).filter(k => parentOf(k) === HOME + '\\Desktop' && !files()[k].d);
     const drawIcons = () => {
-      const base = [['explorer', 'Dieser PC', 'pc'], ['cmd', 'Eingabeaufforderung', 'cmd'], ['browser', 'Webbrowser', 'browser'], ['net', 'Netzwerk', 'net'], ['edit', 'Editor', 'edit'], ['settings', 'Einstellungen', 'settings']];
+      const base = [['explorer', 'Dieser PC', 'pc'], ['cmd', 'Eingabeauf&shy;forderung', 'cmd'], ['browser', 'Webbrowser', 'browser'], ['net', 'Netzwerk', 'net'], ['edit', 'Editor', 'edit'], ['settings', 'Einstellungen', 'settings']];
       $('#dk-icons').innerHTML = base.map(([a, n, i]) => `<button class="dk-ic" data-app="${a}" ${a === 'explorer' ? 'data-arg="PC"' : ''}>${ico(i)}<span>${n}</span></button>`).join('') + desk().map(p => `<button class="dk-ic" data-app="edit" data-arg="${esc(p)}">${ico('file')}<span>${esc(baseOf(p))}</span></button>`).join('');
     };
     const drawMenu = () => {
@@ -4048,7 +4133,13 @@ const DESKTOP = (function () {
       const n = ipOf(), t = new Date();
       $('#dk-tray').innerHTML = `<span class="dk-net ${n.up ? 'up' : 'dn'}" title="${n.up ? 'Verbunden' + (n.ip ? ', ' + esc(n.ip) : ', keine IP-Adresse') : 'Kein Netzwerkkabel verbunden'}">${ico('net')}</span><span class="dk-clock">${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}</span>`;
     };
-    const tick = setInterval(() => { if (!document.body.contains(f.host)) { clearInterval(tick); return; } drawTask(); }, 15000);
+    let lastPs = null, lastMin = -1;
+    const drawPower = () => {
+      const ps = A.powerState(dev()), el = $('#dk-off'); if (ps === lastPs) return; lastPs = ps; el.hidden = ps === 'on';
+      if (ps === 'off') { el.innerHTML = `${ico('pc')}<h2>${esc(dev().cfg.hostname)} ist ausgeschaltet</h2><p>Schalte den PC ein, dann startet Windows.</p><button class="dk-b pri" data-g="pwron">Einschalten</button>`; }
+      else if (ps === 'boot') { el.innerHTML = `${ico('pc')}<h2>Windows startet …</h2><div class="wg-boot"><i style="animation-duration:${A.bootLeft(dev())}ms"></i></div>`; }
+    };
+    const tick = setInterval(() => { if (!document.body.contains(f.host)) { clearInterval(tick); return; } drawPower(); const m = new Date().getMinutes(); if (m !== lastMin) { lastMin = m; drawTask(); } }, 1000);
 
     // ---------- Fenster ----------
     const place = w => { const e = w.el; e.classList.toggle('max', !!w.max); e.hidden = !!w.min; e.style.zIndex = w.z; if (!w.max) { e.style.left = w.x + 'px'; e.style.top = w.y + 'px'; e.style.width = w.w + 'px'; e.style.height = w.h + 'px'; } else { e.style.left = e.style.top = e.style.width = e.style.height = ''; } e.classList.toggle('foc', w === focused()); };
@@ -4181,7 +4272,7 @@ const DESKTOP = (function () {
     root.addEventListener('dblclick', e => { const bar = e.target.closest('.dk-wt'); if (bar && !e.target.closest('button')) { const w = winOf(bar); w.max = !w.max; place(w); return; } const ic = e.target.closest('.dk-ic'); if (ic) { launch(ic.dataset.app, ic.dataset.arg); } });
     root.addEventListener('click', e => {
       const t = e.target, g = t.closest('[data-g]'), wb = t.closest('[data-w]'), tb = t.closest('[data-tb]'), ap = t.closest('#dk-menu [data-app]'), ic = t.closest('.dk-ic');
-      if (g) { if (g.dataset.g === 'close') f.close(); else if (g.dataset.g === 'menu') { menu = !menu; drawMenu(); } return; }
+      if (g) { if (g.dataset.g === 'pwron') { A.powerOn(devId); drawPower(); } else if (g.dataset.g === 'close') f.close(); else if (g.dataset.g === 'menu') { menu = !menu; drawMenu(); } return; }
       if (wb) { const w = winOf(wb); if (wb.dataset.w === 'x') closeWin(w); else if (wb.dataset.w === 'min') { w.min = true; wins.forEach(place); drawTask(); } else { w.max = !w.max; place(w); } return; }
       if (tb) { const w = wins.find(x => x.id === tb.dataset.tb); if (w === focused()) { w.min = true; wins.forEach(place); drawTask(); } else focus(w); return; }
       if (ap) { menu = false; drawMenu(); launch(ap.dataset.app, ap.dataset.arg); return; }
@@ -4189,10 +4280,10 @@ const DESKTOP = (function () {
       if (t.closest('#dk-screen') && !t.closest('.dk-win')) root.querySelectorAll('.dk-ic.sel').forEach(x => x.classList.remove('sel'));
     });
     root.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.classList && e.target.classList.contains('dk-ic')) launch(e.target.dataset.app, e.target.dataset.arg); if (e.key === 'Escape' && menu) { menu = false; drawMenu(); } });
-    const h = { host: f.host, close: f.close, launch, wins }; OPEN[devId] = h; drawIcons(); drawTask();
-    return h;
+    drawIcons(); drawTask(); drawPower();
+    return { host: f.host, close: f.close, launch, wins };
   }
-  return { init, open };
+  return { init, open, mount };
 })();
 if (typeof module !== 'undefined') module.exports = DESKTOP;
 
@@ -4256,6 +4347,7 @@ const Sandbox = (function () {
     const fresh = []; net.notes = net.notes || [];
     for (const d of Object.values(net.devs)) {
       if (d.type === 'server' && !d.svc) d.svc = defSvc();
+      if (d.startup === undefined && (d.type === 'switch' || d.type === 'router')) d.startup = JSON.stringify(d.cfg);
       d.cfg.nic = d.cfg.nic || {}; d.cfg.nat = d.cfg.nat || []; d.pcard = d.pcard || {}; d.grp = d.grp || {}; d.use = d.use || {};
       if (d.rack === undefined) { d.rack = null; fresh.push(d.id); }
     }
@@ -4326,14 +4418,15 @@ const Sandbox = (function () {
     app = root; document.title = 'Netzplaner – NetLab'; initDL(); document.removeEventListener('keydown', escKey);
     const sid = store.get('sbxscen', null), sc = sid && SC.find(x => x.id === sid), net = sc ? (store.get('scen.' + sid) || buildScen(sid)) : (store.get('sandbox') || example()); migrate(net);
     S = { net, scen: sc ? sid : null, undo: [], redo: [], sel: null, port: null, cable: 'cu', cabling: false, pend: null, view: store.get('sbxview', 'plan'), mode: store.get('sbxmode', 'rt'), tool: 'select', pcat: 0, flyout: null, dock: 'ports', dockOpen: true, itab: 'port', _sp: null, pdus: [], pduN: 0, pduSrc: null, sim: null, ptab: 'pdu', tf: 'all', out: {}, sess: {}, hist: [], hi: 0, drag: null, toast: '' };
-    S.snap = !!store.get('sbxsnap', false); S.multi = new Set(); S.selNote = null;
+    S.dockOpen = false; S.inspOpen = false; S.snap = !!store.get('sbxsnap', false); S.multi = new Set(); S.selNote = null;
     S.sel = Object.keys(net.devs).find(id => net.devs[id].type === 'switch') || Object.keys(net.devs)[0] || null;
     app.innerHTML = `<div class="sbx">
       <header class="sbar">
-        <div class="seg2" id="segv" role="group" aria-label="Ansicht"><button data-v="plan">Netzplan</button><button data-v="rack">Rack</button></div>
+        <div class="seg2" id="segv" role="group" aria-label="Ansicht"><button data-v="plan">Netzplan</button><button data-v="rack">Rack</button><button data-v="sys">Systeme</button></div>
         <div class="seg2" id="segm" role="group" aria-label="Modus"><button data-m="rt">Echtzeit</button><button data-m="sim">Simulation</button></div>
         <button class="ibtn" id="undoBtn" title="Rückgängig (Strg+Z)" aria-label="Rückgängig"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button><button class="ibtn" id="redoBtn" title="Wiederholen (Strg+Y)" aria-label="Wiederholen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg></button>
         <button class="pill" id="scenpill" hidden></button>
+        <button class="ibtn" id="inspBtn" title="Details ein- oder ausblenden" aria-label="Details ein- oder ausblenden" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
         <div class="sp"></div>
         <details class="menu"><summary class="btn">Mehr</summary><div class="mlist"><button data-m="png">Plan als Bild (PNG)</button><button data-m="svg">Plan als SVG</button><button data-m="desc">Ports automatisch beschriften</button><button data-m="example">Beispielnetz laden</button><button data-m="empty">Leeres Projekt</button><button data-m="json">Projekt als JSON</button><button data-m="import">Projekt importieren</button></div></details>
         <button class="btn primary" id="xBtn">Prüfen &amp; exportieren</button>
@@ -4342,6 +4435,7 @@ const Sandbox = (function () {
       <div class="stage"><div class="hint" id="hint" aria-live="polite" hidden></div><div class="fly" id="fly" hidden></div>
         <div class="srch" id="srch"><svg viewBox="0 0 24 24" class="ri" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="srchIn" type="search" placeholder="Suchen: Gerät, IP, VLAN, Port" aria-label="Im Plan suchen" autocomplete="off" spellcheck="false"><div class="srchres" id="srchRes" hidden></div></div>
         <div class="mbar" id="mbar" hidden></div>
+        <div class="sys" id="sys" hidden></div>
         <div class="canvas" id="cvwrap"><svg id="cv" role="group" aria-label="Netzplan"></svg></div>
         <div class="mini" id="mini" hidden><svg id="miniSvg" aria-label="Übersicht" role="img"></svg></div>
         <div class="zoom" role="group" aria-label="Zoom"><button class="ibtn" id="zIn" title="Vergrößern (+)" aria-label="Vergrößern"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button><button class="ibtn" id="zOut" title="Verkleinern (-)" aria-label="Verkleinern"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg></button><button class="ibtn" id="zSnap" title="Am Raster einrasten" aria-label="Am Raster einrasten"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4zM4 12h16M12 4v16"/></svg></button><button class="ibtn" id="zFit" title="Alles einpassen (0)" aria-label="Alles einpassen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg></button></div></div>
@@ -4357,6 +4451,7 @@ const Sandbox = (function () {
     </div>`;
     $$('#segv button').forEach(b => b.onclick = () => { S.view = b.dataset.v; store.set('sbxview', S.view); render(); });
     $$('#segm button').forEach(b => b.onclick = () => { S.mode = b.dataset.m; store.set('sbxmode', S.mode); S.sim = null; S.ptab = 'pdu'; render(); });
+    $('#inspBtn').onclick = () => { S.inspOpen = !S.inspOpen; render(); };
     $('#xBtn').onclick = exportModal; $('#undoBtn').onclick = undo; $('#redoBtn').onclick = redo; $('#scenpill').onclick = () => { S.dock = 'task'; S.dockOpen = true; drawDock(); };
     $$('.mlist button').forEach(b => b.onclick = () => { b.closest('details').open = false; menu(b.dataset.m); });
     $$('#dock [data-d]').forEach(b => b.onclick = () => { S.dock = b.dataset.d; S.dockOpen = true; drawDock(); if (S.dock === 'cli') setTimeout(() => $('#cmd').focus(), 0); });
@@ -4401,6 +4496,8 @@ const Sandbox = (function () {
     const sd = S.net.devs[S.sel]; if (S.port && (!sd || !sd.pk[S.port])) S.port = null;
     if (S.pduSrc && !S.net.devs[S.pduSrc]) S.pduSrc = null;
     $$('#segv button').forEach(b => b.classList.toggle('act', b.dataset.v === S.view)); $$('#segm button').forEach(b => b.classList.toggle('act', b.dataset.m === S.mode));
+    if (S._ls !== undefined && S.sel !== S._ls && S.view !== 'sys') S.inspOpen = true; S._ls = S.sel;
+    { const sb = $('.sbx'); sb.classList.toggle('noinsp', !S.inspOpen || S.view === 'sys'); sb.classList.toggle('vsys', S.view === 'sys'); $('#inspBtn').setAttribute('aria-pressed', !!S.inspOpen); }
     $('#cvwrap').dataset.tool = S.cabling ? 'cable' : S.tool;
     let h = '';
     if (S.cabling) h = S.pend ? `<b>Kabel:</b> Ende A ist ${esc(dh(S.pend.dev))} ${esc(SH(S.pend.port))} – jetzt freien Port am anderen Gerät anklicken (Esc: Abbruch)` : `<b>Kabel (${CABSHORT[S.cable]}):</b> freien Port anklicken (Esc: Ende)`;
@@ -4412,7 +4509,7 @@ const Sandbox = (function () {
     const wasToast = !!S.toast; if (S.toast) h = S.toast;
     $('#hint').innerHTML = h; $('#hint').hidden = !h; S.toast = '';
     clearTimeout(S._ht); if (wasToast) S._ht = setTimeout(() => { const el = $('#hint'); if (el && S && !S.cabling && S.tool === 'select') el.hidden = true; }, 6500);
-    if (!S.vbUser) S.vb = null; vmap(); drawView(); drawPal(); drawPanel(); drawInsp(); drawMulti(); drawOut(); drawPdu(); drawTask(); drawDock(); $('#undoBtn').disabled = !S.undo.length; $('#redoBtn').disabled = !S.redo.length;
+    if (!S.vbUser) S.vb = null; vmap(); drawView(); drawPal(); drawPanel(); drawInsp(); drawSys(); drawMulti(); drawOut(); drawPdu(); drawTask(); drawDock(); scheduleBoot(); $('#undoBtn').disabled = !S.undo.length; $('#redoBtn').disabled = !S.redo.length;
   }
 
   // ---------------- Palette (Packet-Tracer-Stil) ----------------
@@ -4426,7 +4523,7 @@ const Sandbox = (function () {
   };
   function tileIcon(M) { const k = M.icon || (M.fw ? 'fw' : M.type); const g = ICON[M.icon] || TICON[k] || ICON[k] || TICON[M.type] || ''; return `<svg viewBox="-28 -24 56 48" class="tic" aria-hidden="true">${g}</svg>`; }
   function addAt(model, x, y) {
-    act(() => { const n = Object.keys(S.net.devs).length; if (x == null && S.vbUser && S.vb && S.view === 'plan') { x = Math.round(S.vb.x + S.vb.w / 2 + (n % 5 - 2) * 40); y = Math.round(S.vb.y + S.vb.h / 2 + (n % 5 - 2) * 30); } const id = addDev(S.net, model, x == null ? 160 + (n * 143) % 860 : x, y == null ? 120 + (n * 101) % 400 : y); S.sel = id; S.port = null; S.cabling = false; S.tool = 'select'; S.flyout = null; });
+    act(() => { const n = Object.keys(S.net.devs).length; if (x == null && S.vbUser && S.vb && S.view === 'plan') { x = Math.round(S.vb.x + S.vb.w / 2 + (n % 5 - 2) * 40); y = Math.round(S.vb.y + S.vb.h / 2 + (n % 5 - 2) * 30); } const id = addDev(S.net, model, x == null ? 160 + (n * 143) % 860 : x, y == null ? 120 + (n * 101) % 400 : y); if (isNetOs(S.net.devs[id])) S.net.devs[id].startup = JSON.stringify(S.net.devs[id].cfg); S.sel = id; S.port = null; S.cabling = false; S.tool = 'select'; S.flyout = null; });
   }
   const RI = {
     select: '<path d="M4.04 4.69a.5.5 0 0 1 .65-.65l16 6.5a.5.5 0 0 1-.06.95l-6.13 1.58a2 2 0 0 0-1.44 1.44l-1.58 6.13a.5.5 0 0 1-.95.06z"/>',
@@ -4441,6 +4538,7 @@ const Sandbox = (function () {
     clip: '<path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/><path d="m9 14 2 2 4-4"/>',
     plug: '<path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
     terminal: '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
+    plus: '<path d="M12 5v14M5 12h14"/>',
     globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
     file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8M16 17H8M10 9H8"/>'
   };
@@ -4452,21 +4550,55 @@ const Sandbox = (function () {
   const ico = k => `<svg viewBox="0 0 24 24" class="ri" aria-hidden="true">${RI[k]}</svg>`;
   const CATIC = ['network', 'shield', 'server', 'database', 'monitor', 'plug'], CATSH = ['Netzwerk', 'Firewall', 'Server', 'Storage', 'Endgeräte', 'Kabel'];
   function drawPal() {
-    const rail = $('#rail'), fly = $('#fly'); if (!rail) return; const tools = [['select', 'Auswählen', 'select'], ['marquee', 'Rahmen', 'marquee'], ['delete', 'Löschen', 'trash'], ['pdu', 'Paket', 'send'], ['fail', 'Ausfall', 'power'], ['note', 'Notiz', 'note'], ['zone', 'Zone', 'zone']];
-    rail.innerHTML = tools.map(([k, n, i]) => `<button class="rb ${S.tool === k && !S.cabling ? 'act' : ''}" data-tool="${k}" title="${n === 'Paket' ? 'Paket senden' : n}">${ico(i)}<span>${n}</span></button>`).join('') + '<i class="rsep"></i>'
-      + PCATS.map((c, i) => `<button class="rb ${S.flyout === i || (i === 5 && S.cabling) ? 'act' : ''}" data-c="${i}" aria-expanded="${S.flyout === i}" title="${c[0]}">${ico(CATIC[i])}<span>${CATSH[i]}</span></button>`).join('') + `<i class="rsep"></i><button class="rb ${S.flyout === 'scen' || S.scen ? 'act' : ''}" data-s="scen" title="Aufgaben">${ico('clip')}<span>Aufgaben</span></button>`;
+    const rail = $('#rail'), fly = $('#fly'); if (!rail) return; const T = (k, n, i) => `<button class="rb ${S.tool === k && !S.cabling ? 'act' : ''}" data-tool="${k}" title="${n}" aria-label="${n}" aria-pressed="${S.tool === k && !S.cabling}">${ico(i)}</button>`;
+    rail.hidden = S.view === 'sys';
+    rail.innerHTML = T('select', 'Auswählen', 'select') + T('marquee', 'Mehrere auswählen (Rahmen ziehen)', 'marquee') + T('delete', 'Löschen', 'trash') + T('pdu', 'Paket senden', 'send') + T('fail', 'Ein- und ausschalten', 'power') + '<i class="rsep"></i>'
+      + `<button class="rb add ${typeof S.flyout === 'number' && S.flyout < 5 ? 'act' : ''}" data-add title="Gerät hinzufügen" aria-expanded="${typeof S.flyout === 'number' && S.flyout < 5}">${ico('plus')}<span>Gerät</span></button>`
+      + `<button class="rb ${S.flyout === 5 || S.cabling ? 'act' : ''}" data-c="5" title="Kabel ziehen" aria-label="Kabel ziehen">${ico('plug')}</button><i class="rsep"></i>`
+      + T('note', 'Notiz', 'note') + T('zone', 'Zone', 'zone') + '<i class="rsep"></i>'
+      + `<button class="rb ${S.flyout === 'scen' || S.scen ? 'act' : ''}" data-s="scen" title="Aufgaben" aria-label="Aufgaben">${ico('clip')}</button>`;
     $$('.rb[data-tool]', rail).forEach(b => b.onclick = () => { if (b.dataset.tool === 'note' || b.dataset.tool === 'zone') { addNote(b.dataset.tool); return; } S.tool = b.dataset.tool; S.cabling = false; S.pend = null; S.pduSrc = null; S.flyout = null; render(); });
-    $$('.rb[data-c]', rail).forEach(b => b.onclick = () => { const i = +b.dataset.c; S.flyout = S.flyout === i ? null : i; S.pcat = i; drawPal(); });
+    $$('.rb[data-add]', rail).forEach(b => b.onclick = () => { S.flyout = typeof S.flyout === 'number' && S.flyout < 5 ? null : (S.pcat < 5 ? S.pcat : 0); S.pcat = S.flyout == null ? S.pcat : S.flyout; drawPal(); });
+    $$('.rb[data-c]', rail).forEach(b => b.onclick = () => { const i = +b.dataset.c; S.flyout = S.flyout === i ? null : i; if (S.flyout != null) S.pcat = i; drawPal(); });
     $$('.rb[data-s]', rail).forEach(b => b.onclick = () => { S.flyout = S.flyout === 'scen' ? null : 'scen'; drawPal(); });
     if (S.flyout == null) { fly.hidden = true; fly.innerHTML = ''; return; }
     if (S.flyout === 'scen') { scenFly(fly); return; }
     const cat = PCATS[S.flyout], items = cat[1] ? Object.entries(MODELS).filter(([k, M]) => cat[1](M)).map(([k, M]) => `<button class="tile" draggable="true" data-model="${k}" title="${esc(M.label + (M.info ? ' – ' + M.info.replace(' (vereinfachtes Planungsmodell)', '') : ''))}">${tileIcon(M)}<span>${esc(M.label.replace(/^(Huawei|Cisco) /, '').replace(/ \(.*\)$/, ''))}</span></button>`).join('')
       : Object.keys(CABSHORT).map(c => `<button class="tile cabt ${S.cabling && S.cable === c ? 'act' : ''}" data-cab="${c}" title="${CABSHORT[c]}"><svg viewBox="-28 -24 56 48" class="tic" aria-hidden="true"><path d="M-22 10C-6 10 -6 -10 6 -10S22 -2 24 -10" fill="none" stroke="${CABCOL[c]}" stroke-width="4" stroke-linecap="round"/><circle cx="-22" cy="10" r="3.5" fill="${CABCOL[c]}"/><circle cx="24" cy="-10" r="3.5" fill="${CABCOL[c]}"/></svg><span>${CABSHORT[c]}</span></button>`).join('');
     fly.hidden = false;
-    fly.innerHTML = `<div class="flyh"><h2>${cat[0]}</h2><button class="x" id="flyX" aria-label="Schließen">✕</button></div><p class="flyp">${cat[1] ? 'In den Plan ziehen oder anklicken.' : 'Kabeltyp wählen, dann zwei Ports anklicken.'}</p><div class="tiles">${items}</div>`;
+    fly.innerHTML = `<div class="flyh"><h2>${cat[1] ? 'Gerät hinzufügen' : 'Kabel'}</h2><button class="x" id="flyX" aria-label="Schließen">✕</button></div>${cat[1] ? `<div class="flyc" role="tablist">${PCATS.slice(0, 5).map((c, i) => `<button role="tab" class="${S.flyout === i ? 'act' : ''}" aria-selected="${S.flyout === i}" data-fc="${i}">${CATSH[i]}</button>`).join('')}</div>` : ''}<p class="flyp">${cat[1] ? 'In den Plan ziehen oder anklicken.' : 'Kabeltyp wählen, dann zwei Ports anklicken.'}</p><div class="tiles">${items}</div>`;
     $('#flyX').onclick = () => { S.flyout = null; drawPal(); };
+    $$('[data-fc]', fly).forEach(b => b.onclick = () => { S.flyout = +b.dataset.fc; S.pcat = S.flyout; drawPal(); });
     $$('.tile[data-model]', fly).forEach(b => { b.onclick = () => addAt(b.dataset.model); b.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', b.dataset.model); e.dataTransfer.effectAllowed = 'copy'; setTimeout(() => { fly.hidden = true; }, 0); }); });
     $$('.tile[data-cab]', fly).forEach(b => b.onclick = () => { S.cable = b.dataset.cab; S.cabling = true; S.tool = 'select'; S.pend = null; S.flyout = null; render(); });
+  }
+  // ---------------- Systeme: alle Weboberflächen an einem Ort ----------------
+  const sysUi = d => isPc(d) ? 'desktop' : GUIN.hasGui(d) ? 'web' : null;
+  function sysMount(d, box) {
+    box.innerHTML = ''; const c = document.createElement('div'); c.className = 'sysmount'; box.appendChild(c); S._sysG = null;
+    if (isPc(d)) { DESKN.mount(c, d.id); return; }
+    if (GUIN.hasGui(d)) { S._sysG = GUIN.mount(c, d.id, {}); return; }
+    c.innerHTML = `<div class="sysnone"><b>${esc(d.cfg.hostname)} hat keine Weboberfläche.</b><p>${NL.isHost(d) ? 'Dieses Gerät lässt sich über sein Terminal bedienen: Doppelklick im Netzplan öffnet die Konsole.' : 'Konfiguriere es über die Konsole im Netzplan.'}</p></div>`;
+  }
+  function drawSys() {
+    const el = $('#sys'); if (!el) return; el.hidden = S.view !== 'sys'; if (S.view !== 'sys') { S._sysId = null; if (el.firstChild) { el.innerHTML = ''; S._sysG = null; } return; }
+    const all = Object.values(S.net.devs).filter(d => !(MODELS[d.model] && MODELS[d.model].cloud)), order = GROUPS.map(g => g[0]);
+    const grp = d => { const M = MODELS[d.model] || {}; const g = GROUPS.find(([n, f]) => f(M)); return g ? g[0] : 'Sonstige'; };
+    const withUi = all.filter(sysUi); if (!S.sysSel || !S.net.devs[S.sysSel]) S.sysSel = (withUi.find(d => d.id === S.sel) || withUi[0] || all[0] || {}).id || null;
+    if (!el.firstChild) el.innerHTML = '<aside class="sysl" id="sysl" aria-label="Systeme"></aside><section class="sysm"><header class="syst" id="syst"></header><div class="sysb" id="sysb"></div></section>';
+    const q = (S.sysQ || '').toLowerCase(), sel = S.net.devs[S.sysSel];
+    const groups = {}; all.filter(d => !q || (d.cfg.hostname + ' ' + (MODELS[d.model] || {}).label).toLowerCase().includes(q)).forEach(d => (groups[grp(d)] = groups[grp(d)] || []).push(d));
+    $('#sysl').innerHTML = `<input class="sysq" id="sysq" type="search" placeholder="System suchen" value="${esc(S.sysQ || '')}" aria-label="System suchen" autocomplete="off">` + (all.length ? Object.keys(groups).sort((a, b) => order.indexOf(a) - order.indexOf(b)).map(g => `<h4>${g}</h4>` + groups[g].map(d => { const ps = powerState(d), ui = sysUi(d); const vmOff = d.vm && d.vm.state !== 'running'; return `<button class="sysi ${d.id === S.sysSel ? 'act' : ''} ${ui ? '' : 'nogui'}" data-sys="${d.id}"><span class="sdot ${vmOff ? 'off' : ps}" title="${vmOff ? 'aus' : ps === 'on' ? 'läuft' : ps === 'boot' ? 'startet' : 'aus'}"></span><span class="snm"><b>${esc(d.cfg.hostname)}</b><small>${esc(((MODELS[d.model] || {}).label || d.type).replace(/^(Huawei|Cisco) /, ''))}</small></span>${ui ? ico(ui === 'desktop' ? 'monitor' : 'globe') : ''}</button>`; }).join('')).join('') : '<p class="empty-note">Noch keine Geräte im Plan.</p>');
+    const qi = $('#sysq'); qi.oninput = e => { S.sysQ = e.target.value; const pos = e.target.selectionStart; drawSys(); const n = $('#sysq'); n.focus(); n.setSelectionRange(pos, pos); };
+    $$('#sysl [data-sys]').forEach(b => b.onclick = () => { S.sysSel = b.dataset.sys; S.sel = b.dataset.sys; drawSys(); });
+    const t = $('#syst');
+    if (!sel) { t.innerHTML = ''; $('#sysb').innerHTML = '<div class="sysnone"><b>Noch kein System im Plan.</b><p>Füge im Netzplan Geräte hinzu. Ihre Weboberflächen erscheinen dann hier.</p></div>'; S._sysId = null; return; }
+    const ps = powerState(sel), ui = sysUi(sel), canPwr = !sel.vm && !(MODELS[sel.model] && MODELS[sel.model].cloud);
+    t.innerHTML = `<div class="sysh"><b>${esc(sel.cfg.hostname)}</b>${ui === 'web' ? `<span class="sysurl">https://${esc(guiHost(sel))}${GUIN.portOf(sel) === 443 ? '' : ':' + GUIN.portOf(sel)}</span>` : ''}</div><div class="sysact">${canPwr ? `<button class="btn small ${ps === 'on' ? '' : 'primary'}" id="sysPwr" ${ps === 'boot' ? 'disabled' : ''}>${ps === 'on' ? 'Ausschalten' : ps === 'off' ? 'Einschalten' : 'Startet …'}</button>` : ''}${ui ? '<button class="btn small ghost" id="sysWin">Eigenes Fenster</button>' : ''}<button class="btn small ghost" id="sysPlan">Im Plan zeigen</button></div>`;
+    if ($('#sysPwr')) $('#sysPwr').onclick = () => togglePower(sel.id);
+    if ($('#sysWin')) $('#sysWin').onclick = () => { if (isPc(sel)) DESKN.open(sel.id); else GUIN.open(sel.id); };
+    $('#sysPlan').onclick = () => { S.view = 'plan'; store.set('sbxview', 'plan'); S.sel = sel.id; S.inspOpen = true; render(); };
+    if (S._sysId !== sel.id) { S._sysId = sel.id; sysMount(sel, $('#sysb')); } else if (S._sysG) S._sysG.draw();
   }
   function drawDock() {
     const dk = $('#dock'); if (!dk) return; dk.classList.toggle('closed', !S.dockOpen); const tt = $('#dtTask'); if (tt) tt.hidden = !S.scen; if (!S.scen && S.dock === 'task') S.dock = 'ports';
@@ -4643,18 +4775,18 @@ const Sandbox = (function () {
       cab += `<g class="lw ${rel ? 'rel' : ''}" data-d="${l.a}" data-p="${esc(l.ap)}"><title>${esc(dh(l.a))} ${esc(SH(l.ap))} ↔ ${esc(dh(l.b))} ${esc(SH(l.bp))}, ${CABSHORT[l.cable || 'cu']}${up ? ', Link up' : ', kein Link: ' + esc(st.reason)}</title>`
         + `<path d="${c.d}" class="wire hit"/><path d="${c.d}" data-li="${li}" class="wire ${up ? '' : 'dn'} ${l.cut ? 'cut' : ''}" style="stroke:${CABCOL[l.cable || 'cu']}"/><circle class="lamp" cx="${c.la.x.toFixed(1)}" cy="${c.la.y.toFixed(1)}" r="2.7" style="fill:${lamp(st)}"/><circle class="lamp" cx="${c.lb.x.toFixed(1)}" cy="${c.lb.y.toFixed(1)}" r="2.7" style="fill:${lamp(NL.portStatus(net, l.b, l.bp))}"/>${up ? '' : `<circle cx="${c.mx}" cy="${c.my}" r="7" class="xdot"/><path class="xmark" d="M${c.mx - 3} ${c.my - 3}l6 6m0 -6l-6 6"/>`}</g>`;
     });
-    let vl = ''; net.links.forEach(l => { if (!l.virt) return; const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], hh = net.devs[vm.vm.host]; if (!hh || !LC[hh.id]) return; vl += `<line class="vlink ${vm.vm.state === 'running' && !hh.off ? '' : 'dn'}" x1="${hh.x}" y1="${(hh.y + LC[hh.id].h / 2).toFixed(1)}" x2="${vm.x}" y2="${vm.y - 24}"/>`; });
+    let vl = ''; net.links.forEach(l => { if (!l.virt) return; const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], hh = net.devs[vm.vm.host]; if (!hh || !LC[hh.id]) return; vl += `<line class="vlink ${vm.vm.state === 'running' && !NL.isDown(hh) ? '' : 'dn'}" x1="${hh.x}" y1="${(hh.y + LC[hh.id].h / 2).toFixed(1)}" x2="${vm.x}" y2="${vm.y - 24}"/>`; });
     s += zonesSvg() + vl + cab;
     for (const id in net.devs) {
       const d = net.devs[id], L = LC[id], x = d.x - L.w / 2, y = d.y - L.h / 2, h0 = hip(d, d.ports[0]) || {}, M = MODELS[d.model] || {};
       const sub = L.icon ? (NL.isHost(d) ? (h0.ip ? h0.ip + '/' + NL.maskLen(h0.mask) : 'keine IP') : '') : (M.label || '').replace(/^(Huawei|Cisco) /, '');
       const stt = L.icon ? null : stats(d);
-      s += `<g class="dev ${isSelDev(id) ? 'sel' : ''} ${id === S.pduSrc ? 'src' : ''} ${d.off || (d.vm && d.vm.state !== 'running') ? 'off' : ''}" data-dev="${id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen">`
+      s += `<g class="dev ${isSelDev(id) ? 'sel' : ''} ${id === S.pduSrc ? 'src' : ''} ${NL.isDown(d) || (d.vm && d.vm.state !== 'running') ? 'off' : ''} ${NL.booting(d) ? 'booting' : ''}" data-dev="${id}" transform="translate(${x.toFixed(1)},${y.toFixed(1)})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen">`
         + `<rect class="selbox" x="-5" y="-5" width="${L.w + 10}" height="${L.h + 10}" rx="7"/>`
         + (L.icon ? `<g transform="translate(32,34) scale(.85)" class="ic">${ICON[d.icon] || ICON[d.type]}</g>` : `<rect class="fpl t-${d.fw ? 'fw' : d.type}" width="${L.w}" height="${L.h}" rx="4"/>${groupsSvg(L, 0, 0, false)}`)
         + portsSvg(d, L, 0, 0, false)
         + (L.icon ? `<text class="hn" x="${L.w / 2}" y="${L.h + 14}">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="${L.h + 26}">${esc(sub)}</text>`
-          : `<text class="hn" x="${L.w / 2}" y="-18">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="-6">${esc(sub)} · ${stt.used}/${stt.total} belegt</text>`) + '</g>';
+          : `<text class="hn" x="${L.w / 2}" y="-18">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="-6">${stt.used}/${stt.total} Ports belegt</text>`) + '</g>';
     }
     s += notesSvg();
     s += simOverlay();
@@ -4673,7 +4805,7 @@ const Sandbox = (function () {
     placed.forEach(d => {
       const L = layout(d), h = uOf(d) * UH, k = Math.min(1, (h - 4) / L.h), y = 28 + (RU - (d.rack + uOf(d) - 1)) * UH, ox = RW - L.w * k - 10, oy = (h - L.h * k) / 2;
       LC[d.id] = { L, k, ox, oy, y };
-      s += `<g class="rdev ${d.id === S.sel ? 'sel' : ''} ${d.off ? 'off' : ''}" data-dev="${d.id}" transform="translate(${RX},${y})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen"><rect class="rface t-${d.fw ? 'fw' : d.type}" width="${RW}" height="${h - 1}" rx="2"/><rect class="rear" x="-5" y="3" width="5" height="${h - 7}"/><rect class="rear" x="${RW}" y="3" width="5" height="${h - 7}"/>`
+      s += `<g class="rdev ${d.id === S.sel ? 'sel' : ''} ${NL.isDown(d) ? 'off' : ''} ${NL.booting(d) ? 'booting' : ''}" data-dev="${d.id}" transform="translate(${RX},${y})" tabindex="0" role="button" aria-label="${esc(d.cfg.hostname)} auswählen"><rect class="rface t-${d.fw ? 'fw' : d.type}" width="${RW}" height="${h - 1}" rx="2"/><rect class="rear" x="-5" y="3" width="5" height="${h - 7}"/><rect class="rear" x="${RW}" y="3" width="5" height="${h - 7}"/>`
         + `<text class="rname" x="10" y="${h / 2 - 2}">${esc(d.cfg.hostname)}</text><text class="rmod" x="10" y="${h / 2 + 9}">${esc(((MODELS[d.model] || {}).label || '').replace(/^(Huawei|Cisco) /, '').slice(0, 24))}</text>`
         + `<g transform="translate(${ox.toFixed(1)},${oy.toFixed(1)}) scale(${k.toFixed(3)})">${groupsSvg(L, 0, 0, false)}${portsSvg(d, L, 0, 0, false)}</g></g>`;
     });
@@ -4695,6 +4827,7 @@ const Sandbox = (function () {
     return { x: Math.round(cx - w / 2), y: Math.round(cy - h / 2), w: Math.round(w), h: Math.round(h) };
   }
   function drawView() {
+    if (S.view === 'sys') return;
     const svg = $('#cv'), wrap = $('#cvwrap'); wrap.classList.toggle('rack', S.view === 'rack');
     if (S.view === 'rack') { svg.setAttribute('viewBox', `0 0 700 ${RU * UH + 52}`); svg.style.width = '700px'; svg.style.height = (RU * UH + 52) + 'px'; svg.style.maxWidth = 'none'; svg.innerHTML = drawRack(); }
     else { const v = S.vb || (S.vb = fitVB()); svg.setAttribute('viewBox', `${v.x} ${v.y} ${v.w} ${v.h}`); svg.style.width = ''; svg.style.height = ''; svg.style.maxWidth = ''; svg.innerHTML = drawPlan(); }
@@ -4778,8 +4911,47 @@ const Sandbox = (function () {
   }
   function dblDev(id) { const d = S.net.devs[id]; if (!d) return; if (isPc(d)) { S.sel = id; render(); DESKN.open(id); } else if (canApps(d)) { S.sel = id; render(); openApps(id, 'home'); } else if (!NL.isHost(d) && d.type !== 'fc') { S.sel = id; S.dock = 'cli'; S.dockOpen = true; render(); setTimeout(() => $('#cmd').focus(), 0); } }
   function delDev(id) { act(() => { VIRTN.cascade(S.net, id); S.net.links = S.net.links.filter(l => l.a !== id && l.b !== id); delete S.net.devs[id]; delete S.out[id]; if (S.sel === id) { S.sel = null; S.port = null; } }); }
-  function toggleOff(id) { const d = S.net.devs[id]; act(() => { d.off = !d.off; toast(d.off ? `<b>${esc(d.cfg.hostname)}</b> ist ausgeschaltet – alle Links daran sind down.` : `${esc(d.cfg.hostname)} läuft wieder.`); }); }
-  function clickDev(id) { if (S.tool === 'delete' && !S.cabling) { delDev(id); return; } if (S.tool === 'fail' && !S.cabling) { toggleOff(id); return; } if (S.tool === 'pdu' && !S.cabling) { pduPick(id); return; } const d = S.net.devs[id]; if (S.cabling && S.pend && isIcon(d) && S.pend.dev !== id) { portClick(id, d.ports[0]); return; } S.selNote = null; S.multi = new Set(); S.sel = id; S.port = isIcon(d) ? d.ports[0] : null; render(); }
+  // ---------------- Ein- und Ausschalten mit Bootvorgang ----------------
+  const BOOT_MS = { switch: 9000, router: 11000, fc: 8000, server: 12000, storage: 14000, pc: 6000 };
+  const bootMs = d => d.fw ? 11000 : (BOOT_MS[d.type] || 8000);
+  const isNetOs = d => d.type === 'switch' || d.type === 'router';
+  const bootLines = d => {
+    const h = d.cfg.hostname, M = MODELS[d.model] || {}, lbl = (M.label || d.type);
+    if (d.fw) return ['Cisco Adaptive Security Appliance Software wird geladen …', `${lbl}: Selbsttest bestanden`, 'Lade Startup-Konfiguration …', 'Schnittstellen werden initialisiert …', `${h}: Firewall bereit`];
+    if (isNetOs(d)) return ['System Bootstrap, Version 17.x, RELEASE SOFTWARE', `${lbl}: Prüfe Flash und Speicher …`, 'Lade IOS-XE-Image aus flash: …', 'Selbsttest beim Einschalten bestanden', `Lade Startup-Konfiguration: ${d.startup ? 'gefunden' : 'keine vorhanden'}`, `${h} bereit.`];
+    if (d.type === 'server' || d.type === 'storage') return ['BIOS: Hardware-Test …', 'Bootloader startet …', 'Betriebssystem wird geladen …', 'Dienste werden gestartet …', `${h}: Anmeldung möglich`];
+    return ['Firmware-Test …', 'Betriebssystem wird geladen …', `${h}: Anmeldung möglich`];
+  };
+  const powerState = d => d.off ? 'off' : NL.booting(d) ? 'boot' : 'on';
+  function powerOff(id) {
+    const d = S.net.devs[id]; if (!d || d.off) return;
+    act(() => { d.off = true; d.boot = null; delete S.sess[id]; push(id, 'sys', `— ${d.cfg.hostname} ausgeschaltet —`); toast(`<b>${esc(d.cfg.hostname)}</b> ist ausgeschaltet. Alle Links daran sind down.`); });
+  }
+  function powerOn(id) {
+    const d = S.net.devs[id]; if (!d || !d.off) return; let lost = false;
+    act(() => {
+      d.off = false; d.boot = { t0: Date.now(), ms: bootMs(d) }; S.sess[id] = NL.newSess();
+      if (isNetOs(d) && d.startup) { lost = !d.saved; d.cfg = JSON.parse(d.startup); d.saved = true; }
+      toast(`<b>${esc(d.cfg.hostname)}</b> startet …${lost ? ' Nicht gespeicherte Änderungen sind verloren (nur die Startup-Config wird geladen).' : ''}`);
+    });
+    push(id, 'sys', `— ${d.cfg.hostname} startet —`); const lines = bootLines(d);
+    lines.forEach((l, i) => setTimeout(() => { if (S && S.net.devs[id] && S.net.devs[id].boot && !S.net.devs[id].off) { push(id, 'out', l); const o = $('#out'); if (o && S.sel === id) drawOut(); } }, Math.round(d.boot.ms * (i + 1) / (lines.length + 1))));
+    scheduleBoot(); redraw();
+  }
+  const redraw = () => { if (typeof document !== 'undefined') render(); };
+  function finishBoot(id) {
+    if (!S) return; const d = S.net.devs[id]; if (!d || !d.boot) return; const end = d.boot.t0 + d.boot.ms;
+    NL.setClock(() => end - 1); const prev = states(); NL.setClock(null); d.boot = null; logDiff(prev); push(id, 'sys', `— ${d.cfg.hostname} ist gestartet —`); save(); toast(`<b>${esc(d.cfg.hostname)}</b> ist gestartet.`); redraw();
+  }
+  function scheduleBoot() {
+    if (!S) return; S._bt = S._bt || {};
+    for (const id in S.net.devs) { const d = S.net.devs[id]; if (!d.boot || S._bt[id]) continue; const rest = d.boot.t0 + d.boot.ms - Date.now(); if (rest <= 0) { d.boot = null; continue; } S._bt[id] = setTimeout(() => { delete S._bt[id]; finishBoot(id); }, rest + 40); }
+  }
+  const downMsg = d => d.off ? `${d.cfg.hostname} ist ausgeschaltet. Schalte das Gerät ein, dann startet es.` : NL.booting(d) ? `${d.cfg.hostname} startet noch (Bootvorgang läuft).` : '';
+  function togglePower(id) { const d = S.net.devs[id]; if (d) { if (d.off) powerOn(id); else powerOff(id); } }
+  function toggleOff(id) { togglePower(id); }
+  function toggleOffOld(id) { const d = S.net.devs[id]; act(() => { d.off = !d.off; toast(d.off ? `<b>${esc(d.cfg.hostname)}</b> ist ausgeschaltet – alle Links daran sind down.` : `${esc(d.cfg.hostname)} läuft wieder.`); }); }
+  function clickDev(id) { S.inspOpen = true; if (S.tool === 'delete' && !S.cabling) { delDev(id); return; } if (S.tool === 'fail' && !S.cabling) { toggleOff(id); return; } if (S.tool === 'pdu' && !S.cabling) { pduPick(id); return; } const d = S.net.devs[id]; if (S.cabling && S.pend && isIcon(d) && S.pend.dev !== id) { portClick(id, d.ports[0]); return; } S.selNote = null; S.multi = new Set(); S.sel = id; S.port = isIcon(d) ? d.ports[0] : null; render(); }
 
   // ---------------- cabling ----------------
   function connect(id, p) {
@@ -4842,8 +5014,9 @@ const Sandbox = (function () {
     if (!d) { el.innerHTML = '<p class="empty-note">Wähle ein Gerät im Plan aus.</p>'; return; }
     if (S.port !== S._sp) { S._sp = S.port; if (S.port) S.itab = 'port'; }
     const M = MODELS[d.model] || {}, hp = !!S.port, tab = hp && S.itab !== 'dev' ? 'port' : 'dev';
-    el.innerHTML = `<div class="ihead"><b>${esc(d.cfg.hostname)}</b><span class="muted">${esc((M.label || d.type).replace(/^(Huawei|Cisco) /, ''))}${d.model ? ` <a class="wk-ctx" href="#wiki/hw-${esc(d.model.toLowerCase())}">Wiki</a>` : ''}</span></div>` + (hp ? `<div class="itabs" role="tablist"><button role="tab" class="${tab === 'port' ? 'act' : ''}" data-i="port">Port ${esc(SH(S.port))}</button><button role="tab" class="${tab === 'dev' ? 'act' : ''}" data-i="dev">Gerät</button></div>` : '')
+    el.innerHTML = `<button class="insx" id="inspX" aria-label="Details schließen" title="Details schließen">✕</button><div class="ihead"><b>${esc(d.cfg.hostname)}</b><span class="muted">${esc((M.label || d.type).replace(/^(Huawei|Cisco) /, ''))}${d.model ? ` <a class="wk-ctx" href="#wiki/hw-${esc(d.model.toLowerCase())}">Wiki</a>` : ''}</span></div>` + (hp ? `<div class="itabs" role="tablist"><button role="tab" class="${tab === 'port' ? 'act' : ''}" data-i="port">Port ${esc(SH(S.port))}</button><button role="tab" class="${tab === 'dev' ? 'act' : ''}" data-i="dev">Gerät</button></div>` : '')
       + `<div class="ibody">${tab === 'port' ? portCard(d, S.port) : devCard(d)}</div>`;
+    if ($('#inspX')) $('#inspX').onclick = () => { S.inspOpen = false; render(); };
     $$('.itabs [data-i]', el).forEach(b => b.onclick = () => { S.itab = b.dataset.i; drawInsp(); });
     wireInsp(d);
   }
@@ -4890,6 +5063,7 @@ const Sandbox = (function () {
   function devCard(d) {
     const M = MODELS[d.model] || {}, u = uOf(d);
     let h = `<section class="card"><h3 class="hid">${esc(d.cfg.hostname)}</h3><div class="f"><label for="dhost">Hostname</label><div class="irow"><input id="dhost" value="${esc(d.cfg.hostname)}"><button class="btn small" id="dhostGo">Setzen</button></div></div>`;
+    if (!d.vm && !(MODELS[d.model] && MODELS[d.model].cloud)) { const ps = powerState(d), left = d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0; h += `<div class="pwr ${ps}"><span class="pdot" aria-hidden="true"></span><div class="ptx"><b>${ps === 'off' ? 'Ausgeschaltet' : ps === 'boot' ? 'Startet …' : 'Eingeschaltet'}</b><small>${ps === 'off' ? 'Alle Links daran sind down.' : ps === 'boot' ? 'Noch nicht erreichbar.' : (isNetOs(d) ? (d.saved ? 'Konfiguration gespeichert' : 'Änderungen nicht gespeichert') : 'Läuft')}</small></div><button class="btn small ${ps === 'on' ? '' : 'primary'}" id="pwrBtn" ${ps === 'boot' ? 'disabled' : ''}>${ps === 'on' ? 'Ausschalten' : ps === 'off' ? 'Einschalten' : 'Bootet'}</button>${ps === 'boot' ? `<i class="pbar" style="animation-duration:${left}ms"></i>` : ''}</div>`; }
     if (d.type === 'server' && !(MODELS[d.model] && MODELS[d.model].cloud)) h += `<div class="f"><label for="dos">Betriebssystem (installiert)</label><select id="dos"><option value="linux" ${d.os === 'windows' ? '' : 'selected'}>Ubuntu Linux 22.04</option><option value="windows" ${d.os === 'windows' ? 'selected' : ''}>Windows Server 2022</option></select></div>`;
     if (GUIN.hasGui(d)) h += `<div class="webbox"><b>Web-Verwaltung</b><span class="muted small">https://${esc(guiHost(d))}${GUIN.portOf(d) === 443 ? '' : ':' + GUIN.portOf(d)}</span><button class="btn primary small block" id="guiOpen">${d.vm ? 'Web-GUI der VM öffnen' : 'Web-GUI öffnen'}</button>${d.vm ? '<button class="btn small block" id="hvOpen">Im Virtualisierungs-Manager verwalten</button>' : ''}</div>`;
     if (canApps(d)) h += `<div class="appbtns"><button class="btn small" id="appDesk">Desktop öffnen</button>${d.type === 'server' ? '<button class="btn small" id="appSvc">Dienste</button>' : ''}</div>`;
@@ -4964,6 +5138,7 @@ const Sandbox = (function () {
       if (c.length) runOn(d.id, c, 'Management aus der Oberfläche');
     };
     if (g('dos')) g('dos').onchange = () => act(() => { d.os = g('dos').value; delete S.out[d.id]; delete S.sess[d.id]; toast(`Betriebssystem: ${d.os === 'windows' ? 'Windows Server 2022' : 'Ubuntu Linux'}. Konsole und Web-GUI wechseln mit.`); });
+    if (g('pwrBtn')) g('pwrBtn').onclick = () => togglePower(d.id);
     if (g('guiOpen')) g('guiOpen').onclick = () => GUIN.open(d.id);
     if (g('hvOpen')) g('hvOpen').onclick = () => GUIN.open(d.vm.host);
     if (g('appDesk')) g('appDesk').onclick = () => { if (isPc(d)) DESKN.open(d.id); else openApps(d.id, 'home'); };
@@ -5026,7 +5201,7 @@ const Sandbox = (function () {
   function wireTerm() {
     const inp = $('#cmd');
     const runL = v => { const id = S.sel; if (!id) return; const d = S.net.devs[id], s = S.sess[id] || (S.sess[id] = NL.newSess());
-      act(() => { push(id, 'cmd', promptOf(d, s) + v); if (/^\s*(clear|cls)\s*$/i.test(v)) { S.out[id] = []; return; } let r; try { r = NL.isHost(d) ? hostRun(d, s, v) : NL.exec(S.net, id, s, v); } catch (e) { r = '% Interner Fehler: ' + e.message; }
+      act(() => { push(id, 'cmd', promptOf(d, s) + v); if (/^\s*(clear|cls)\s*$/i.test(v)) { S.out[id] = []; return; } let r; try { r = downMsg(d) || (NL.isHost(d) ? hostRun(d, s, v) : NL.exec(S.net, id, s, v)); } catch (e) { r = '% Interner Fehler: ' + e.message; }
         if (r) r.split('\n').forEach(l => push(id, /^\[(Ping-Debugger|Hinweis|Pfad|Debug|NAT)\]/.test(l) ? 'dbg' : (/^%/.test(l) && !/Creating vlan/.test(l) ? 'err' : 'out'), l)); }); };
     inp.addEventListener('keydown', e => {
       if (e.key === 'Enter') { const v = inp.value; inp.value = ''; if (v.trim()) S.hist.push(v); S.hi = S.hist.length; runL(v); $('#cmd').focus(); }
@@ -5914,12 +6089,12 @@ const Sandbox = (function () {
   const guiHost = d => { if (!NL.isHost(d)) { const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip); return n ? d.cfg.ifs[n].ip : d.cfg.hostname.toLowerCase(); } const h = d.ports.map(p => hip(d, p)).find(x => x && x.ip); return h ? h.ip : d.cfg.hostname.toLowerCase(); };
   function termRun(d, line) {
     const id = d.id, s = S.sess[id] || (S.sess[id] = NL.newSess()); ensureOut(id);
-    act(() => { push(id, 'cmd', promptOf(d, s) + line); if (/^\s*(clear|cls)\s*$/i.test(line)) { S.out[id] = []; return; } let r; try { r = NL.isHost(d) ? hostRun(d, s, line) : NL.exec(S.net, id, s, line); } catch (e) { r = '% Interner Fehler: ' + e.message; }
+    act(() => { push(id, 'cmd', promptOf(d, s) + line); if (/^\s*(clear|cls)\s*$/i.test(line)) { S.out[id] = []; return; } let r; try { r = downMsg(d) || (NL.isHost(d) ? hostRun(d, s, line) : NL.exec(S.net, id, s, line)); } catch (e) { r = '% Interner Fehler: ' + e.message; }
       if (r) r.split('\n').forEach(l => push(id, /^\[(Ping-Debugger|Hinweis|Pfad|Debug|NAT)\]/.test(l) ? 'dbg' : (/^%/.test(l) && !/Creating vlan/.test(l) ? 'err' : 'out'), l)); });
   }
   // Konfiguration der Cisco-Geräte aus der Web-GUI: dieselben IOS-Befehle wie im Terminal, Ausgabe zurück an die GUI
   function iosRun(d, lines, o) {
-    o = o || {}; let out = '';
+    o = o || {}; let out = ''; if (downMsg(d)) return '% ' + downMsg(d);
     act(() => {
       const id = d.id; push(id, 'sys', '— Web-GUI —');
       const s = S.sess[id] = NL.newSess(), all = o.conf === false ? ['enable', ...lines] : ['enable', 'configure terminal', ...lines, 'end'];
@@ -5927,16 +6102,16 @@ const Sandbox = (function () {
     });
     return out;
   }
-  function iosShow(d, line) { const s = NL.newSess(); s.mode = 'priv'; return NL.exec(S.net, d.id, s, line); }
+  function iosShow(d, line) { if (downMsg(d)) return '% ' + downMsg(d); const s = NL.newSess(); s.mode = 'priv'; return NL.exec(S.net, d.id, s, line); }
   GUIN.init({
-    net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
-    isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
+    isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
+    ios: iosRun, iosShow, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
-    net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => hostRun(d, (S.sess && S.sess[d.id]) || (S.sess[d.id] = NL.newSess()), line),
-    prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; }, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st,
+    net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || (S.sess[d.id] = NL.newSess()), line),
+    prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; }, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st,
     guiTarget: (d, u) => guiTarget(d, u), httpGet: (d, u) => httpGet(d, u), dhcp: d => dhcpRequest(d), setIp: setHostIp, validIp: NL.validIp, maskLen: NL.maskLen, inNet: NL.inNet, WIN: WINN, GUI: GUIN
   });
   // Browser im Planer: https://<Gerät>:8443 öffnet die Web-GUI des Geräts, wenn es erreichbar ist
@@ -5951,9 +6126,9 @@ const Sandbox = (function () {
     return { id: dev.id };
   }
 
-  function close() { document.removeEventListener('keydown', escKey); S = null; }
+  function close() { document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;
