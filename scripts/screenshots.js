@@ -38,6 +38,13 @@ const path = require('path'), out = path.join(__dirname, '..', 'docs', 'screensh
   await p.click('.sysmount .wg-nav button:has-text("WLANs")'); await p.click('button:has-text("WLAN hinzufügen")'); await p.fill('#wf-n', 'Firma'); await p.fill('#wf-psk', 'Firma-2026'); await p.click('.wg-dlg button[type=submit]'); await p.waitForTimeout(200);
   for (const ap of ['AP-1', 'AP-2']) { await p.click(`.sysi:has-text("${ap}")`); await p.waitForTimeout(300); await login('.sysmount'); await p.click('.sysmount .wg-nav button:has-text("Controller")'); await p.fill('#wf-wlc', '10.0.0.70'); await p.click('button:has-text("Speichern")'); await p.waitForTimeout(200); }
   await p.click('.sysi:has-text("WLC")'); await p.waitForTimeout(300); await p.click('.sysmount .wg-nav button:has-text("Access Points")'); await shot('12-wlan');
+  // Spanning Tree, Zertifikate, Kubernetes, Backup (jeweils Ausgangslage des Szenarios)
+  const scen = async t => { await fresh('#sandbox'); await p.click('#segv [data-v=plan]'); await p.click('.rb[data-s=scen]'); await p.click(`.sci:has-text("${t}")`); await p.waitForTimeout(500); };
+  await scen('Falsche Root Bridge'); await shot('13-spanning-tree');
+  await scen('Die Webseite zeigt eine Warnung'); await p.click('#segv [data-v=sys]'); await p.waitForTimeout(300);
+  await p.click('.sysi:has-text("SRV-WEB")'); await p.waitForTimeout(300); await login('.sysmount'); await p.click('.sysmount .wg-nav button:has-text("Zertifikate")'); await shot('14-zertifikate');
+  await scen('Pods starten nicht'); await p.click('#segv [data-v=sys]'); await p.waitForTimeout(300); await p.click('.sysi:has-text("SRV-CT")'); await p.waitForTimeout(300); await login('.sysmount'); await p.click('.sysmount .wg-nav button:has-text("Container")'); await shot('15-kubernetes');
+  await scen('Webserver-Konfiguration ist kaputt'); await p.click('#segv [data-v=sys]'); await p.waitForTimeout(300); await p.click('.sysi:has-text("SRV-BKP")'); await p.waitForTimeout(300); await login('.sysmount'); await p.click('.sysmount .wg-nav button:has-text("Backup")'); await p.click('.sysmount button[data-v=store]'); await shot('16-backup');
   await fresh('#wiki'); await shot('11-wiki');
   await b.close();
 })();
