@@ -9,12 +9,12 @@ const WEBGUI = (function () {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   const kindOf = d => {
-    if (!d) return null; if (d.type === 'switch') return 'switch'; if (d.type === 'router') return d.fw || A.isCloud(d) ? null : 'router'; if (d.type === 'storage') return 'storage'; if (d.type === 'fc') return 'fabric';
+    if (!d) return null; if (d.type === 'switch') return 'switch'; if (d.type === 'router') return A.isCloud(d) ? null : d.fw ? 'firewall' : 'router'; if (d.type === 'storage') return 'storage'; if (d.type === 'fc') return 'fabric';
     if (d.type !== 'server' || A.isCloud(d)) return null;
     return d.os === 'windows' ? 'windows' : (A.VIRT.isHost(d) ? 'hypervisor' : 'linux');
   };
-  const PRODUCT = { linux: ['Server-Web-Konsole', 'Linux'], hypervisor: ['Virtualisierungs-Manager', 'Hypervisor'], windows: ['Server-Manager', 'Windows Server 2022'], storage: ['Storage-Manager', 'Speichersystem'], fabric: ['Fabric-Manager', 'FC-Switch'], switch: ['Catalyst Web-Oberfläche', 'Cisco IOS XE Switch'], router: ['Router Web-Oberfläche', 'Cisco IOS XE Router'] };
-  const isNet = k => k === 'switch' || k === 'router';
+  const PRODUCT = { linux: ['Server-Web-Konsole', 'Linux'], hypervisor: ['Virtualisierungs-Manager', 'Hypervisor'], windows: ['Server-Manager', 'Windows Server 2022'], storage: ['Storage-Manager', 'Speichersystem'], fabric: ['Fabric-Manager', 'FC-Switch'], switch: ['Catalyst Web-Oberfläche', 'Cisco IOS XE Switch'], router: ['Router Web-Oberfläche', 'Cisco IOS XE Router'], firewall: ['Firewall', 'Stateful Firewall (Oberfläche im OPNsense-Stil)'] };
+  const isNet = k => k === 'switch' || k === 'router' || k === 'firewall';
   const portOf = d => { const k = kindOf(d); return isNet(k) ? NETPORT : PORT; };
   const hasGui = d => !!kindOf(d);
 
@@ -55,7 +55,7 @@ const WEBGUI = (function () {
     };
     G.draw = draw; G.dev = dev; G.root = root; G.kind = kind; return G;
   }
-  const logo = k => `<svg class="wg-ico" viewBox="0 0 24 24" aria-hidden="true">${{ linux: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>', hypervisor: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/>', windows: '<path d="M3 5l8-1.2V11H3zM13 3.6L21 2v9h-8zM3 13h8v7.2L3 19zM13 13h8v9l-8-1.6z"/>', storage: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>', switch: '<rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/>', router: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16M8 8l-2-2M16 8l2-2M8 16l-2 2M16 16l2 2"/>', fabric: '<circle cx="12" cy="12" r="3"/><circle cx="4" cy="5" r="2"/><circle cx="20" cy="5" r="2"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="19" r="2"/><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>' }[k]}</svg>`;
+  const logo = k => `<svg class="wg-ico" viewBox="0 0 24 24" aria-hidden="true">${{ linux: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>', hypervisor: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/>', windows: '<path d="M3 5l8-1.2V11H3zM13 3.6L21 2v9h-8zM3 13h8v7.2L3 19zM13 13h8v9l-8-1.6z"/>', storage: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>', firewall: '<path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/>', switch: '<rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/>', router: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16M8 8l-2-2M16 8l2-2M8 16l-2 2M16 16l2 2"/>', fabric: '<circle cx="12" cy="12" r="3"/><circle cx="4" cy="5" r="2"/><circle cx="20" cy="5" r="2"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="19" r="2"/><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>' }[k]}</svg>`;
   const hostIp = d => { if (d.type === 'switch' || d.type === 'router') { const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip); return n ? d.cfg.ifs[n].ip : ''; } const h = d.ports.map(p => A.hip(d, p)).find(x => x && x.ip); return h ? h.ip : ''; };
 
   // ---------- Navigation ----------
@@ -66,6 +66,7 @@ const WEBGUI = (function () {
     storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['ports', 'Ports und Controller']],
     fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']],
     switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['acl', 'Zugriffslisten (ACL)'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
+    firewall: d => [['dashboard', 'Dashboard'], ['-i', 'Schnittstellen'], ['interfaces', 'Zuweisungen und Zonen'], ['-f', 'Firewall'], ['rules', 'Regeln'], ['nat', 'NAT'], ['-r', 'System'], ['routes', 'Gateways und Routen'], ['general', 'Einstellungen'], ['config', 'Sicherung und Konfiguration'], ['-t', 'Werkzeuge'], ['monitor', 'Status'], ['cli', 'Konsole (CLI)'], ['ping', 'Ping und Traceroute']],
     router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['acl', 'Zugriffslisten (ACL)'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
   };
 
@@ -87,7 +88,7 @@ const WEBGUI = (function () {
   const v = (G, id) => { const e = G.root.querySelector('#wf-' + id); return e ? (e.type === 'checkbox' ? e.checked : e.value) : ''; };
 
   // ---------- Seiten ----------
-  const PAGES = { linux: {}, hypervisor: {}, windows: {}, storage: {}, fabric: {}, switch: {}, router: {} };
+  const PAGES = { linux: {}, hypervisor: {}, windows: {}, storage: {}, fabric: {}, switch: {}, router: {}, firewall: {} };
   const ifaces = d => A.ctx().ifaces(d);
   const maskLen = m => m ? m.split('.').reduce((a, x) => a + (+x).toString(2).replace(/0/g, '').length, 0) : '';
 
@@ -341,11 +342,51 @@ const WEBGUI = (function () {
   };
   PAGES.switch.ping = PAGES.router.ping = (d, G) => `<form class="wg-row end" data-act="pingf">${field('pdst', 'Ziel-IP-Adresse', G.pdst || '', { ph: '192.168.1.10' })}<button type="submit" class="wg-b primary" data-act="pingf" data-m="ping">Ping</button><button type="submit" class="wg-b" data-act="pingf" data-m="traceroute">Traceroute</button></form>` + (G.pout ? card(G.pout.t, `<pre class="wg-pre">${esc(G.pout.o)}</pre>`) : '<p class="wg-empty">Gib eine Ziel-IP ein. Der Test läuft vom Gerät aus, mit der Quelladresse der Ausgangsschnittstelle.</p>');
 
+  // ---------- Firewall (ASA, Oberfläche im OPNsense-Stil) ----------
+  const zoneOf = (d, n) => d.cfg.ifs[n].nameif;
+  const fwIfs = d => d.ports.filter(p => d.cfg.ifs[p]);
+  PAGES.firewall.config = PAGES.router.config; PAGES.firewall.cli = PAGES.router.cli; PAGES.firewall.ping = PAGES.router.ping;
+  PAGES.firewall.monitor = (d, G) => {
+    const tabs = [['ifs', 'Schnittstellen', 'show interface ip brief'], ['route', 'Routing-Tabelle', 'show route'], ['nat', 'NAT', 'show nat'], ['acl', 'Regeln (ACL)', 'show access-list'], ['ver', 'Version', 'show version']], t = G.tab.mon || 'ifs', cur = tabs.find(x => x[0] === t) || tabs[0];
+    return `<div class="wg-tabs" role="tablist">${tabs.map(x => `<button type="button" role="tab" class="${x[0] === cur[0] ? 'act' : ''}" aria-selected="${x[0] === cur[0]}" data-act="tab" data-t="mon" data-v="${x[0]}">${x[1]}</button>`).join('')}</div>` + card(cur[1], `<p class="wg-note">Entspricht dem Befehl <code>${cur[2]}</code>.</p>${showBox(d, cur[2])}`);
+  };
+  PAGES.firewall.dashboard = (d, G) => {
+    const ps = fwIfs(d), up = ps.filter(p => !d.cfg.ifs[p].shutdown && A.status(d, p) === 'connected').length, rules = Object.values(d.cfg.acls).reduce((n, a) => n + a.length, 0), bound = ps.filter(p => d.cfg.ifs[p].aclIn).length;
+    const hint = [];
+    if (!ps.some(p => zoneOf(d, p))) hint.push('Noch keine Zone zugewiesen: gib einer Schnittstelle unter „Zuweisungen und Zonen“ einen Namen (z. B. inside, outside) und ein Security-Level.');
+    if (rules && !bound) hint.push('Es gibt Regeln, aber keine ist an eine Schnittstelle gebunden. Erst die Bindung („eingehend“) macht sie wirksam.');
+    return `<div class="wg-cards">
+      ${card('System', `<dl class="wg-dl"><dt>Hostname</dt><dd>${esc(d.cfg.hostname)}</dd><dt>Modell</dt><dd>${esc(d.model || 'ASA')}</dd><dt>Konfiguration</dt><dd>${d.saved ? chip('gespeichert', 'ok') : chip('nicht gespeichert', 'bad')}</dd><dt>Verkehr zwischen gleichen Levels</dt><dd>${d.cfg.sameSec ? chip('erlaubt', 'ok') : chip('gesperrt')}</dd></dl>`)}
+      ${card('Schnittstellen', `<p class="wg-big">${up}<small> von ${ps.length} verbunden</small></p>${bar(up, ps.length, 101)}${btn('Zuweisungen und Zonen', 'nav', { p: 'interfaces' }, 'sm')}`)}
+      ${card('Regeln und NAT', `<p class="wg-big">${rules}<small> Regeln · ${bound} Bindungen</small></p><p class="wg-note">${d.cfg.nat.length} NAT-Regel${d.cfg.nat.length === 1 ? '' : 'n'}, ${d.cfg.routes.length} statische Route${d.cfg.routes.length === 1 ? '' : 'n'}</p>${btn('Zu den Regeln', 'nav', { p: 'rules' }, 'sm')}`)}
+    </div>${hint.length ? `<div class="wg-msg err" role="status">${hint.map(esc).join('<br>')}</div>` : ''}
+    ${card('Zonen', tbl(['Schnittstelle', 'Zone', 'Security-Level', 'IP-Adresse', 'Status'], ps.filter(p => zoneOf(d, p) || d.cfg.ifs[p].ip).map(p => { const i = d.cfg.ifs[p]; return [`<b>${esc(A.SH(p))}</b>`, i.nameif ? esc(i.nameif) : '<span class="wg-mut">–</span>', i.sl === null ? '–' : i.sl, i.ip ? esc(i.ip + '/' + maskLen(i.mask)) : '–', stChip(d, p)]; }), 'Noch keine Zonen. Weise einer Schnittstelle einen Namen zu.'))}
+    <p class="wg-note">Regel: Verkehr von hohem zu niedrigem Security-Level (inside → outside) ist erlaubt, der umgekehrte Weg wird ohne ACL verworfen. Antworten auf erlaubte Verbindungen lässt die Firewall zustandsbehaftet durch.</p>`;
+  };
+  PAGES.firewall.interfaces = (d, G) => card('Zuweisungen und Zonen', tbl(['Schnittstelle', 'Status', 'Zone (nameif)', 'Security-Level', 'IP-Adresse', 'Verbunden mit', ''], fwIfs(d).map(p => { const i = d.cfg.ifs[p]; return [`<b>${esc(A.SH(p))}</b>`, stChip(d, p), i.nameif ? esc(i.nameif) : '<span class="wg-mut">nicht zugewiesen</span>', i.sl === null ? '–' : i.sl, i.ip ? esc(i.ip + '/' + maskLen(i.mask)) : '<span class="wg-mut">keine</span>', peerName(d, p), btn('Bearbeiten', 'dlg', { k: 'fwif', p }, 'sm')]; })))
+    + '<p class="wg-note">Ohne Zone (nameif) leitet die ASA über eine Schnittstelle nichts weiter. „inside“ bekommt automatisch Level 100, „outside“ Level 0.</p>';
+  PAGES.firewall.rules = (d, G) => {
+    const names = Object.keys(d.cfg.acls), ps = fwIfs(d).filter(p => d.cfg.ifs[p].nameif);
+    return `<div class="wg-row">${btn('Regel hinzufügen', 'dlg', { k: 'fwrule' }, 'primary')}${btn('Liste an Zone binden', 'dlg', { k: 'fwbind' }, 'sm' + (names.length && ps.length ? '' : ' disabled'))}</div>`
+      + (names.length ? names.map(a => card('Regelliste ' + esc(a), tbl(['Nr.', 'Aktion', 'Regel'], d.cfg.acls[a].map((e, i) => [i + 1, e.action === 'permit' ? chip('erlauben', 'ok') : chip('blockieren', 'bad'), `<code>${esc(e.text)}</code>`])) + `<div class="wg-row">${btn('Liste löschen', 'fwacldel', { a }, 'sm ghost bad')}</div>`)).join('') : '<p class="wg-empty">Noch keine Regeln. Ohne Regel verwirft die ASA Verkehr von niedrigem zu hohem Level.</p>')
+      + card('Bindung an Zonen (eingehend)', tbl(['Zone', 'Schnittstelle', 'Regelliste', ''], ps.filter(p => d.cfg.ifs[p].aclIn).map(p => [`<b>${esc(d.cfg.ifs[p].nameif)}</b>`, esc(A.SH(p)), esc(d.cfg.ifs[p].aclIn), btn('Lösen', 'fwunbind', { z: d.cfg.ifs[p].nameif }, 'sm ghost')]), 'Keine Liste gebunden.'))
+      + '<p class="wg-note">Regeln werden von oben nach unten geprüft, die erste passende gewinnt; am Ende steht ein unsichtbares „deny ip any any“. Die ASA nutzt Netzmasken statt Wildcards (z. B. <code>10.10.0.0 255.255.255.0</code>).</p>';
+  };
+  PAGES.firewall.nat = (d, G) => `<div class="wg-row">${btn('NAT-Regel hinzufügen', 'dlg', { k: 'fwnat' }, 'primary')}</div>` + tbl(['Von Zone', 'Nach Zone', 'Art', ''], d.cfg.nat.map((n, i) => [`<b>${esc(n.from)}</b>`, `<b>${esc(n.to)}</b>`, 'Dynamisches PAT: Quelle → Interface-Adresse', btn('Löschen', 'fwnatdel', { i }, 'sm ghost bad')]), 'Keine NAT-Regeln. Private Adressen kommen so nicht ins Internet.') + card('Aktive Übersetzungen', showBox(d, 'show nat'));
+  PAGES.firewall.routes = (d, G) => `<div class="wg-row">${btn('Route hinzufügen', 'dlg', { k: 'fwroute' }, 'primary')}</div>` + tbl(['Zielnetz', 'Maske', 'Gateway', 'Zone', ''], d.cfg.routes.map((r, i) => [`<b>${esc(r.net)}</b>`, esc(r.mask), esc(r.nh || '–'), esc(r.via || '–'), btn('Löschen', 'fwrtdel', { i }, 'sm ghost bad')]), 'Keine statischen Routen. Für das Internet brauchst du eine Default-Route (0.0.0.0 0.0.0.0).') + card('Routing-Tabelle', showBox(d, 'show route'));
+  PAGES.firewall.general = (d, G) => card('Hostname', `<div class="wg-row end">${field('hn', 'Hostname', d.cfg.hostname)}${btn('Speichern', 'hostname', null, 'primary')}</div>`)
+    + card('Verkehr zwischen Zonen gleichen Levels', `<p>${d.cfg.sameSec ? chip('erlaubt', 'ok') : chip('gesperrt')} Standardmäßig lässt die ASA keinen Verkehr zwischen Zonen mit demselben Security-Level zu.</p><div class="wg-row">${btn(d.cfg.sameSec ? 'Sperren' : 'Erlauben', 'fwsame', null, d.cfg.sameSec ? '' : 'primary')}</div><p class="wg-note"><code>same-security-traffic permit inter-interface</code></p>`);
+
   // ---------- Dialoge ----------
   function dlgHtml(d, G) {
     const x = G.dlg, k = x.k, net = A.net(), wrap = (t, body, ok, okLbl) => `<div class="wg-ov" data-act="dlgbg"><form class="wg-dlg" role="dialog" aria-modal="true" aria-label="${esc(t)}" data-act="dlgok"><h2>${t}</h2>${body}<div class="wg-row end">${btn('Abbrechen', 'dlgx', null, 'ghost')}${ok === false ? '' : `<button type="submit" class="wg-b primary" data-act="dlgok">${okLbl || 'OK'}</button>`}</div></form></div>`;
     const servers = Object.values(net.devs).filter(s => s.type === 'server' && !A.isCloud(s));
     switch (k) {
+      case 'fwif': { const i = d.cfg.ifs[x.p]; return wrap(`Schnittstelle ${esc(A.SH(x.p))}`, `<div class="wg-2">${field('nif', 'Zone (nameif)', i.nameif || '', { ph: 'inside' })}${field('sl', 'Security-Level (0–100)', i.sl === null ? '' : i.sl, { type: 'number', min: 0, max: 100 })}</div><div class="wg-2">${field('ip', 'IP-Adresse', i.ip || '', { ph: '10.0.0.1' })}${field('mask', 'Subnetzmaske', i.mask || '255.255.255.0')}</div>` + sel('st', 'Status', [['up', 'aktiv'], ['down', 'abgeschaltet']], i.shutdown ? 'down' : 'up'), true, 'Speichern'); }
+      case 'fwrule': return wrap('Regel hinzufügen', `<div class="wg-2">${field('acl', 'Regelliste', Object.keys(d.cfg.acls)[0] || 'INSIDE_IN')}${sel('act', 'Aktion', [['permit', 'erlauben'], ['deny', 'blockieren']])}</div><div class="wg-2">${sel('proto', 'Protokoll', [['ip', 'ip (alles)'], ['icmp', 'icmp'], ['tcp', 'tcp'], ['udp', 'udp']])}${field('port', 'Zielport', '', { ph: '80 oder www' })}</div>` + field('src', 'Quelle', 'any', { hint: 'any, host 10.0.0.5 oder 10.0.0.0 255.255.255.0' }) + field('dst', 'Ziel', 'any'), true, 'Hinzufügen');
+      case 'fwbind': return wrap('Regelliste an Zone binden', sel('acl', 'Regelliste', Object.keys(d.cfg.acls).map(a => [a, a])) + sel('z', 'Zone (eingehend)', Object.values(d.cfg.ifs).filter(i => i.nameif).map(i => [i.nameif, i.nameif])), true, 'Binden');
+      case 'fwnat': { const z = Object.values(d.cfg.ifs).filter(i => i.nameif).map(i => [i.nameif, i.nameif]); return wrap('NAT-Regel (dynamisches PAT)', sel('from', 'Von Zone (intern)', z, 'inside') + sel('to', 'Nach Zone (extern)', z, 'outside'), z.length > 1, 'Hinzufügen'); }
+      case 'fwroute': return wrap('Statische Route', sel('z', 'Über Zone', Object.values(d.cfg.ifs).filter(i => i.nameif).map(i => [i.nameif, i.nameif]), 'outside') + `<div class="wg-2">${field('net', 'Zielnetz', '0.0.0.0')}${field('mask', 'Subnetzmaske', '0.0.0.0')}</div>` + field('gw', 'Gateway', '', { ph: '203.0.113.1' }), true, 'Hinzufügen');
       case 'ifedit': {
         const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
         const vl = Object.keys(d.cfg.vlans || {}).map(Number).sort((a, b) => a - b).map(n => [n, `${n} – ${d.cfg.vlans[n]}`]);
@@ -404,6 +445,17 @@ const WEBGUI = (function () {
       const x = G.dlg, k = x.k, dv = d(), net = A.net(); let ok = true;
       const E = (c, m) => { const r = exec(G, c, m); ok = !!r; };
       switch (k) {
+        case 'fwif': {
+          const nm = v(G, 'nif').trim(), sl = v(G, 'sl').trim(), ip = v(G, 'ip').trim(), L = ['interface ' + x.p];
+          if (nm) L.push('nameif ' + nm); else if (dv.cfg.ifs[x.p].nameif) L.push('no nameif');
+          if (nm && sl !== '') L.push('security-level ' + sl);
+          L.push(ip ? `ip address ${ip} ${v(G, 'mask').trim()}` : 'no ip address', v(G, 'st') === 'up' ? 'no shutdown' : 'shutdown', 'exit');
+          ok = ios(G, L, 'Schnittstelle gespeichert.'); break;
+        }
+        case 'fwrule': { const pr = v(G, 'proto'), pt = v(G, 'port').trim(), a = v(G, 'acl').trim(); if (!a || /\s/.test(a)) { G.msg = { err: true, t: 'Name der Regelliste ohne Leerzeichen angeben.' }; ok = false; break; } if (pt && !['tcp', 'udp'].includes(pr)) { G.msg = { err: true, t: 'Ports gibt es nur bei tcp und udp.' }; ok = false; break; } ok = ios(G, `access-list ${a} extended ${v(G, 'act')} ${pr} ${v(G, 'src').trim()} ${v(G, 'dst').trim()}${pt ? ' eq ' + pt : ''}`, 'Regel hinzugefügt. Sie wirkt, sobald die Liste an eine Zone gebunden ist.'); break; }
+        case 'fwbind': ok = ios(G, `access-group ${v(G, 'acl')} in interface ${v(G, 'z')}`, 'Regelliste gebunden.'); break;
+        case 'fwnat': ok = ios(G, `nat (${v(G, 'from')},${v(G, 'to')}) source dynamic any interface`, 'NAT-Regel hinzugefügt.'); break;
+        case 'fwroute': ok = ios(G, `route ${v(G, 'z')} ${v(G, 'net').trim()} ${v(G, 'mask').trim()} ${v(G, 'gw').trim()}`, 'Route hinzugefügt.'); break;
         case 'ifedit': {
           const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
           const allow = v(G, 'allow').trim().toLowerCase();
@@ -483,6 +535,11 @@ const WEBGUI = (function () {
       if (b.disabled || b.classList.contains('disabled')) return;
       G.msg = a === 'nav' || a === 'tab' ? null : G.msg;
       switch (a) {
+        case 'fwacldel': ios(G, 'no access-list ' + D.a, 'Regelliste gelöscht.'); break;
+        case 'fwunbind': ios(G, `no access-group x in interface ${D.z}`, 'Bindung gelöst.'); break;
+        case 'fwnatdel': { const n = dv.cfg.nat[+D.i]; if (n) ios(G, `no nat (${n.from},${n.to}) source dynamic any interface`, 'NAT-Regel gelöscht.'); break; }
+        case 'fwrtdel': { const r = dv.cfg.routes[+D.i]; if (r) ios(G, `no route ${r.via || 'x'} ${r.net} ${r.mask} ${r.nh}`, 'Route gelöscht.'); break; }
+        case 'fwsame': ios(G, dv.cfg.sameSec ? 'no same-security-traffic permit inter-interface' : 'same-security-traffic permit inter-interface', 'Einstellung gespeichert.'); break;
         case 'isall': G.isel = dv.ports.slice(); break;
         case 'isnone': G.isel = []; break;
         case 'ifup': case 'ifdown': { const ps = G.isel || []; if (ps.length) ios(G, [].concat(...ps.map(p => ['interface ' + p, a === 'ifup' ? 'no shutdown' : 'shutdown', 'exit'])), a === 'ifup' ? 'Ausgewählte Schnittstellen aktiviert.' : 'Ausgewählte Schnittstellen abgeschaltet.'); break; }
