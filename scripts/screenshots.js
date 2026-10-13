@@ -32,6 +32,12 @@ const path = require('path'), out = path.join(__dirname, '..', 'docs', 'screensh
   const qs = await p.$$eval('#wf-q option', o => o.map(x => [x.value, x.textContent])); const q = qs.find(x => /QSRV/.test(x[1])); if (q) await p.selectOption('#wf-q', q[0]);
   await p.click('.wg-dlg button[type=submit]'); await p.waitForTimeout(200); await p.click('button:has-text("Replikationszonen anlegen")'); await p.click('button:has-text("Paar erstellen")'); await p.click('.wg-dlg button[type=submit]'); await p.waitForTimeout(250);
   await p.evaluate(() => document.querySelector('.sysmount .wg-main').scrollTo(0, 0)); await shot('10-hypermetro');
+  // WLAN-Szenario
+  await fresh('#sandbox'); await p.click('#segv [data-v=plan]'); await p.click('.rb[data-s=scen]'); await p.click('.sci:has-text("Zwei Access Points am Controller")'); await p.waitForTimeout(400);
+  await p.click('#segv [data-v=sys]'); await p.waitForTimeout(300); await p.click('.sysi:has-text("WLC")'); await p.waitForTimeout(300); await login('.sysmount');
+  await p.click('.sysmount .wg-nav button:has-text("WLANs")'); await p.click('button:has-text("WLAN hinzufügen")'); await p.fill('#wf-n', 'Firma'); await p.fill('#wf-psk', 'Firma-2026'); await p.click('.wg-dlg button[type=submit]'); await p.waitForTimeout(200);
+  for (const ap of ['AP-1', 'AP-2']) { await p.click(`.sysi:has-text("${ap}")`); await p.waitForTimeout(300); await login('.sysmount'); await p.click('.sysmount .wg-nav button:has-text("Controller")'); await p.fill('#wf-wlc', '10.0.0.70'); await p.click('button:has-text("Speichern")'); await p.waitForTimeout(200); }
+  await p.click('.sysi:has-text("WLC")'); await p.waitForTimeout(300); await p.click('.sysmount .wg-nav button:has-text("Access Points")'); await shot('12-wlan');
   await fresh('#wiki'); await shot('11-wiki');
   await b.close();
 })();

@@ -730,6 +730,8 @@ table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vert
 .pdot{width:10px;height:10px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px color-mix(in srgb,var(--green) 22%,transparent);flex:none}.pwr.off .pdot{background:var(--muted);box-shadow:none}.pwr.boot .pdot{background:var(--amber);animation:blink .9s ease-in-out infinite}
 .pwr .pbar{position:absolute;left:0;bottom:0;height:3px}
 @keyframes blink{50%{opacity:.25}}
+.wlink{fill:none;stroke:#0ea5a4;stroke-width:2;stroke-dasharray:2 5;stroke-linecap:round;pointer-events:none}.wlink.dn{stroke:var(--red);opacity:.5}
+.chk{display:flex;gap:.5rem;align-items:center;font-size:.84rem;margin:.3rem 0}
 .dev.booting{animation:blink 1s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.dev.booting,.pwr.boot .pdot{animation:none}}
 .dk-off{position:absolute;inset:0;z-index:50;background:#0a0d12;color:#cfd8e6;display:grid;place-items:center;text-align:center}.dk-off h2{margin:.3rem 0;font:700 1.2rem var(--display);color:#fff}.dk-off p{margin:.2rem 0 1rem;color:#8d9bb0}.dk-off .dk-i{width:46px;height:46px;opacity:.5}
@@ -935,31 +937,69 @@ const NL = (function () {
   const OB10 = [['eth0', 'sfp+'], ['eth1', 'sfp+'], ['ibmc', 'rj45']];
   const MODELS = {
     // ---- Switches
-    'C9200L-24P-4X': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9200L-24P-4X', info: '24× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
-    'C9200L-48P-4X': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9200L-48P-4X', info: '48× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9200L-24P-4X': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9200L-24P-4X', info: '24× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9200L-48P-4X': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9200L-48P-4X', info: '48× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9200L-24T-4G': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9200L-24T-4G', info: '24× 1G RJ45, 4× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('GigabitEthernet1/1/', 1, 4, 'sfp')] },
+    'C9300-24P': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9300-24P', info: '24× 1G RJ45 PoE+, Uplink-Modul 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9300-48P': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9300-48P', info: '48× 1G RJ45 PoE+, Uplink-Modul 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9300X-24Y': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9300X-24Y', info: '24× 10/25G SFP28, Uplink-Modul 2× 100G QSFP28', ports: [...gp('TwentyFiveGigE1/0/', 1, 24, 'sfp28'), ...gp('HundredGigE1/1/', 1, 2, 'qsfp28')] },
+    'C9500-32C': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9500-32C (100G Core)', info: '32× 100G QSFP28', ports: gp('HundredGigE1/0/', 1, 32, 'qsfp28') },
+    'C2960X-24TS-L': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 2960-X 24TS-L', info: '24× 1G RJ45, 4× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('GigabitEthernet1/0/', 25, 28, 'sfp')] },
+    'C2960X-48FPS-L': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 2960-X 48FPS-L', info: '48× 1G RJ45 PoE+, 4× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('GigabitEthernet1/0/', 49, 52, 'sfp')] },
     'C9500-16X': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9500-16X (Core)', info: '16× 10G SFP+', ports: gp('TenGigabitEthernet1/0/', 1, 16, 'sfp+') },
     'C9500-24Y4C': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9500-24Y4C (25G/100G Core)', info: '24× 10/25G SFP28, 4× 100G QSFP28', ports: [...gp('TwentyFiveGigE1/0/', 1, 24, 'sfp28'), ...gp('HundredGigE1/0/', 25, 28, 'qsfp28')] },
     'C1000-8T-2G-L': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 1000-8T-2G-L', info: '8× 1G RJ45, 2× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 8, 'rj45'), ...gp('GigabitEthernet1/0/', 9, 10, 'sfp')] },
     // ---- SAN
     'MDS-9132T': { type: 'fc', vendor: 'Cisco', u: 1, label: 'MDS 9132T (FC-Switch)', info: '32× 32G Fibre Channel (SFP+)', ports: gp('fc1/', 1, 32, 'fc') },
+    'MDS-9148T': { type: 'fc', vendor: 'Cisco', u: 1, label: 'MDS 9148T (FC-Switch)', info: '48× 32G Fibre Channel (SFP+)', ports: gp('fc1/', 1, 48, 'fc') },
+    'MDS-9396T': { type: 'fc', vendor: 'Cisco', u: 2, label: 'MDS 9396T (FC-Switch)', info: '96× 32G Fibre Channel (SFP+)', ports: gp('fc1/', 1, 96, 'fc') },
     // ---- Router / Firewall
     'ISR4331': { type: 'router', vendor: 'Cisco', u: 1, label: 'ISR 4331', info: '2× 1G RJ45, 1× 1G SFP', ports: [['GigabitEthernet0/0/0', 'rj45'], ['GigabitEthernet0/0/1', 'rj45'], ['GigabitEthernet0/0/2', 'sfp']] },
+    'ISR4321': { type: 'router', vendor: 'Cisco', u: 1, label: 'ISR 4321', info: '2× 1G RJ45, 2× 1G SFP', ports: [['GigabitEthernet0/0/0', 'rj45'], ['GigabitEthernet0/0/1', 'rj45'], ['GigabitEthernet0/1/0', 'sfp'], ['GigabitEthernet0/1/1', 'sfp']] },
+    'ISR4351': { type: 'router', vendor: 'Cisco', u: 1, label: 'ISR 4351', info: '3× 1G RJ45, 3× 1G SFP', ports: [['GigabitEthernet0/0/0', 'rj45'], ['GigabitEthernet0/0/1', 'rj45'], ['GigabitEthernet0/0/2', 'rj45'], ['GigabitEthernet0/1/0', 'sfp'], ['GigabitEthernet0/1/1', 'sfp'], ['GigabitEthernet0/1/2', 'sfp']] },
+    'ISR4451-X': { type: 'router', vendor: 'Cisco', u: 2, label: 'ISR 4451-X', info: '4× 1G RJ45, 2× 10G SFP+', ports: [...gp('GigabitEthernet0/0/', 0, 3, 'rj45'), ...gp('TenGigabitEthernet0/1/', 0, 1, 'sfp+')] },
+    'C1111-8P': { type: 'router', vendor: 'Cisco', u: 1, label: 'ISR 1111-8P', info: '1× 1G WAN RJ45, 8× 1G LAN (Switchports als Routerports vereinfacht)', ports: [['GigabitEthernet0/0/0', 'rj45'], ...gp('GigabitEthernet0/1/', 0, 7, 'rj45')] },
+    'C8300-1N1S': { type: 'router', vendor: 'Cisco', u: 1, label: 'Catalyst 8300-1N1S (Edge)', info: '4× 1G RJ45/SFP, 2× 10G SFP+', ports: [...gp('GigabitEthernet0/0/', 0, 3, 'rj45'), ...gp('TenGigabitEthernet0/1/', 0, 1, 'sfp+')] },
     'ASA-5516-X': { type: 'router', fw: true, vendor: 'Cisco', u: 1, label: 'ASA 5516-X (Firewall)', info: '8× 1G RJ45 + Management', ports: [...gp('GigabitEthernet1/', 1, 8, 'rj45'), ['Management1/1', 'rj45']] },
+    'ASA-5506-X': { type: 'router', fw: true, vendor: 'Cisco', u: 1, label: 'ASA 5506-X (Firewall)', info: '8× 1G RJ45 + Management', ports: [...gp('GigabitEthernet1/', 1, 8, 'rj45'), ['Management1/1', 'rj45']] },
+    'ASA-5508-X': { type: 'router', fw: true, vendor: 'Cisco', u: 1, label: 'ASA 5508-X (Firewall)', info: '8× 1G RJ45 + Management', ports: [...gp('GigabitEthernet1/', 1, 8, 'rj45'), ['Management1/1', 'rj45']] },
+    'ASA-5525-X': { type: 'router', fw: true, vendor: 'Cisco', u: 1, label: 'ASA 5525-X (Firewall)', info: '8× 1G RJ45 + Management', ports: [...gp('GigabitEthernet0/', 0, 7, 'rj45'), ['Management0/0', 'rj45']] },
+    'ASA-5545-X': { type: 'router', fw: true, vendor: 'Cisco', u: 1, label: 'ASA 5545-X (Firewall)', info: '8× 1G RJ45 + 2× 10G SFP+ + Management', ports: [...gp('GigabitEthernet0/', 0, 7, 'rj45'), ...gp('TenGigabitEthernet0/', 8, 9, 'sfp+'), ['Management0/0', 'rj45']] },
     // ---- Server (Huawei + generisch)
     'HW-2288H-V5': { type: 'server', vendor: 'Huawei', u: 2, slots: 4, label: 'Huawei FusionServer Pro 2288H V5', info: '2U, 2× 1G LOM + iBMC, 4 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB },
     'HW-1288H-V5': { type: 'server', vendor: 'Huawei', u: 1, slots: 2, label: 'Huawei FusionServer Pro 1288H V5', info: '1U, 2× 1G LOM + iBMC, 2 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB },
     'HW-TaiShan-2280': { type: 'server', vendor: 'Huawei', u: 2, slots: 4, label: 'Huawei TaiShan 200 (Modell 2280, ARM)', info: '2U, 2× 1G LOM + iBMC, 4 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB },
     'SRV-1U': { type: 'server', vendor: 'Generisch', u: 1, slots: 2, label: 'Server 1U (generisch)', info: '1U, 2× 10G SFP+ + BMC, 2 PCIe-Slots', onboard: OB10 },
     'SRV-2U': { type: 'server', vendor: 'Generisch', u: 2, slots: 4, label: 'Server 2U (generisch)', info: '2U, 2× 10G SFP+ + BMC, 4 PCIe-Slots', onboard: OB10 },
+    'HW-1288H-V6': { type: 'server', vendor: 'Huawei', u: 1, slots: 3, label: 'Huawei FusionServer Pro 1288H V6', info: '1U, 2× 10G SFP+ LOM + iBMC, 3 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB10 },
+    'HW-2288H-V6': { type: 'server', vendor: 'Huawei', u: 2, slots: 6, label: 'Huawei FusionServer Pro 2288H V6', info: '2U, 2× 10G SFP+ LOM + iBMC, 6 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB10 },
+    'HW-2488H-V5': { type: 'server', vendor: 'Huawei', u: 2, slots: 6, label: 'Huawei FusionServer Pro 2488H V5 (4 Sockel)', info: '2U, 2× 1G LOM + iBMC, 6 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB },
+    'HW-5885H-V5': { type: 'server', vendor: 'Huawei', u: 4, slots: 8, label: 'Huawei FusionServer Pro 5885H V5', info: '4U, 2× 1G LOM + iBMC, 8 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB },
+    'SRV-4U': { type: 'server', vendor: 'Generisch', u: 4, slots: 8, label: 'Server 4U (generisch)', info: '4U, 2× 10G SFP+ + BMC, 8 PCIe-Slots', onboard: OB10 },
     // ---- Storage
     'HW-Dorado-5000V6': { type: 'storage', vendor: 'Huawei', u: 2, slots: 4, label: 'Huawei OceanStor Dorado 5000 V6', info: '2U, 2 Controller, 4 Interface-Slots je Controller (vereinfachtes Planungsmodell)', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
+    'HW-Dorado-3000V6': { type: 'storage', vendor: 'Huawei', u: 2, slots: 2, label: 'Huawei OceanStor Dorado 3000 V6', info: '2U, 2 Controller, 2 Interface-Slots je Controller (vereinfachtes Planungsmodell)', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
+    'HW-Dorado-6000V6': { type: 'storage', vendor: 'Huawei', u: 4, slots: 6, label: 'Huawei OceanStor Dorado 6000 V6', info: '4U, 2 Controller, 6 Interface-Slots je Controller (vereinfachtes Planungsmodell)', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
+    'HW-Dorado-18000V6': { type: 'storage', vendor: 'Huawei', u: 4, slots: 8, label: 'Huawei OceanStor Dorado 18000 V6', info: '4U-Controller-Gehäuse, 2 Controller, 8 Interface-Slots je Controller (vereinfachtes Planungsmodell)', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
     'STO-GEN': { type: 'storage', vendor: 'Generisch', u: 2, slots: 4, label: 'Storage (generisch, 2 Controller)', info: '2U, 2 Controller, 4 Interface-Slots je Controller', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
+    // ---- WLAN
+    'C9105AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Catalyst 9105AX Access Point', info: 'Wi-Fi 6, 2×2, 1× 1G RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'C9120AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Catalyst 9120AX Access Point', info: 'Wi-Fi 6, 4×4, 1× 2.5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'C9130AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Catalyst 9130AX Access Point', info: 'Wi-Fi 6, 8×8, 1× 5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'AIR-AP2802I': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Aironet 2802I Access Point', info: 'Wi-Fi 5, 4×4, 1× 2.5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'C9800-L': { type: 'wlc', vendor: 'Cisco', icon: 'wlc', label: 'Catalyst 9800-L WLAN-Controller', info: 'Controller für bis zu 250 Access Points (vereinfacht: ein 1G-Kupfer-Uplink)', ports: [['GigabitEthernet0/0/0', 'rj45']] },
     // ---- Endgeräte
     'Server': { type: 'server', label: 'Server (einfach, 1 Port)', icon: 'server' },
     'ISP-Cloud': { type: 'server', cloud: true, label: 'Internet / ISP (Cloud)', info: 'Simuliertes Internet: DNS und Webserver, 1 Uplink', icon: 'cloud' },
     'PC': { type: 'pc', label: 'PC / Notebook', icon: 'pc' },
     'IP-Phone': { type: 'pc', label: 'IP-Telefon', icon: 'phone' },
-    'Printer': { type: 'pc', label: 'Drucker', icon: 'printer' }
+    'Printer': { type: 'pc', label: 'Drucker', icon: 'printer' },
+    'Laptop': { type: 'pc', info: 'Funk-Client (Wi-Fi 6): verbindet sich mit einer SSID, bekommt per DHCP oder statisch eine IP', label: 'Notebook (WLAN)', icon: 'laptop', wifi: true, ports: [['wlan0', 'wifi']] },
+    'Smartphone': { type: 'pc', info: 'Funk-Client: verbindet sich mit einer SSID, Browser und IP-Einstellungen', label: 'Smartphone (WLAN)', icon: 'smartphone', wifi: true, ports: [['wlan0', 'wifi']] },
+    'Tablet': { type: 'pc', info: 'Funk-Client: verbindet sich mit einer SSID, Browser und IP-Einstellungen', label: 'Tablet (WLAN)', icon: 'tablet', wifi: true, ports: [['wlan0', 'wifi']] },
+    'IP-Camera': { type: 'pc', info: 'PoE-Kamera am Switchport, Videostrom per RTSP (vereinfacht: ein Netzwerkport)', label: 'IP-Kamera', icon: 'camera' },
+    'Smart-TV': { type: 'pc', info: 'Netzwerkgerät mit einem LAN-Port, braucht IP, Gateway und DNS', label: 'Smart-TV', icon: 'tv' },
+    'Access-Control': { type: 'pc', info: 'Badge-Leser an einem Switchport (Beispiel für IoT-Geräte im eigenen VLAN)', label: 'Zutrittsleser (Badge)', icon: 'reader' }
   };
   const CARDS = {
     'NIC-4x1G': { for: 'server', kind: 'rj45', n: 4, short: '4×1G', label: '4× 1G RJ45 (z. B. Intel I350-T4)' },
@@ -987,7 +1027,7 @@ const NL = (function () {
     'DS-SFP-FC16G-SW': { speed: 16000, media: 'mmf', fam: 'FC', proto: 'fc', label: '16G FC Shortwave' },
     'DS-SFP-FC32G-SW': { speed: 32000, media: 'mmf', fam: 'FC', proto: 'fc', label: '32G FC Shortwave' }
   };
-  const KIND = { rj45: { label: 'RJ45' }, sfp: { label: 'SFP', speeds: [1000] }, 'sfp+': { label: 'SFP+', speeds: [1000, 10000] }, sfp28: { label: 'SFP28', speeds: [10000, 25000] }, qsfp28: { label: 'QSFP28', speeds: [100000] }, fc: { label: 'FC-SFP+' } };
+  const KIND = { wifi: { label: 'WLAN' }, rj45: { label: 'RJ45' }, sfp: { label: 'SFP', speeds: [1000] }, 'sfp+': { label: 'SFP+', speeds: [1000, 10000] }, sfp28: { label: 'SFP28', speeds: [10000, 25000] }, qsfp28: { label: 'QSFP28', speeds: [100000] }, fc: { label: 'FC-SFP+' } };
   const CABLES = { cu: 'Kupfer Cat6 (RJ45)', mmf: 'Glasfaser OM3/OM4 Multimode (LC-LC)', smf: 'Glasfaser OS2 Singlemode (LC-LC)', dac: 'DAC-Twinax (passiv)' };
   const MEDIA = { cu: 'Kupfer', mmf: 'Multimode-Faser', smf: 'Singlemode-Faser' };
   const DACSPEED = { 'sfp+': 10000, sfp28: 25000, qsfp28: 100000 };
@@ -1035,7 +1075,7 @@ const NL = (function () {
     gone.forEach(p => { delete d.xcvr[p]; delete d.cfg.nic[p]; });
     d.ports = b.ports; d.pk = b.pk; d.pcard = b.pcard; d.grp = b.grp; return removed;
   }
-  const isHost = d => d.type === 'pc' || d.type === 'server' || d.type === 'storage';
+  const isHost = d => d.type === 'pc' || d.type === 'server' || d.type === 'storage' || d.type === 'ap' || d.type === 'wlc';
   const host = (net, id) => net.devs[id].cfg.hostname;
 
   function peerOf(net, d, p) {
@@ -1049,7 +1089,70 @@ const NL = (function () {
   function portAdminUp(net, dId, p) { const d = net.devs[dId]; if (isDown(d)) return false; if (isHost(d)) return true; const i = d.cfg.ifs[p]; return !!i && !i.shutdown; }
   function linkOf(net, d, p) { return net.links.find(l => (l.a === d && l.ap === p) || (l.b === d && l.bp === p)) || null; }
   const cfgSpeed = (d, p) => { const i = d.cfg.ifs && d.cfg.ifs[p]; const e = i && i.extra.find(x => /^speed \d+$/.test(x)); return e ? +e.split(' ')[1] : null; };
+  // ---------- WLAN: Access Points, Controller, Clients ----------
+  const apState = d => d.ap || (d.ap = { ssids: [], wlc: '', injector: false });
+  const wlcState = d => d.wlc || (d.wlc = { ssids: [] });
+  // Stromversorgung des AP: PoE-Port eines PoE-Switches oder PoE-Injector
+  function apPower(net, ap) {
+    if (apState(ap).injector) return { ok: true, via: 'PoE-Injector' };
+    const pe = peerOf(net, ap.id, ap.ports[0]); if (!pe) return { ok: false, reason: 'Kein Kabel: ohne PoE-Switch oder Injector hat der AP keinen Strom' };
+    const sw = net.devs[pe.dev];
+    if (sw.type === 'switch' && MODELS[sw.model] && MODELS[sw.model].poe) {
+      if (isDown(sw)) return { ok: false, reason: `${sw.cfg.hostname} ${downWhy(sw)}` };
+      const i = sw.cfg.ifs[pe.port]; if (i && i.shutdown) return { ok: false, reason: `${sw.cfg.hostname} ${sh(pe.port)} ist shutdown, damit auch kein PoE` };
+      return { ok: true, via: `PoE von ${sw.cfg.hostname} ${sh(pe.port)}` };
+    }
+    return { ok: false, reason: `${sw.cfg.hostname} liefert kein PoE (kein PoE-Switch). Nutze einen PoE-Port oder aktiviere den PoE-Injector.` };
+  }
+  // Lightweight-Modus: Ist ein Controller eingetragen, gehören die SSIDs dem Controller
+  const JOINING = new Set();
+  function apJoined(net, ap) {
+    const st = apState(ap); if (!st.wlc) return null;
+    if (JOINING.has(ap.id)) return { ok: false, why: 'Join wird gerade geprüft' };
+    JOINING.add(ap.id); try { return apJoin2(net, ap, st); } finally { JOINING.delete(ap.id); }
+  }
+  function apJoin2(net, ap, st) {
+    const w = Object.values(net.devs).find(x => x.type === 'wlc' && (hip(x, x.ports[0]) || {}).ip === st.wlc);
+    if (!w) return { ok: false, why: `Unter ${st.wlc} gibt es keinen WLAN-Controller` };
+    if (isDown(w)) return { ok: false, why: `Der Controller ${w.cfg.hostname} ${downWhy(w)}` };
+    const r = ping(net, ap.id, st.wlc); if (!r.ok) return { ok: false, why: `Der AP erreicht den Controller ${st.wlc} nicht: ${r.reason}` };
+    return { ok: true, wlc: w };
+  }
+  function apSsids(net, ap) {
+    const j = apJoined(net, ap); if (j === null) return apState(ap).ssids.filter(x => x.on !== false);
+    return j.ok ? wlcState(j.wlc).ssids.filter(x => x.on !== false) : [];
+  }
+  const wifiLinkOf = (net, c) => net.links.find(l => l.wifi && l.a === c.id) || null;
+  const apClients = (net, ap) => net.links.filter(l => l.wifi && l.b === ap.id).map(l => net.devs[l.a]).filter(Boolean);
+  // Sichtbare SSIDs: alle eingeschalteten APs mit Strom (ein Eintrag je SSID, mit der Liste der APs)
+  function wifiScan(net) {
+    const m = {};
+    for (const ap of Object.values(net.devs)) { if (ap.type !== 'ap' || isDown(ap) || !apPower(net, ap).ok) continue; for (const s of apSsids(net, ap)) { (m[s.name] = m[s.name] || { ssid: s.name, sec: s.sec, aps: [] }).aps.push(ap.id); } }
+    return Object.values(m);
+  }
+  function wifiConnect(net, c, ssid, psk) {
+    net.links = net.links.filter(l => !(l.wifi && l.a === c.id)); c.wifi = { ssid: '', psk: '' };
+    const sc = wifiScan(net).find(x => x.ssid === ssid); if (!sc) return { err: `Das WLAN „${ssid}“ wird von keinem erreichbaren Access Point gesendet.` };
+    let lastErr = null;
+    for (const id of sc.aps) {
+      const ap = net.devs[id], s = apSsids(net, ap).find(x => x.name === ssid);
+      if (s.sec !== 'open' && s.psk !== psk) { lastErr = 'Authentifizierung fehlgeschlagen: Der WLAN-Schlüssel ist falsch.'; continue; }
+      c.wifi = { ssid, psk: psk || '' }; net.links.push({ a: c.id, ap: c.ports[0], b: ap.id, bp: 'wlan-' + c.id, virt: true, wifi: true }); return { ok: true, ap: ap.cfg.hostname, sec: s.sec, vlan: s.vlan || 0 };
+    }
+    return { err: lastErr || 'Verbindung fehlgeschlagen.' };
+  }
+  function wifiDisconnect(net, c) { net.links = net.links.filter(l => !(l.wifi && l.a === c.id)); if (c.wifi) c.wifi = { ssid: '', psk: '' }; return { ok: true }; }
+
   function phys(net, l) {
+    if (l.wifi) {
+      const c = net.devs[l.a], ap = net.devs[l.b], w = c.wifi || {}, bad = r => ({ ok: false, reason: r });
+      if (isDown(c)) return bad(`${c.cfg.hostname} ${downWhy(c)}`); if (isDown(ap)) return bad(`${ap.cfg.hostname} ${downWhy(ap)}`);
+      const pw = apPower(net, ap); if (!pw.ok) return bad(`${ap.cfg.hostname}: ${pw.reason}`);
+      const j = apJoined(net, ap); if (j && !j.ok) return bad(`${ap.cfg.hostname} sendet kein WLAN: ${j.why}`);
+      const sd = apSsids(net, ap).find(x => x.name === w.ssid); if (!sd) return bad(`Das WLAN „${w.ssid}“ wird von ${ap.cfg.hostname} nicht (mehr) gesendet`);
+      if (sd.sec !== 'open' && sd.psk !== w.psk) return bad('WLAN-Authentifizierung fehlgeschlagen: falscher Schlüssel');
+      return { ok: true, speed: 1200, proto: 'wifi' };
+    }
     if (l.virt) { // virtueller Link VM ↔ vSwitch des Hypervisor-Hosts
       const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], h = net.devs[vm.vm.host];
       if (vm.vm.state !== 'running') return { ok: false, reason: `${vm.cfg.hostname} ist ausgeschaltet (VM gestoppt)` };
@@ -1061,6 +1164,7 @@ const NL = (function () {
     const bad = r => ({ ok: false, reason: r });
     if (l.cut) return bad('Kabel ist gezogen (Ausfall-Simulation)');
     const offs = S.filter(s => isDown(s.d)); if (offs.length) return bad(`${offs[0].h} ${downWhy(offs[0].d)}`);
+    const np = S.find(s => s.d.type === 'ap' && !apPower(net, s.d).ok); if (np) return bad(`${np.h} hat keinen Strom: ${apPower(net, np.d).reason}`);
     const fcA = S[0].k === 'fc', fcB = S[1].k === 'fc';
     if (fcA !== fcB) { const f = S[fcA ? 0 : 1], e = S[fcA ? 1 : 0]; return bad(`Fibre-Channel-Port (${f.h} ${sh(f.p)}) und Ethernet-Port (${e.h} ${sh(e.p)}) lassen sich nicht verbinden`); }
     const sp = [];
@@ -1128,6 +1232,9 @@ const NL = (function () {
           const s = d.cfg.ifs[sub]; if (s.shutdown) { note(`${h} ${sh(sub)} ist shutdown`); return; }
           if (s.ip) eps.push({ dev: dId, ifn: sub });
         }
+      } else if (d.type === 'ap') { // Access Point: Brücke zwischen WLAN-Clients und dem Uplink
+        if (p.startsWith('wlan-')) { const c = net.devs[p.slice(5)], sd = c && c.wifi && apSsids(net, d).find(x => x.name === c.wifi.ssid); inAp(dId, sd ? (sd.vlan || 0) : 0); }
+        else { if (tag === null) eps.push({ dev: dId, ifn: p }); inAp(dId, tag === null ? 0 : tag); }
       } else if (d.vsw) { // Hypervisor: virtueller Switch zwischen VMs und Uplinks
         if (p.startsWith('vm-')) { const vm = net.devs[p.slice(3)]; if (vm && vm.vm) inVsw(dId, vm.vm.vlan || 0); }
         else {
@@ -1139,6 +1246,11 @@ const NL = (function () {
         if (tag === null) eps.push({ dev: dId, ifn: p });
         else note(`${h} empfängt getaggte Frames (VLAN ${tag}) – das Endgerät hängt an einem Trunk-Port`);
       }
+    };
+    const inAp = (aId, v) => {
+      const k = 'ap|' + aId + '|' + v; if (seen.has(k)) return; seen.add(k); const ap = net.devs[aId], ss = apSsids(net, ap);
+      for (const c of apClients(net, ap)) { const sd = ss.find(x => x.name === (c.wifi || {}).ssid); if (!sd || (sd.vlan || 0) !== v) continue; const l = wifiLinkOf(net, c), ph = l && phys(net, l); if (ph && ph.ok) eps.push({ dev: c.id, ifn: c.ports[0] }); else if (ph) note(ph.reason); }
+      if (peerOf(net, aId, ap.ports[0])) send(aId, ap.ports[0], v === 0 ? null : v);
     };
     const inVsw = (hId, v) => {
       const k = 'vsw|' + hId + '|' + v; if (seen.has(k)) return; seen.add(k);
@@ -1917,7 +2029,7 @@ const NL = (function () {
   function snapshot(net) { const o = {}; for (const id in net.devs) o[id] = { cfg: net.devs[id].cfg, saved: net.devs[id].saved }; return o; }
   function restore(net, snap) { for (const id in snap) if (net.devs[id]) { net.devs[id].cfg = snap[id].cfg; net.devs[id].saved = snap[id].saved; } }
 
-  return { isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
+  return { apState, wlcState, apPower, apJoined, apSsids, apClients, wifiScan, wifiConnect, wifiDisconnect, wifiLinkOf, isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
 })();
 if (typeof module !== 'undefined') module.exports = NL;
 
@@ -2906,6 +3018,7 @@ const WIKI = (function () {
   art('vm-datastore', 'server', 'Datastore: wo die VM-Platte liegt', 'Lokal oder gemeinsam auf einer SAN-LUN.', `<p>Die Dateien einer VM liegen auf einem <b>Datastore</b>. Auf einer <b>lokalen Platte</b> sieht nur der eine Host sie. Auf einer <b>gemeinsamen LUN</b> (Fibre Channel, iSCSI, NFS) sehen sie <b>alle Hosts des Clusters</b>. Das ist die Voraussetzung für Live-Migration und HA. Dafür muss die LUN allen Hosts freigegeben sein ([[lun-masking]]) und die Zonen müssen stimmen ([[zoning]]).</p><p>Kapazität: Summe der VM-Platten auf einer LUN darf deren Größe nicht überschreiten.</p>`, ['vm-migration-ha', 'lun', 'zoning']);
   art('vm-migration-ha', 'server', 'Migration, Cluster und HA', 'VMs verschieben und Ausfälle überstehen.', tbl(['Verfahren', 'Voraussetzung', 'Wirkung'], [['Kalte Migration', 'VM aus; Hosts im selben Cluster', 'VM zieht um, Platte bleibt, wenn sie auf dem Ziel erreichbar ist'], ['Live-Migration (vMotion)', 'VM auf gemeinsamem Datastore; Ziel sieht ihn; Ziel hat freien RAM', 'VM läuft ohne Unterbrechung auf anderem Host weiter'], ['HA (High Availability)', 'Cluster, gemeinsamer Datastore, Reserve-Kapazität', 'Fällt ein Host aus, starten seine VMs auf anderen Hosts neu (kurze Unterbrechung)']]) + `<p>Ein <b>Cluster</b> ist eine Gruppe von Hosts mit gleicher Netz- und Storage-Anbindung. Typische Fehler: Datastore nur für einen Host freigegeben, Hosts mit unterschiedlichen VLANs am vSwitch, kein RAM für den Ausfall eines Hosts (<b>N+1</b>-Kapazität fehlt).</p>` + plan('Szenarien: „VMs auf zwei Hosts verteilen“, „Live-Migration über SAN-Datastore“, „Host-Ausfall und HA“.'), ['vm-datastore', 'virt-grundlagen', 'spof']);
   art('virsh-kvm', 'server', 'virsh: VMs auf einem KVM-Host', 'Befehle im Terminal des Hypervisors.', tbl(['Befehl', 'Wirkung'], [['<code>virsh list --all</code>', 'Alle VMs mit Zustand'], ['<code>sudo virsh start WEB-VM</code>', 'VM starten'], ['<code>sudo virsh shutdown WEB-VM</code>', 'VM herunterfahren'], ['<code>virsh dominfo WEB-VM</code>', 'vCPU, RAM, VLAN, Datastore'], ['<code>virsh nodeinfo</code>', 'Kerne und RAM des Hosts'], ['<code>sudo virsh migrate --live WEB-VM HV2</code>', 'Live auf einen Cluster-Host verschieben']]) + `<p>Auf einem Server ohne Hypervisor-Rolle meldet <code>virsh</code>, dass es nicht zum Hypervisor verbinden kann.</p>`, ['virt-grundlagen', 'linux-grundlagen']);
+  art('wlan-grundlagen', 'l2', 'WLAN: Access Point, SSID, Controller und PoE', 'Wie Funk-Clients ins Netz kommen.', `<p>Ein <b>Access Point</b> (AP) verbindet Funk-Clients mit dem kabelgebundenen Netz. Er sendet eine oder mehrere <b>SSIDs</b> (Funknetzwerke). Jede SSID hat einen Namen, eine Sicherheitsart (WPA2-PSK, WPA3-SAE oder offen) und ein <b>VLAN</b>: Die Frames der Clients werden wie bei einer Brücke in dieses VLAN gelegt.</p><p>Der AP hängt mit <b>einem</b> Kabel am Switch. Sein Strom kommt per <b>PoE</b> (Power over Ethernet) vom Switchport oder von einem PoE-Injector. Ein Nicht-PoE-Switch liefert keinen Strom: Der AP bleibt dunkel. Der Uplink-Port verhält sich so:</p>` + tbl(['SSID-VLAN', 'Switchport zum AP'], [['nativ (0)', 'Access-Port im VLAN der Clients oder Trunk mit passendem Native-VLAN'], ['z. B. 20', 'Trunk, der VLAN 20 erlaubt (<code>switchport mode trunk</code>, <code>allowed vlan 1,20</code>). Ein Access-Port nimmt keine getaggten Frames an.']]) + `<p><b>Autonom oder Controller:</b> Ein autonomer AP trägt seine SSIDs selbst. Mit einem <b>WLAN-Controller</b> (z. B. Catalyst 9800) pflegst du die SSIDs einmal zentral. Die APs melden sich per CAPWAP an (<b>Join</b>), dafür brauchen sie die Controller-IP und Erreichbarkeit. Ohne Join sendet ein Lightweight-AP kein WLAN.</p>` + ul(['Client verbindet sich nicht: SSID-Name, Schlüssel und Sicherheitsart prüfen', 'Verbunden, aber kein Netz: VLAN der SSID, Trunk und IP/Gateway prüfen', 'AP leuchtet nicht: PoE-Switch, Port nicht shutdown, Kabel', 'AP erscheint nicht am Controller: Controller-IP, Gateway, VLAN des Management-Netzes']) + plan('Access Point oder Controller im Katalog unter „Netzwerk“, Notebooks, Smartphones und Tablets unter „Endgeräte“. Die Web-GUI von AP und Controller verwaltet die SSIDs; Clients verbindest du im Detailfeld. Zwei Szenarien unter „Aufgaben“.'), ['vlan', 'trunk', 'dhcp-cisco']);
   art('hypermetro', 'storage', 'HyperMetro und Quorum-Server', 'Zwei Storage-Arrays als aktiv-aktiv-Cluster und wer bei Ausfall entscheidet.', `<p><b>HyperMetro</b> (bei Huawei OceanStor) spiegelt eine LUN synchron auf ein zweites Array an einem anderen Standort. Beide Arrays bedienen die Hosts gleichzeitig (<b>aktiv-aktiv</b>): Der Server sieht <b>ein</b> Gerät mit Pfaden zu beiden Arrays und schaltet bei einem Ausfall per Multipath um, ohne neue Platte und ohne Unterbrechung. Zusammengehörige Arrays bilden eine <b>HyperMetro-Domäne</b>, gespiegelte LUNs heißen <b>HyperMetro-Paare</b>.</p><p>Das Risiko ist <b>Split-Brain</b>: Fällt nur die Verbindung zwischen den Arrays aus, denkt jede Seite, die andere sei tot, und beide nehmen weiter Schreibzugriffe an. Die Daten laufen auseinander. Deshalb gibt es einen <b>Quorum-Server</b> an einem dritten Standort als Schiedsrichter. Wer ihn erreicht, darf weiterarbeiten.</p>` + tbl(['Situation', 'Ergebnis'], [['Alles verbunden', 'Beide Arrays aktiv'], ['Verbindung zwischen den Arrays weg, beide erreichen den Quorum-Server', 'Der bevorzugte Standort gewinnt, die andere Seite geht in Standby'], ['Nur ein Array erreicht den Quorum-Server', 'Dieses Array gewinnt'], ['Ein Array fällt aus', 'Das andere übernimmt (Failover), sofern es den Quorum-Server erreicht'], ['Verbindung und Quorum-Server weg', 'Mit <b>statischer Priorität</b> arbeitet der bevorzugte Standort weiter, ohne sie stoppen beide']]) + ul(['Die Arrays brauchen eine <b>Replikationsverbindung</b>: FC-Kabel direkt oder über den FC-Switch mit einer Zone zwischen den Array-Ports', 'Der Quorum-Server wird über das Management-Netz erreicht, nicht über FC', 'Hosts müssen auf beiden Arrays maskiert und gezont sein']) + plan('Storage anklicken → Web-GUI → „HyperMetro“: Domäne erstellen, Replikationszonen anlegen, Paar erstellen. Auf dem Quorum-Server <code>sudo apt install quorum-server</code> und <code>sudo systemctl enable --now quorum-server</code>. Zwei Szenarien unter „Aufgaben“.'), ['lun', 'lun-masking', 'multipath', 'zoning']);
   art('dhcp-cisco', 'l3', 'DHCP auf Switch, Router und Firewall, DHCP-Relay', 'Adressvergabe ohne eigenen Server.', `<p>Nicht nur Server verteilen IP-Adressen: Ein Router, ein Layer-3-Switch und eine ASA können selbst DHCP-Server sein. Die Clients fragen per Broadcast, deshalb muss der Server im <b>selben VLAN</b> antworten, an der Schnittstelle (SVI) des Netzes. Steht der DHCP-Server in einem anderen Netz, leitet ein <b>Relay</b> (<code>ip helper-address</code>) die Anfrage an ihn weiter.</p>` + tbl(['Gerät', 'Konfiguration'], [['Cisco IOS', '<code>ip dhcp excluded-address 10.30.0.1 10.30.0.20</code>, <code>ip dhcp pool CLIENTS</code>, darin <code>network 10.30.0.0 255.255.255.0</code>, <code>default-router 10.30.0.1</code>, <code>dns-server 10.10.0.53</code>'], ['Relay (am SVI)', '<code>interface vlan 30</code>, <code>ip helper-address 10.10.0.11</code>'], ['Cisco ASA', '<code>dhcpd address 10.255.0.100-10.255.0.150 inside</code>, <code>dhcpd dns 10.10.0.53</code>, <code>dhcpd enable inside</code>'], ['Prüfen', '<code>show ip dhcp binding</code>, <code>show ip dhcp pool</code>, <code>show dhcpd binding</code>']]) + ul(['Der Pool muss zum Netz der Schnittstelle passen, sonst bekommt der Client nichts', 'Gateway und feste Server-Adressen mit <code>excluded-address</code> ausnehmen', 'Beim Relay braucht der Server einen Pool für das Netz der Relay-Schnittstelle']) + plan('Switch, Router oder ASA anklicken → Web-GUI → „DHCP-Server“. Auf einem PC im Desktop unter „Netzwerkverbindungen“ DHCP einschalten.'), ['dhcp', 'vlan', 'web-gui']);
   art('power-boot', 'l3', 'Ein- und Ausschalten, Booten und Startup-Config', 'Warum eine Konfiguration ohne Speichern verloren geht.', `<p>Jedes Gerät im Planer lässt sich ein- und ausschalten (Schalter im Detailfeld oder Werkzeug „Ein- und ausschalten“). Ein ausgeschaltetes Gerät ist nicht erreichbar, und alle Links daran sind down. Nach dem Einschalten <b>bootet</b> es: Der Planer zeigt den Bootvorgang in der Konsole, und das Gerät antwortet erst, wenn er fertig ist. Das dauert bei Switches und Routern etwa 10 Sekunden, bei Servern und Storage-Systemen länger.</p><p>Cisco-Geräte kennen zwei Konfigurationen: die <b>Running-Config</b> im Arbeitsspeicher und die <b>Startup-Config</b> im Flash. Beim Start lädt das Gerät nur die Startup-Config. Was du mit <code>write memory</code> (oder „Konfiguration speichern“ in der Weboberfläche) nicht gespeichert hast, ist nach dem Neustart weg.</p>` + ul(['Switch ausschalten: angeschlossene Geräte verlieren ihr Netz', 'Ohne <code>write memory</code> verschwinden neue VLANs, IP-Adressen und ACLs beim Neustart', 'Server behalten ihre Dateien und Dienste, sie starten nur neu']) + plan('Gerät anklicken → im Detailfeld „Ausschalten“, danach „Einschalten“. Im Tab „Systeme“ gibt es denselben Schalter über der Weboberfläche.'), ['trunk', 'web-gui']);
@@ -3491,7 +3604,7 @@ const WIN = (function () {
     void w; return out.join('\n');
   }
   const prompt = d => { const w = init(d); return isClient(d) ? `C:\\Users\\admin>` : `PS ${w.cwd}> `; };
-  const isWin = d => !!d && ((d.type === 'server' && d.os === 'windows') || (d.type === 'pc' && d.icon === 'pc'));
+  const isWin = d => !!d && ((d.type === 'server' && d.os === 'windows') || (d.type === 'pc' && (d.icon === 'pc' || d.icon === 'laptop')));
   return { exec, prompt, init, isWin, sync, FEATURES, SERVICES, NB, dn };
 })();
 if (typeof module !== 'undefined') module.exports = WIN;
@@ -3622,13 +3735,13 @@ const WEBGUI = (function () {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   const kindOf = d => {
-    if (!d) return null; if (d.type === 'switch') return 'switch'; if (d.type === 'router') return A.isCloud(d) ? null : d.fw ? 'firewall' : 'router'; if (d.type === 'storage') return 'storage'; if (d.type === 'fc') return 'fabric';
+    if (!d) return null; if (d.type === 'ap') return 'ap'; if (d.type === 'wlc') return 'wlc'; if (d.type === 'switch') return 'switch'; if (d.type === 'router') return A.isCloud(d) ? null : d.fw ? 'firewall' : 'router'; if (d.type === 'storage') return 'storage'; if (d.type === 'fc') return 'fabric';
     if (d.type !== 'server' || A.isCloud(d)) return null;
     return d.os === 'windows' ? 'windows' : (A.VIRT.isHost(d) ? 'hypervisor' : 'linux');
   };
-  const PRODUCT = { linux: ['Server-Web-Konsole', 'Linux'], hypervisor: ['Virtualisierungs-Manager', 'Hypervisor'], windows: ['Server-Manager', 'Windows Server 2022'], storage: ['Storage-Manager', 'Speichersystem'], fabric: ['Fabric-Manager', 'FC-Switch'], switch: ['Catalyst Web-Oberfläche', 'Cisco IOS XE Switch'], router: ['Router Web-Oberfläche', 'Cisco IOS XE Router'], firewall: ['Cisco ASDM', 'Adaptive Security Device Manager'] };
+  const PRODUCT = { linux: ['Server-Web-Konsole', 'Linux'], hypervisor: ['Virtualisierungs-Manager', 'Hypervisor'], windows: ['Server-Manager', 'Windows Server 2022'], storage: ['Storage-Manager', 'Speichersystem'], fabric: ['Fabric-Manager', 'FC-Switch'], switch: ['Catalyst Web-Oberfläche', 'Cisco IOS XE Switch'], router: ['Router Web-Oberfläche', 'Cisco IOS XE Router'], firewall: ['Cisco ASDM', 'Adaptive Security Device Manager'], ap: ['Access-Point-Verwaltung', 'Cisco Access Point'], wlc: ['WLAN-Controller', 'Catalyst 9800'] };
   const isNet = k => k === 'switch' || k === 'router' || k === 'firewall';
-  const portOf = d => { const k = kindOf(d); return isNet(k) ? NETPORT : PORT; };
+  const portOf = d => { const k = kindOf(d); return isNet(k) || k === 'ap' || k === 'wlc' ? NETPORT : PORT; };
   const hasGui = d => !!kindOf(d);
 
   // ---------- kleine UI-Bausteine ----------
@@ -3658,7 +3771,7 @@ const WEBGUI = (function () {
         if (ps === 'boot') G._bt = setTimeout(() => { if (document.body.contains(root)) draw(); }, left + 80);
         return;
       }
-      const url = `https://${ip || d.cfg.hostname.toLowerCase()}${isNet(k) ? '' : ':' + PORT}/`;
+      const url = `https://${ip || d.cfg.hostname.toLowerCase()}${portOf(d) === NETPORT ? '' : ':' + PORT}/`;
       const chrome = G.chrome ? `<div class="wg-chrome"><span class="wg-dots"><i></i><i></i><i></i></span><div class="wg-url" title="${esc(url)}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>${esc(url)}</span>${ip ? '' : '<em>Direktzugriff (keine IP-Adresse)</em>'}</div><button class="wg-x" data-act="close" aria-label="Fenster schließen">✕</button></div>` : '';
       if (!G.auth && k === 'firewall') { root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-login wg-firewall"><form class="as-login" data-act="login"><div class="as-lh"><svg class="as-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/></svg><b>Cisco ASDM-IDM Launcher</b></div><div class="as-lb"><p>Geben Sie die Zugangsdaten für die ASA ein.</p><div class="wg-f"><label for="wf-dev">Gerät/IP-Adresse</label><input id="wf-dev" value="${esc(ip || d.cfg.hostname)}" readonly></div>${field('user', 'Benutzername', 'admin')}${field('pw', 'Kennwort', 'NetLab-2026', { type: 'password' })}<div class="wg-row end"><button type="submit" class="wg-b primary" data-act="login">OK</button></div><small>Simulator-Zugangsdaten sind vorausgefüllt.</small></div></form></div></div>`; return; }
       if (!G.auth) { root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-login wg-${k}"><form class="wg-lc" data-act="login"><div class="wg-logo">${logo(k)}</div><h2>${PRODUCT[k][0]}</h2><p>${esc(d.cfg.hostname)} · ${PRODUCT[k][1]}</p>${field('user', 'Benutzername', k === 'windows' ? 'Administrator' : 'admin')}${field('pw', 'Kennwort', 'NetLab-2026', { type: 'password' })}<button type="submit" class="wg-b primary wide" data-act="login">Anmelden</button><small>Simulator-Zugangsdaten sind vorausgefüllt.</small></form></div></div>`; return; }
@@ -3676,7 +3789,7 @@ const WEBGUI = (function () {
     };
     G.draw = draw; G.dev = dev; G.root = root; G.kind = kind; return G;
   }
-  const logo = k => `<svg class="wg-ico" viewBox="0 0 24 24" aria-hidden="true">${{ linux: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>', hypervisor: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/>', windows: '<path d="M3 5l8-1.2V11H3zM13 3.6L21 2v9h-8zM3 13h8v7.2L3 19zM13 13h8v9l-8-1.6z"/>', storage: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>', firewall: '<path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/>', switch: '<rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/>', router: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16M8 8l-2-2M16 8l2-2M8 16l-2 2M16 16l2 2"/>', fabric: '<circle cx="12" cy="12" r="3"/><circle cx="4" cy="5" r="2"/><circle cx="20" cy="5" r="2"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="19" r="2"/><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>' }[k]}</svg>`;
+  const logo = k => `<svg class="wg-ico" viewBox="0 0 24 24" aria-hidden="true">${{ linux: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>', hypervisor: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/>', windows: '<path d="M3 5l8-1.2V11H3zM13 3.6L21 2v9h-8zM3 13h8v7.2L3 19zM13 13h8v9l-8-1.6z"/>', storage: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>', firewall: '<path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/>', ap: '<path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a14 14 0 0 1 20 0"/><circle cx="12" cy="19.5" r="1"/>', wlc: '<rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 17h.01M10 17h.01M7 9.5a7 7 0 0 1 10 0M9.5 6.5a3.5 3.5 0 0 1 5 0"/>', switch: '<rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/>', router: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16M8 8l-2-2M16 8l2-2M8 16l-2 2M16 16l2 2"/>', fabric: '<circle cx="12" cy="12" r="3"/><circle cx="4" cy="5" r="2"/><circle cx="20" cy="5" r="2"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="19" r="2"/><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>' }[k]}</svg>`;
   const hostIp = d => { if (d.type === 'switch' || d.type === 'router') { const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip); return n ? d.cfg.ifs[n].ip : ''; } const h = d.ports.map(p => A.hip(d, p)).find(x => x && x.ip); return h ? h.ip : ''; };
 
   // ASDM: vier Bereiche (Startseite, Konfiguration, Überwachung, Werkzeuge) mit eigener Navigation
@@ -3709,6 +3822,8 @@ const WEBGUI = (function () {
     fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']],
     switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
     firewall: d => [].concat(...Object.values(FW)),
+    ap: d => [['dashboard', 'Übersicht'], ['wlan', 'Funknetzwerke (SSID)'], ['clients', 'Clients'], ['network', 'Netzwerk'], ['controller', 'Controller'], ['cli', 'Konsole']],
+    wlc: d => [['dashboard', 'Dashboard'], ['-c', 'Konfiguration'], ['wlan', 'WLANs'], ['aps', 'Access Points'], ['clients', 'Clients'], ['-a', 'Verwaltung'], ['network', 'Netzwerk'], ['cli', 'Konsole']],
     router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
   };
 
@@ -3730,7 +3845,7 @@ const WEBGUI = (function () {
   const v = (G, id) => { const e = G.root.querySelector('#wf-' + id); return e ? (e.type === 'checkbox' ? e.checked : e.value) : ''; };
 
   // ---------- Seiten ----------
-  const PAGES = { linux: {}, hypervisor: {}, windows: {}, storage: {}, fabric: {}, switch: {}, router: {}, firewall: {} };
+  const PAGES = { linux: {}, hypervisor: {}, windows: {}, storage: {}, fabric: {}, switch: {}, router: {}, firewall: {}, ap: {}, wlc: {} };
   const ifaces = d => A.ctx().ifaces(d);
   const maskLen = m => m ? m.split('.').reduce((a, x) => a + (+x).toString(2).replace(/0/g, '').length, 0) : '';
 
@@ -4055,6 +4170,49 @@ const WEBGUI = (function () {
       + card('HyperMetro-Paare', `<div class="wg-row">${btn('Paar erstellen', 'dlg', { k: 'hmpair' }, 'primary')}</div>` + tbl(['LUN', 'Größe', `Pool auf ${esc(d.cfg.hostname)}`, `Partner-LUN auf ${esc(b.cfg.hostname)}`, 'Status', ''], pairs.map(l => { const r = S.st(b).luns.find(x => x.id === l.hm.peerLun), both = me.active && peer.active; return [`<b>${esc(l.name)}</b>`, gb(l.gb), esc(l.pool), r ? esc(r.name + ' (' + r.pool + ')') : '–', both ? chip('aktiv-aktiv', 'ok') : me.active || peer.active ? chip('nur ' + esc((me.active ? d : b).cfg.hostname), 'bad') : chip('gestoppt', 'bad'), btn('Auflösen', 'hmpairdel', { l: l.id }, 'sm ghost bad')]; }), 'Noch kein Paar. Ein Paar spiegelt eine LUN synchron auf das Partner-Array; Hosts bekommen sie mit Pfaden zu beiden Arrays.'));
   };
 
+  // ---------- WLAN: Access Point und Controller ----------
+  const NLw = () => A.NL;
+  const secName = x => ({ wpa2: 'WPA2-PSK', wpa3: 'WPA3-SAE', open: 'offen' }[x] || x);
+  const hostLn = d => { const h = d.ports.map(p => A.hip(d, p)).find(x => x && x.ip); return h || {}; };
+  const ssidList = d => d.type === 'wlc' ? NLw().wlcState(d).ssids : NLw().apState(d).ssids;
+  const ssidTable = (d, ro) => tbl(['SSID', 'Sicherheit', 'VLAN', 'Status', ro ? '' : ''], ssidList(d).map((x, i) => [`<b>${esc(x.name)}</b>`, esc(secName(x.sec)), x.vlan ? x.vlan : '<span class="wg-mut">nativ (untagged)</span>', x.on === false ? chip('aus') : chip('sendet', 'ok'), ro ? '' : `<div class="wg-row">${btn('Bearbeiten', 'dlg', { k: 'ssid', i }, 'sm')}${btn(x.on === false ? 'Einschalten' : 'Ausschalten', 'ssidon', { i }, 'sm')}${btn('Löschen', 'ssiddel', { i }, 'sm ghost bad')}</div>`]), 'Noch keine SSID. Ohne SSID sendet der Access Point kein WLAN.');
+  const clientRows = list => list.map(c => { const h = A.hip(c, c.ports[0]) || {}, st = A.statusFull(c, c.ports[0]), l = A.NL.wifiLinkOf(A.net(), c); return [`<b>${esc(c.cfg.hostname)}</b>`, esc((c.wifi || {}).ssid || ''), l ? esc(A.net().devs[l.b].cfg.hostname) : '–', h.ip ? esc(h.ip) : '<span class="wg-mut">keine</span>', st.st === 'connected' ? chip('verbunden', 'ok') : chip('getrennt', 'bad')]; });
+  const netCard = d => { const h = hostLn(d); return card('IP-Konfiguration', `<dl class="wg-dl"><dt>IP-Adresse</dt><dd>${h.ip ? esc(h.ip + '/' + maskLen(h.mask)) : '<span class="wg-mut">keine</span>'}</dd><dt>Gateway</dt><dd>${esc(d.cfg.gw || '–')}</dd><dt>DNS</dt><dd>${esc(d.cfg.dns || '–')}</dd><dt>DHCP</dt><dd>${d.cfg.dhcp ? chip('an', 'ok') : chip('aus')}</dd></dl><div class="wg-row">${btn('Statisch einstellen', 'dlg', { k: 'apnet' }, 'primary')}${btn('Per DHCP beziehen', 'apdhcp', null, '')}</div>${A.status(d, d.ports[0]) !== 'connected' ? '<p class="wg-warn">Der Uplink hat keinen Link: Kabel, Strom (PoE) und Switchport prüfen.</p>' : ''}`); };
+  PAGES.ap.network = PAGES.wlc.network = (d, G) => netCard(d) + '<p class="wg-note">Der Access Point braucht eine IP-Adresse im Management-Netz, um erreichbar zu sein und seinen Controller zu finden. Die Funk-Clients bekommen ihre Adressen aus dem VLAN der SSID.</p>';
+  PAGES.ap.cli = PAGES.wlc.cli = PAGES.router.cli;
+  PAGES.ap.dashboard = (d, G) => {
+    const pw = NLw().apPower(A.net(), d), j = NLw().apJoined(A.net(), d), st = NLw().apState(d), h = hostLn(d), cl = NLw().apClients(A.net(), d), ss = NLw().apSsids(A.net(), d), up = A.statusFull(d, d.ports[0]);
+    return `<div class="wg-cards">
+      ${card('Gerät', `<dl class="wg-dl"><dt>Hostname</dt><dd>${esc(d.cfg.hostname)}</dd><dt>Modell</dt><dd>${esc(d.model || 'Access Point')}</dd><dt>IP-Adresse</dt><dd>${h.ip ? esc(h.ip + '/' + maskLen(h.mask)) : '<span class="wg-mut">keine</span>'}</dd><dt>Betriebsart</dt><dd>${j === null ? 'Autonom' : 'Controller (Lightweight)'}</dd></dl>`)}
+      ${card('Stromversorgung', `<p>${pw.ok ? chip('versorgt', 'ok') + ' ' + esc(pw.via) : chip('kein Strom', 'bad')}</p>${pw.ok ? '' : `<p class="wg-warn">${esc(pw.reason)}</p>`}<div class="wg-row">${btn(st.injector ? 'PoE-Injector entfernen' : 'PoE-Injector anschließen', 'apinj', null, 'sm')}</div>`)}
+      ${card('Uplink und Funk', `<p>${up.st === 'connected' ? chip('Link up', 'ok') + ' ' + esc(A.fmtSpeed(up.speed, up.proto)) : chip('kein Link', 'bad')}</p><p class="wg-note">${ss.length} SSID${ss.length === 1 ? '' : 's'} aktiv, ${cl.length} Client${cl.length === 1 ? '' : 's'} verbunden</p>${j && !j.ok ? `<p class="wg-warn">Controller-Modus, aber nicht angemeldet: ${esc(j.why)}</p>` : ''}`)}
+    </div>`;
+  };
+  PAGES.ap.wlan = (d, G) => {
+    const j = NLw().apJoined(A.net(), d);
+    if (j === null) return `<div class="wg-row">${btn('SSID hinzufügen', 'dlg', { k: 'ssid', i: '' }, 'primary')}</div>` + ssidTable(d) + '<p class="wg-note">WPA2/WPA3 braucht einen Schlüssel von 8 bis 63 Zeichen. Das VLAN muss zum Switchport passen: „nativ“ sendet untagged, jedes andere VLAN geht getaggt auf den Uplink und braucht dort einen Trunk, der das VLAN erlaubt.</p>';
+    return card('Vom Controller verwaltet', `<p>${j.ok ? chip('angemeldet', 'ok') + ' Die SSIDs kommen von <b>' + esc(j.wlc.cfg.hostname) + '</b>.' : chip('nicht angemeldet', 'bad') + ' ' + esc(j.why)}</p>`) + (j.ok ? tbl(['SSID', 'Sicherheit', 'VLAN'], NLw().apSsids(A.net(), d).map(x => [`<b>${esc(x.name)}</b>`, esc(secName(x.sec)), x.vlan || 'nativ']), '') : '<p class="wg-note">Solange der AP den Controller nicht erreicht, sendet er keine SSID.</p>');
+  };
+  PAGES.ap.clients = (d, G) => card('Verbundene Clients', tbl(['Client', 'SSID', 'AP', 'IP-Adresse', 'Status'], clientRows(NLw().apClients(A.net(), d)), 'Kein Client verbunden. Verbinde ein Notebook oder Smartphone im Detailfeld mit einer SSID.'));
+  PAGES.ap.controller = (d, G) => {
+    const j = NLw().apJoined(A.net(), d), st = NLw().apState(d), wl = Object.values(A.net().devs).filter(x => x.type === 'wlc');
+    return card('WLAN-Controller', `<p>${j === null ? chip('autonom') + ' Der AP arbeitet allein mit seinen eigenen SSIDs.' : j.ok ? chip('angemeldet', 'ok') + ' bei ' + esc(j.wlc.cfg.hostname) : chip('nicht angemeldet', 'bad') + ' ' + esc(j.why)}</p><div class="wg-row end">${field('wlc', 'IP-Adresse des Controllers (leer = autonom)', st.wlc, { ph: wl[0] ? (hostLn(wl[0]).ip || '10.0.0.70') : '10.0.0.70' })}${btn('Speichern', 'apwlc', null, 'primary')}</div>`)
+      + '<p class="wg-note">Ein Lightweight-AP bekommt seine Konfiguration vom Controller (CAPWAP). Dafür muss er den Controller per IP erreichen. Ohne Join sendet er kein WLAN.</p>';
+  };
+  PAGES.wlc.dashboard = (d, G) => {
+    const ip = hostLn(d).ip, aps = Object.values(A.net().devs).filter(x => x.type === 'ap' && NLw().apState(x).wlc === ip), joined = aps.filter(a => { const j = NLw().apJoined(A.net(), a); return j && j.ok; }), cl = [].concat(...joined.map(a => NLw().apClients(A.net(), a)));
+    return `<div class="wg-cards">${card('Access Points', `<p class="wg-big">${joined.length}<small> von ${aps.length} angemeldet</small></p>${bar(joined.length, aps.length || 1, 101)}${btn('Zu den Access Points', 'nav', { p: 'aps' }, 'sm')}`)}
+      ${card('Clients', `<p class="wg-big">${cl.length}<small> verbunden</small></p>${btn('Zu den Clients', 'nav', { p: 'clients' }, 'sm')}`)}
+      ${card('WLANs', `<p class="wg-big">${NLw().wlcState(d).ssids.length}<small> konfiguriert</small></p>${btn('Zu den WLANs', 'nav', { p: 'wlan' }, 'sm')}`)}</div>
+      ${card('Gerät', `<dl class="wg-dl"><dt>Hostname</dt><dd>${esc(d.cfg.hostname)}</dd><dt>IP-Adresse</dt><dd>${ip ? esc(ip + '/' + maskLen(hostLn(d).mask)) : '<span class="wg-mut">keine</span>'}</dd><dt>Modell</dt><dd>${esc(d.model || 'Controller')}</dd></dl>`)}`;
+  };
+  PAGES.wlc.wlan = (d, G) => `<div class="wg-row">${btn('WLAN hinzufügen', 'dlg', { k: 'ssid', i: '' }, 'primary')}</div>` + ssidTable(d) + '<p class="wg-note">Die WLANs gelten für alle Access Points, die bei diesem Controller angemeldet sind. Hinter einem AP im Trunk-Modus braucht jedes VLAN eine Freigabe auf dem Switchport.</p>';
+  PAGES.wlc.aps = (d, G) => {
+    const ip = hostLn(d).ip, aps = Object.values(A.net().devs).filter(x => x.type === 'ap');
+    return tbl(['Access Point', 'IP-Adresse', 'Controller laut AP', 'Strom', 'Status'], aps.map(a => { const j = NLw().apJoined(A.net(), a), st = NLw().apState(a), pw = NLw().apPower(A.net(), a), mine = st.wlc === ip; return [`<b>${esc(a.cfg.hostname)}</b>`, esc(hostLn(a).ip || '–'), st.wlc ? esc(st.wlc) + (mine ? '' : ' <small class="wg-mut">(anderer Controller)</small>') : '<span class="wg-mut">autonom</span>', pw.ok ? chip('ok', 'ok') : chip('kein Strom', 'bad'), mine ? (j && j.ok ? chip('angemeldet', 'ok') : chip('nicht angemeldet', 'bad') + '<br><small class="wg-mut">' + esc(j ? j.why : '') + '</small>') : '–']; }), 'Kein Access Point im Plan.') + '<p class="wg-note">Ein AP meldet sich an, wenn in seiner Controller-Einstellung die IP dieses Controllers steht und beide sich erreichen (IP, Gateway, VLAN).</p>';
+  };
+  PAGES.wlc.clients = (d, G) => { const ip = hostLn(d).ip, aps = Object.values(A.net().devs).filter(x => x.type === 'ap' && NLw().apState(x).wlc === ip && (NLw().apJoined(A.net(), x) || {}).ok); return card('Verbundene Clients', tbl(['Client', 'SSID', 'AP', 'IP-Adresse', 'Status'], clientRows([].concat(...aps.map(a => NLw().apClients(A.net(), a)))), 'Kein Client verbunden.')); };
+
   // ---------- Dialoge ----------
   function dlgHtml(d, G) {
     const x = G.dlg, k = x.k, net = A.net(), wrap = (t, body, ok, okLbl) => `<div class="wg-ov" data-act="dlgbg"><form class="wg-dlg" role="dialog" aria-modal="true" aria-label="${esc(t)}" data-act="dlgok"><h2>${t}</h2>${body}<div class="wg-row end">${btn('Abbrechen', 'dlgx', null, 'ghost')}${ok === false ? '' : `<button type="submit" class="wg-b primary" data-act="dlgok">${okLbl || 'OK'}</button>`}</div></form></div>`;
@@ -4072,6 +4230,8 @@ const WEBGUI = (function () {
       case 'hmnew': { const others = Object.values(net.devs).filter(y => y.type === 'storage' && y.id !== d.id), fcn = y => y.ports.filter(p => y.pk[p] === 'fc').length, srvs = Object.values(net.devs).filter(y => y.type === 'server' && !A.isCloud(y) && !y.vm).sort((a, b) => fcn(a) - fcn(b)); return wrap('HyperMetro-Domäne erstellen', field('n', 'Name der Domäne', 'DOM1') + sel('peer', 'Partner-Array', others.map(y => [y.id, y.cfg.hostname])) + sel('q', 'Quorum-Server (dritter Standort)', srvs.map(y => [y.id, y.cfg.hostname + (S0().ipOf(y) ? ' (' + S0().ipOf(y) + ')' : '')])) + sel('pref', 'Bevorzugter Standort', [['local', d.cfg.hostname + ' (dieses Array)'], ['remote', 'Partner-Array']], 'local', 'Bei einer Trennung gewinnt dieser Standort, wenn beide den Quorum-Server erreichen.') + `<label class="wg-ck2"><input type="checkbox" id="wf-sf" checked> Statische Priorität als Fallback, wenn der Quorum-Server nicht erreichbar ist</label>`, true, 'Erstellen'); }
       case 'hmset': { const dm = S0().hm(d), b = net.devs[dm.peer], srvs = Object.values(net.devs).filter(y => y.type === 'server' && !A.isCloud(y) && !y.vm); return wrap('Domäne bearbeiten', sel('pref', 'Bevorzugter Standort', [[d.id, d.cfg.hostname], [b.id, b.cfg.hostname]], dm.preferred) + sel('q', 'Quorum-Server', srvs.map(y => [y.id, y.cfg.hostname]), dm.quorum) + `<label class="wg-ck2"><input type="checkbox" id="wf-sf" ${dm.staticFallback ? 'checked' : ''}> Statische Priorität als Fallback</label>`, true, 'Speichern'); }
       case 'hmpair': { const dm = S0().hm(d), b = net.devs[dm.peer], free = S0().st(d).luns.filter(l => !l.hm); return wrap('HyperMetro-Paar erstellen', free.length ? sel('lun', 'LUN auf diesem Array', free.map(l => [l.id, `${l.name} (${gb(l.gb)})`])) + sel('pool', `Pool auf ${esc(b.cfg.hostname)} für die Partner-LUN`, S0().st(b).pools.map(p => [p.name, `${p.name} (${gb(S0().poolInfo(b, p).free)} frei)`]), '', 'Die Partner-LUN bekommt dieselbe Größe und dieselbe Host-Zuordnung.') : '<p class="wg-empty">Lege zuerst eine LUN an, die gespiegelt werden soll.</p>', free.length > 0, 'Paar erstellen'); }
+      case 'ssid': { const L = ssidList(d), cur = x.i === '' ? null : L[+x.i] || null; return wrap(cur ? `SSID ${esc(cur.name)}` : (d.type === 'wlc' ? 'WLAN hinzufügen' : 'SSID hinzufügen'), field('n', 'Name der SSID', cur ? cur.name : '', { ph: 'Firma-WLAN' }) + sel('sec', 'Sicherheit', [['wpa2', 'WPA2-PSK'], ['wpa3', 'WPA3-SAE'], ['open', 'Offen (ohne Passwort)']], cur ? cur.sec : 'wpa2') + field('psk', 'WLAN-Schlüssel (8 bis 63 Zeichen)', cur ? cur.psk : '', { hint: 'Wird bei „Offen“ ignoriert.' }) + field('vlan', 'VLAN (0 = nativ/untagged)', cur ? cur.vlan || 0 : 0, { type: 'number', min: 0, max: 4094 }), true, 'Speichern'); }
+      case 'apnet': { const h = hostLn(d); return wrap('IP-Konfiguration', field('ip', 'IP-Adresse', h.ip || '', { ph: '10.0.0.60' }) + field('len', 'Präfixlänge', h.mask ? maskLen(h.mask) : 24, { type: 'number', min: 1, max: 30 }) + field('gw', 'Gateway', d.cfg.gw || '', { ph: '10.0.0.1' }), true, 'Speichern'); }
       case 'ifedit': {
         const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
         const vl = Object.keys(d.cfg.vlans || {}).map(Number).sort((a, b) => a - b).map(n => [n, `${n} – ${d.cfg.vlans[n]}`]);
@@ -4148,6 +4308,17 @@ const WEBGUI = (function () {
         case 'hmnew': A.act(() => { ok = res(G, A.STOR.hmCreate(net, dv, net.devs[v(G, 'peer')], { name: v(G, 'n'), quorum: v(G, 'q'), preferred: v(G, 'pref'), staticFallback: v(G, 'sf') }), 'HyperMetro-Domäne erstellt. Lege Replikationszonen an und richte den Quorum-Server ein.'); }); break;
         case 'hmset': A.act(() => { ok = res(G, A.STOR.hmSet(net, dv, { preferred: v(G, 'pref'), quorum: v(G, 'q'), staticFallback: v(G, 'sf') }), 'Gespeichert.'); }); break;
         case 'hmpair': A.act(() => { ok = res(G, A.STOR.hmPairCreate(net, dv, { lun: v(G, 'lun'), pool: v(G, 'pool') }), 'Paar erstellt. Hosts sehen die LUN jetzt mit Pfaden zu beiden Arrays (nach einem Rescan).'); }); break;
+        case 'ssid': {
+          const L = ssidList(dv), i = x.i === '' ? -1 : +x.i, n = v(G, 'n').trim(), sec = v(G, 'sec'), psk = v(G, 'psk'), vl = Math.round(+v(G, 'vlan') || 0);
+          if (!n || n.length > 32) { G.msg = { err: true, t: 'Der Name der SSID braucht 1 bis 32 Zeichen.' }; ok = false; break; }
+          if (sec !== 'open' && (psk.length < 8 || psk.length > 63)) { G.msg = { err: true, t: 'Der WLAN-Schlüssel braucht 8 bis 63 Zeichen.' }; ok = false; break; }
+          if (!(vl >= 0 && vl <= 4094)) { G.msg = { err: true, t: 'VLAN 0 bis 4094.' }; ok = false; break; }
+          if (L.some((y, k) => y.name === n && k !== i)) { G.msg = { err: true, t: `Die SSID „${n}“ gibt es schon.` }; ok = false; break; }
+          A.act(() => { const o = { name: n, sec, psk: sec === 'open' ? '' : psk, vlan: vl, on: i >= 0 ? L[i].on : true }; if (i >= 0) L[i] = o; else L.push(o); });
+          [`wlan ${n} ${L.length} ${n}`, sec === 'open' ? 'no security wpa' : `security wpa ${sec === 'wpa3' ? 'wpa3' : 'wpa2'} ciphers aes`, sec === 'open' ? '' : 'security wpa akm ' + (sec === 'wpa3' ? 'sae' : 'psk') + ' set-key ascii 0 ********', vl ? 'client vlan ' + vl : 'no client vlan', 'no shutdown'].filter(Boolean).forEach(c => G.log.push({ cmd: c, err: false })); G.log = G.log.slice(-8);
+          G.msg = { t: 'SSID gespeichert. Clients verbinden sich mit dem Schlüssel.' }; break;
+        }
+        case 'apnet': { const ip = v(G, 'ip').trim(), gw = v(G, 'gw').trim(); if (!ip) { ok = false; G.msg = { err: true, t: 'IP-Adresse fehlt.' }; break; } const o = A.exec(dv, `ip ${ip}/${v(G, 'len')}${gw ? ' ' + gw : ''}`); G.log.push({ cmd: `ip ${ip}/${v(G, 'len')}${gw ? ' ' + gw : ''}`, err: false }); if (/ungültig|nicht|invalid/i.test(o)) { G.msg = { err: true, t: String(o).split('\n')[0] }; ok = false; } else { A.act(() => { dv.cfg.dhcp = false; }); G.msg = { t: 'IP-Konfiguration gespeichert.' }; } break; }
         case 'ifedit': {
           const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
           const allow = v(G, 'allow').trim().toLowerCase();
@@ -4230,6 +4401,11 @@ const WEBGUI = (function () {
         case 'hmzone': A.act(() => { const r = A.STOR.hmAutoZone(net, dv); G.msg = { t: r.n ? `${r.n} Replikationszone${r.n > 1 ? 'n' : ''} angelegt. Aktiviere das Zoneset am FC-Switch.` : 'Keine neuen Replikationszonen nötig (oder die Arrays hängen nicht am selben FC-Switch).' }; }); break;
         case 'hmdel': A.act(() => { res(G, A.STOR.hmDelete(net, dv), 'Domäne gelöscht.'); }); break;
         case 'hmpairdel': A.act(() => { res(G, A.STOR.hmPairDelete(net, dv, D.l), 'Paar aufgelöst, die Partner-LUN wurde gelöscht.'); }); break;
+        case 'ssidon': A.act(() => { const L = ssidList(dv), y = L[+D.i]; if (y) y.on = y.on === false; }); G.msg = { t: 'Gespeichert.' }; break;
+        case 'ssiddel': A.act(() => { ssidList(dv).splice(+D.i, 1); }); G.msg = { t: 'SSID gelöscht. Verbundene Clients verlieren das WLAN.' }; break;
+        case 'apinj': A.act(() => { const st = NLw().apState(dv); st.injector = !st.injector; }); G.msg = { t: NLw().apState(dv).injector ? 'PoE-Injector angeschlossen.' : 'PoE-Injector entfernt.' }; break;
+        case 'apwlc': { const ip = v(G, 'wlc').trim(); if (ip && !A.NL.validIp(ip)) { G.msg = { err: true, t: 'Ungültige IP-Adresse.' }; break; } A.act(() => { NLw().apState(dv).wlc = ip; }); G.log.push({ cmd: ip ? `capwap ap controller ip address ${ip}` : 'no capwap ap controller ip address', err: false }); G.msg = { t: ip ? 'Controller gespeichert. Der AP versucht sich anzumelden.' : 'Autonomer Betrieb.' }; break; }
+        case 'apdhcp': { let r; A.act(() => { dv.cfg.dhcp = true; r = A.dhcp(dv); }); G.msg = r.err ? { err: true, t: 'DHCP fehlgeschlagen: ' + r.err } : { t: `DHCP: ${r.ip}/${maskLen(r.mask)} von ${r.server}.` }; break; }
         case 'dpooldel': ios(G, 'no ip dhcp pool ' + D.n, 'Pool gelöscht.'); break;
         case 'dexcldel': { const a = excluded(dv)[+D.i]; if (a) ios(G, `no ip dhcp excluded-address ${a.join(' ')}`, 'Ausschluss entfernt.'); break; }
         case 'fwacldel': ios(G, 'no access-list ' + D.a, 'Regelliste gelöscht.'); break;
@@ -4432,13 +4608,17 @@ const DESKTOP = (function () {
       const draw = () => {
         const d = dev(), ports = d.ports.filter(p => d.pk[p] !== 'fc'); if (!ports.includes(w.s.p)) w.s.p = ports[0];
         const p = w.s.p, prim = p === d.ports[0], cur = A.hip(d, p) || {}, dh = prim && d.cfg.dhcp, ro = dh ? 'disabled' : '', up = A.status(d, p) === 'connected';
-        w.body.innerHTML = `<div class="dk-pad"><div class="dk-adapter ${up ? 'up' : 'dn'}">${ico('net')}<div><b>${esc(A.SH(p))}</b><span>${up ? 'Verbunden' : 'Netzwerkkabel nicht angeschlossen'}</span></div></div>
+        const wf = d.pk[p] === 'wifi', sc = wf ? A.wifi.scan() : [], cs = wf && d.wifi && d.wifi.ssid;
+        w.body.innerHTML = `<div class="dk-pad"><div class="dk-adapter ${up ? 'up' : 'dn'}">${ico('net')}<div><b>${wf ? 'WLAN' : esc(A.SH(p))}</b><span>${up ? (wf ? 'Verbunden mit ' + esc(cs) : 'Verbunden') : (wf ? (cs ? esc(A.status(d, p) === 'connected' ? '' : 'Verbindung unterbrochen') : 'Nicht verbunden') : 'Netzwerkkabel nicht angeschlossen')}</span></div></div>
+          ${wf ? `<div class="dk-f"><label for="${w.id}-ss">Verfügbare Netzwerke</label><select id="${w.id}-ss">${sc.length ? sc.map(x => `<option value="${esc(x.ssid)}" ${x.ssid === cs ? 'selected' : ''}>${esc(x.ssid)} – ${x.sec === 'open' ? 'offen' : x.sec.toUpperCase()}</option>`).join('') : '<option value="">Kein WLAN gefunden</option>'}</select></div><div class="dk-f"><label for="${w.id}-pk">WLAN-Schlüssel</label><input id="${w.id}-pk" type="password" value="${esc((d.wifi && d.wifi.psk) || '')}" autocomplete="off"></div><div class="dk-row"><button class="dk-b pri" data-n="wc" ${sc.length ? '' : 'disabled'}>Verbinden</button><button class="dk-b" data-n="wx" ${cs ? '' : 'disabled'}>Trennen</button></div>` : ''}
           ${ports.length > 1 ? `<div class="dk-f"><label for="${w.id}-p">Netzwerkadapter</label><select id="${w.id}-p">${ports.map(q => `<option value="${esc(q)}" ${q === p ? 'selected' : ''}>${esc(A.SH(q))}${(A.hip(d, q) || {}).ip ? ' – ' + esc(A.hip(d, q).ip) : ''}</option>`).join('')}</select></div>` : ''}
           ${prim ? `<div class="dk-radio"><label><input type="radio" name="${w.id}-m" value="dhcp" ${dh ? 'checked' : ''}> IP-Adresse automatisch beziehen (DHCP)</label><label><input type="radio" name="${w.id}-m" value="static" ${dh ? '' : 'checked'}> Folgende IP-Adresse verwenden</label></div>` : ''}
           <div class="dk-2"><div class="dk-f"><label for="${w.id}-ip">IP-Adresse</label><input id="${w.id}-ip" value="${esc(cur.ip || '')}" ${ro}></div><div class="dk-f"><label for="${w.id}-mk">Subnetzmaske</label><input id="${w.id}-mk" value="${esc(cur.mask || '')}" placeholder="255.255.255.0" ${ro}></div></div>
           ${prim ? `<div class="dk-2"><div class="dk-f"><label for="${w.id}-gw">Standardgateway</label><input id="${w.id}-gw" value="${esc(d.cfg.gw || '')}" ${ro}></div><div class="dk-f"><label for="${w.id}-dns">DNS-Server</label><input id="${w.id}-dns" value="${esc(d.cfg.dns || '')}" ${ro}></div></div>` : ''}
           <div class="dk-row"><button class="dk-b pri" data-n="ok">OK</button></div><p class="dk-msg" aria-live="polite"></p></div>`;
         const g = k => w.body.querySelector(`#${w.id}-${k}`);
+        const wc = w.body.querySelector('[data-n=wc]'); if (wc) wc.onclick = () => { const r = A.wifi.connect(d, g('ss').value, g('pk').value); draw(); msg(w, r.err ? r.err : `Verbunden über ${r.ap}. Stelle unten die IP-Adresse ein oder nutze DHCP.`, !!r.err); drawTask(); };
+        const wx = w.body.querySelector('[data-n=wx]'); if (wx) wx.onclick = () => { A.wifi.disconnect(d); draw(); drawTask(); };
         if (g('p')) g('p').onchange = e => { w.s.p = e.target.value; draw(); };
         w.body.querySelectorAll(`input[name="${w.id}-m"]`).forEach(r => r.onchange = () => { const x = r.value === 'dhcp'; ['ip', 'mk', 'gw', 'dns'].forEach(k => { if (g(k)) g(k).disabled = x; }); });
         w.body.querySelector('[data-n=ok]').onclick = () => {
@@ -4582,7 +4762,7 @@ const Sandbox = (function () {
   function autoRack(net, id) { const d = net.devs[id], u = uOf(d); if (!u) return; d.rack = null; for (let p = RU - u + 1; p >= 1; p--) if (freeAt(net, id, p, u)) { d.rack = p; return; } }
   function addDev(net, model, x, y, host) {
     const M = MODELS[model]; const id = 'd' + (net.seq++);
-    const pre = { switch: 'SW', router: M.fw ? 'FW' : 'R', fc: 'MDS', server: M.cloud ? 'ISP' : 'SRV', storage: 'STO', pc: M.icon === 'phone' ? 'PHONE' : M.icon === 'printer' ? 'PRN' : 'PC' }[M.type];
+    const pre = { switch: 'SW', router: M.fw ? 'FW' : 'R', fc: 'MDS', server: M.cloud ? 'ISP' : 'SRV', storage: 'STO', pc: { phone: 'PHONE', printer: 'PRN', laptop: 'LAP', smartphone: 'MOB', tablet: 'TAB', camera: 'CAM', tv: 'TV', reader: 'RDR' }[M.icon] || 'PC', ap: 'AP', wlc: 'WLC' }[M.type];
     const used = new Set(Object.values(net.devs).map(d => d.cfg.hostname)); let n = 1, h = host;
     if (!h) { do { h = pre + '-' + String(n++).padStart(2, '0'); } while (used.has(h)); }
     net.devs[id] = NL.mkDev(id, M.type, x, y, 0, { model, host: h, icon: M.icon });
@@ -4658,7 +4838,7 @@ const Sandbox = (function () {
   function act(fn) { const before = S.undo ? JSON.stringify(S.net) : null, prev = states(); fn(); if (S.net) { const mv = VIRTN.haRun(S.net); if (mv.length) toast(`HA: ${mv.length} VM${mv.length > 1 ? 's' : ''} auf anderen Cluster-Hosts neu gestartet.`); } logDiff(prev); if (before !== null && JSON.stringify(S.net) !== before) { S.undo.push(before); if (S.undo.length > 60) S.undo.shift(); S.redo = []; } save(); if (typeof document !== 'undefined' && document.getElementById('cv')) render(); }
 
   // ---------------- open / toolbar ----------------
-  const GROUPS = [['Switches', M => M.type === 'switch'], ['Router', M => M.type === 'router' && !M.fw], ['Firewall', M => M.fw], ['FC-Switch (SAN)', M => M.type === 'fc'], ['Server', M => M.type === 'server' && !M.icon], ['Storage', M => M.type === 'storage'], ['Endgeräte', M => M.type === 'pc' || M.icon]];
+  const GROUPS = [['Switches', M => M.type === 'switch'], ['WLAN', M => M.type === 'ap' || M.type === 'wlc'], ['Router', M => M.type === 'router' && !M.fw], ['Firewall', M => M.fw], ['FC-Switch (SAN)', M => M.type === 'fc'], ['Server', M => M.type === 'server' && !M.icon], ['Storage', M => M.type === 'storage'], ['Endgeräte', M => M.type === 'pc' || M.icon]];
   function open(root) {
     app = root; document.title = 'Netzplaner – NetLab'; initDL(); document.removeEventListener('keydown', escKey);
     const sid = store.get('sbxscen', null), sc = sid && SC.find(x => x.id === sid), net = sc ? (store.get('scen.' + sid) || buildScen(sid)) : (store.get('sandbox') || example()); migrate(net);
@@ -4758,7 +4938,7 @@ const Sandbox = (function () {
   }
 
   // ---------------- Palette (Packet-Tracer-Stil) ----------------
-  const PCATS = [['Netzwerk', M => M.type === 'switch' || (M.type === 'router' && !M.fw) || !!M.cloud], ['Firewall', M => !!M.fw], ['Server', M => M.type === 'server' && !M.icon], ['Storage & SAN', M => M.type === 'storage' || M.type === 'fc'], ['Endgeräte', M => (M.type === 'pc' || !!M.icon) && !M.cloud], ['Kabel', null]];
+  const PCATS = [['Netzwerk', M => M.type === 'switch' || (M.type === 'router' && !M.fw) || M.type === 'ap' || M.type === 'wlc' || !!M.cloud], ['Firewall', M => !!M.fw], ['Server', M => M.type === 'server' && !M.icon], ['Storage & SAN', M => M.type === 'storage' || M.type === 'fc'], ['Endgeräte', M => (M.type === 'pc' || !!M.icon) && !M.cloud && M.type !== 'ap' && M.type !== 'wlc'], ['Kabel', null]];
   const TICON = {
     switch: '<rect x="-24" y="-9" width="48" height="18" rx="3" class="body sw"/>' + [-16, -9, -2, 5, 12].map(x => `<rect x="${x}" y="-5" width="5" height="4" class="dot"/><rect x="${x}" y="1" width="5" height="4" class="dot"/>`).join(''),
     fc: '<rect x="-24" y="-9" width="48" height="18" rx="3" class="body fcx"/>' + [-16, -9, -2, 5, 12].map(x => `<rect x="${x}" y="-5" width="5" height="4" class="dot"/><rect x="${x}" y="1" width="5" height="4" class="dot"/>`).join(''),
@@ -4784,6 +4964,7 @@ const Sandbox = (function () {
     plug: '<path d="M12 22v-5M9 8V2M15 8V2M18 8v5a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z"/>',
     terminal: '<path d="m4 17 6-6-6-6"/><path d="M12 19h8"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
+    wifi: '<path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a14 14 0 0 1 20 0"/><circle cx="12" cy="19" r="1"/>',
     globe: '<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>',
     file: '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8M16 17H8M10 9H8"/>'
   };
@@ -5007,7 +5188,15 @@ const Sandbox = (function () {
     vm: '<rect x="-17" y="-17" width="34" height="34" rx="5" class="body" style="stroke-dasharray:5 3"/><path class="stroke" d="M-10 -6h20M-10 2h20"/><text y="13" font-size="8" font-weight="700" style="fill:var(--blue);text-anchor:middle;font-family:var(--sans)">VM</text>',
     phone: '<rect x="-13" y="-20" width="26" height="38" rx="4" class="body"/><rect x="-8" y="-15" width="16" height="9" class="screen"/>' + [-6, 0, 6].map(x => [0, 6, 12].map(y => `<circle cx="${x}" cy="${y}" r="1.6" class="dot"/>`).join('')).join(''),
     cloud: '<path class="body" d="M-26 12a12 12 0 0 1 2-23 16 16 0 0 1 30-4 12 12 0 0 1 20 9 10 10 0 0 1-2 18z"/><path class="stroke" d="M-8 1h16M0 -7v16"/>',
-    printer: '<rect x="-20" y="-8" width="40" height="20" rx="3" class="body"/><path class="stroke" d="M-12 -8v-10h24v10M-12 12v6h24v-6"/><circle cx="13" cy="0" r="2" class="dot"/>'
+    printer: '<rect x="-20" y="-8" width="40" height="20" rx="3" class="body"/><path class="stroke" d="M-12 -8v-10h24v10M-12 12v6h24v-6"/><circle cx="13" cy="0" r="2" class="dot"/>',
+    ap: '<ellipse cx="0" cy="8" rx="19" ry="7" class="body"/><path class="stroke" d="M-9 -2a13 13 0 0 1 18 0M-14 -8a21 21 0 0 1 28 0M-4 3a5 5 0 0 1 8 0"/><circle cx="12" cy="8" r="1.8" class="dot"/>',
+    wlc: '<rect x="-22" y="-2" width="44" height="20" rx="3" class="body"/><path class="stroke" d="M-14 8h8M-2 8h8M-9 -6a12 12 0 0 1 18 0M-4 -12a18 18 0 0 1 8 0"/><circle cx="14" cy="8" r="2" class="dot"/>',
+    laptop: '<rect x="-17" y="-18" width="34" height="22" rx="3" class="body"/><rect x="-13" y="-14" width="26" height="14" class="screen"/><path class="body" d="M-24 8h48l-4 7h-40z"/>',
+    smartphone: '<rect x="-10" y="-20" width="20" height="38" rx="4" class="body"/><rect x="-7" y="-15" width="14" height="25" class="screen"/><circle cx="0" cy="14" r="1.6" class="dot"/>',
+    tablet: '<rect x="-17" y="-19" width="34" height="38" rx="4" class="body"/><rect x="-13" y="-15" width="26" height="28" class="screen"/><circle cx="0" cy="16" r="1.5" class="dot"/>',
+    camera: '<rect x="-20" y="-10" width="30" height="18" rx="3" class="body"/><path class="body" d="M10 -4l12 -6v18l-12 -6z"/><path class="stroke" d="M-8 8v9h16"/><circle cx="-6" cy="-1" r="3" class="dot"/>',
+    tv: '<rect x="-24" y="-17" width="48" height="29" rx="3" class="body"/><rect x="-20" y="-13" width="40" height="21" class="screen"/><path class="stroke" d="M-8 16h16"/>',
+    reader: '<rect x="-11" y="-20" width="22" height="38" rx="4" class="body"/><rect x="-7" y="-15" width="14" height="9" class="screen"/><path class="stroke" d="M-5 4a6 6 0 0 1 10 0M-8 0a11 11 0 0 1 16 0"/><circle cx="0" cy="12" r="2" class="dot"/>'
   };
   function drawPlan() {
     const net = S.net, LC = {}; for (const id in net.devs) LC[id] = layout(net.devs[id]);
@@ -5020,7 +5209,7 @@ const Sandbox = (function () {
       cab += `<g class="lw ${rel ? 'rel' : ''}" data-d="${l.a}" data-p="${esc(l.ap)}"><title>${esc(dh(l.a))} ${esc(SH(l.ap))} ↔ ${esc(dh(l.b))} ${esc(SH(l.bp))}, ${CABSHORT[l.cable || 'cu']}${up ? ', Link up' : ', kein Link: ' + esc(st.reason)}</title>`
         + `<path d="${c.d}" class="wire hit"/><path d="${c.d}" data-li="${li}" class="wire ${up ? '' : 'dn'} ${l.cut ? 'cut' : ''}" style="stroke:${CABCOL[l.cable || 'cu']}"/><circle class="lamp" cx="${c.la.x.toFixed(1)}" cy="${c.la.y.toFixed(1)}" r="2.7" style="fill:${lamp(st)}"/><circle class="lamp" cx="${c.lb.x.toFixed(1)}" cy="${c.lb.y.toFixed(1)}" r="2.7" style="fill:${lamp(NL.portStatus(net, l.b, l.bp))}"/>${up ? '' : `<circle cx="${c.mx}" cy="${c.my}" r="7" class="xdot"/><path class="xmark" d="M${c.mx - 3} ${c.my - 3}l6 6m0 -6l-6 6"/>`}</g>`;
     });
-    let vl = ''; net.links.forEach(l => { if (!l.virt) return; const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], hh = net.devs[vm.vm.host]; if (!hh || !LC[hh.id]) return; vl += `<line class="vlink ${vm.vm.state === 'running' && !NL.isDown(hh) ? '' : 'dn'}" x1="${hh.x}" y1="${(hh.y + LC[hh.id].h / 2).toFixed(1)}" x2="${vm.x}" y2="${vm.y - 24}"/>`; });
+    let vl = ''; net.links.forEach(l => { if (l.wifi) { const c = net.devs[l.a], ap = net.devs[l.b]; if (!c || !ap || !LC[c.id] || !LC[ap.id]) return; const ok = NL.portStatus(net, c.id, c.ports[0]).st === 'connected'; vl += `<path class="wlink ${ok ? '' : 'dn'}" d="M${ap.x} ${ap.y - 12} Q${((ap.x + c.x) / 2 + 24).toFixed(1)} ${((ap.y + c.y) / 2 - 20).toFixed(1)} ${c.x} ${c.y - 26}"><title>WLAN ${esc((c.wifi || {}).ssid || '')}: ${esc(c.cfg.hostname)} ↔ ${esc(ap.cfg.hostname)}</title></path>`; return; } if (!l.virt) return; const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], hh = net.devs[vm.vm.host]; if (!hh || !LC[hh.id]) return; vl += `<line class="vlink ${vm.vm.state === 'running' && !NL.isDown(hh) ? '' : 'dn'}" x1="${hh.x}" y1="${(hh.y + LC[hh.id].h / 2).toFixed(1)}" x2="${vm.x}" y2="${vm.y - 24}"/>`; });
     s += zonesSvg() + vl + cab;
     for (const id in net.devs) {
       const d = net.devs[id], L = LC[id], x = d.x - L.w / 2, y = d.y - L.h / 2, h0 = hip(d, d.ports[0]) || {}, M = MODELS[d.model] || {};
@@ -5268,11 +5457,12 @@ const Sandbox = (function () {
   function portCard(d, p) {
     const st = NL.portStatus(S.net, d.id, p), i = d.cfg.ifs && d.cfg.ifs[p], k = d.pk[p], hostD = NL.isHost(d), card = d.pcard && d.pcard[p] ? CARDS[d.pcard[p]] : null;
     let h = `<section class="card"><h3>Port ${esc(SH(p))} <span class="muted">${esc(KIND[k].label)}${card ? ', ' + esc(card.short) : ''}</span></h3>`;
-    h += `<p class="pst s-${st.st}"><b>${st.st === 'connected' ? 'Link up, ' + NL.fmtSpeed(st.speed, st.proto) : st.st === 'notconnect' ? 'Kein Link' : st.st}</b>${st.st !== 'connected' && st.reason ? ' – ' + esc(st.reason) : ''}</p>`;
+    h += `<p class="pst s-${st.st}"><b>${st.st === 'connected' ? (k === 'wifi' ? 'WLAN verbunden' : 'Link up, ' + NL.fmtSpeed(st.speed, st.proto)) : st.st === 'notconnect' ? 'Kein Link' : st.st}</b>${st.st !== 'connected' && st.reason ? ' – ' + esc(st.reason) : ''}</p>`;
     if (d.vm) { const vh = S.net.devs[d.vm.host]; h += `<p class="conn">Virtuell verbunden mit <b>${esc(vh.cfg.hostname)}</b> (${esc(vh.vsw.name)}), VLAN ${d.vm.vlan || 'ohne Tag'}.</p>`; }
+    else if (k === 'wifi') { h += `<p class="conn muted">Funkschnittstelle: Hier gibt es kein Kabel. Das Gerät verbindet sich mit einem WLAN.</p>` + wifiBox(d).replace('<div class="webbox"><b>WLAN</b>', '<div class="webbox">'); }
     else if (st.link) h += `<p class="conn">Kabel: ${CABSHORT[st.link.cable || 'cu']} <a class="wk-ctx" href="#wiki/kabel-${st.link.cable || 'cu'}">Wiki</a><br>zu <b>${esc(dh(st.peer.dev))}</b> ${esc(SH(st.peer.port))} <button class="lnkbtn" id="goPeer">anzeigen</button></p><button class="btn small" id="unplug">Kabel entfernen</button>`;
     else h += `<p class="conn muted">Kein Kabel gesteckt.</p><button class="btn small" id="plugFrom">Kabel von hier verlegen</button>`;
-    if (k !== 'rj45') h += `<div class="f"><label for="xc">Transceiver im ${esc(KIND[k].label)}-Slot</label><select id="xc">${opt('', d.xcvr[p] || '', '– leer (oder DAC-Kabel) –')}${Object.entries(XCVR).filter(([x, X]) => NL.slotAccepts(k, X)).map(([x, X]) => opt(x, d.xcvr[p] || '', `${x} (${X.label})`)).join('')}</select><a class="wk-ctx" href="#wiki/${d.xcvr[p] ? 'xcvr-' + d.xcvr[p].toLowerCase() : 'transceiver-grundlagen'}">Im Wiki nachlesen</a></div>`;
+    if (k !== 'rj45' && k !== 'wifi') h += `<div class="f"><label for="xc">Transceiver im ${esc(KIND[k].label)}-Slot</label><select id="xc">${opt('', d.xcvr[p] || '', '– leer (oder DAC-Kabel) –')}${Object.entries(XCVR).filter(([x, X]) => NL.slotAccepts(k, X)).map(([x, X]) => opt(x, d.xcvr[p] || '', `${x} (${X.label})`)).join('')}</select><a class="wk-ctx" href="#wiki/${d.xcvr[p] ? 'xcvr-' + d.xcvr[p].toLowerCase() : 'transceiver-grundlagen'}">Im Wiki nachlesen</a></div>`;
     if (card && card.roce) h += `<p class="note">Diese Karte ist RoCE v2-fähig (RDMA). Der Switch-Port braucht <code>priority-flow-control mode on</code> und MTU 9216.</p>`;
     if (hostD) {
       if (k === 'fc') h += `<div class="f"><label>WWPN (automatisch)</label><code class="mono">${NL.wwpn(d, p)}</code></div>`;
@@ -5305,10 +5495,20 @@ const Sandbox = (function () {
   const mgmtVlan = d => { const s = Object.keys(d.cfg.ifs).find(n => n.startsWith('Vlan') && d.cfg.ifs[n].ip); return s ? +s.slice(4) : 1; };
   const mgmtIp = d => { const s = Object.keys(d.cfg.ifs).find(n => n.startsWith('Vlan') && d.cfg.ifs[n].ip); return s ? d.cfg.ifs[s].ip + '/' + NL.maskLen(d.cfg.ifs[s].mask) : ''; };
   const acc = (t, body, open) => `<details class="acc" ${open ? 'open' : ''}><summary>${t}</summary><div class="accb">${body}</div></details>`;
+  // WLAN-Verbindung eines Endgeräts (Notebook, Smartphone, Tablet)
+  function wifiBox(d) {
+    const sc = NL.wifiScan(S.net), cur = d.wifi && d.wifi.ssid, st = NL.portStatus(S.net, d.id, d.ports[0]), l = NL.wifiLinkOf(S.net, d), ap = l && S.net.devs[l.b];
+    return `<div class="webbox"><b>WLAN</b><span class="muted small">${cur ? (st.st === 'connected' ? `Verbunden mit „${esc(cur)}“ über ${esc(ap ? ap.cfg.hostname : '?')}` : `<span class="neg">„${esc(cur)}“: ${esc(st.reason)}</span>`) : 'Nicht verbunden'}</span>
+      <div class="f"><label for="wfs">Netzwerk</label><select id="wfs">${sc.length ? sc.map(x => `<option value="${esc(x.ssid)}" ${x.ssid === cur ? 'selected' : ''}>${esc(x.ssid)}${x.sec === 'open' ? ' (offen)' : ''}</option>`).join('') : '<option value="">Kein WLAN gefunden</option>'}</select></div>
+      <div class="f"><label for="wfp">WLAN-Schlüssel</label><input id="wfp" type="password" value="${esc((d.wifi && d.wifi.psk) || '')}" autocomplete="off"></div>
+      <div class="irow"><button class="btn primary small" id="wfGo" ${sc.length ? '' : 'disabled'}>Verbinden</button><button class="btn small" id="wfX" ${cur ? '' : 'disabled'}>Trennen</button></div></div>`;
+  }
   function devCard(d) {
     const M = MODELS[d.model] || {}, u = uOf(d);
     let h = `<section class="card"><h3 class="hid">${esc(d.cfg.hostname)}</h3><div class="f"><label for="dhost">Hostname</label><div class="irow"><input id="dhost" value="${esc(d.cfg.hostname)}"><button class="btn small" id="dhostGo">Setzen</button></div></div>`;
     if (!d.vm && !(MODELS[d.model] && MODELS[d.model].cloud)) { const ps = powerState(d), left = d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0; h += `<div class="pwr ${ps}"><span class="pdot" aria-hidden="true"></span><div class="ptx"><b>${ps === 'off' ? 'Ausgeschaltet' : ps === 'boot' ? 'Startet …' : 'Eingeschaltet'}</b><small>${ps === 'off' ? 'Alle Links daran sind down.' : ps === 'boot' ? 'Noch nicht erreichbar.' : (isNetOs(d) ? (d.saved ? 'Konfiguration gespeichert' : 'Änderungen nicht gespeichert') : 'Läuft')}</small></div><button class="btn small ${ps === 'on' ? '' : 'primary'}" id="pwrBtn" ${ps === 'boot' ? 'disabled' : ''}>${ps === 'on' ? 'Ausschalten' : ps === 'off' ? 'Einschalten' : 'Bootet'}</button>${ps === 'boot' ? `<i class="pbar" style="animation-duration:${left}ms"></i>` : ''}</div>`; }
+    if (M.wifi) h += wifiBox(d);
+    if (d.type === 'ap') { const pw = NL.apPower(S.net, d), j = NL.apJoined(S.net, d), st = NL.apState(d); h += `<div class="webbox"><b>Access Point</b><span class="muted small">${pw.ok ? 'Strom: ' + esc(pw.via) : '<span class="neg">Kein Strom: ' + esc(pw.reason) + '</span>'}</span><label class="chk"><input type="checkbox" id="apInj" ${st.injector ? 'checked' : ''}> PoE-Injector verwenden</label><span class="muted small">${j === null ? 'Autonom: SSIDs stehen auf dem AP.' : j.ok ? 'Am Controller ' + esc(j.wlc.cfg.hostname) + ' angemeldet.' : 'Controller-Modus, nicht angemeldet: ' + esc(j.why)}</span><span class="muted small">${NL.apClients(S.net, d).length} Client(s) verbunden</span></div>`; }
     if (d.type === 'server' && !(MODELS[d.model] && MODELS[d.model].cloud)) h += `<div class="f"><label for="dos">Betriebssystem (installiert)</label><select id="dos"><option value="linux" ${d.os === 'windows' ? '' : 'selected'}>Ubuntu Linux 22.04</option><option value="windows" ${d.os === 'windows' ? 'selected' : ''}>Windows Server 2022</option></select></div>`;
     if (GUIN.hasGui(d)) h += `<div class="webbox"><b>Web-Verwaltung</b><span class="muted small">https://${esc(guiHost(d))}${GUIN.portOf(d) === 443 ? '' : ':' + GUIN.portOf(d)}</span><button class="btn primary small block" id="guiOpen">${d.vm ? 'Web-GUI der VM öffnen' : 'Web-GUI öffnen'}</button>${d.vm ? '<button class="btn small block" id="hvOpen">Im Virtualisierungs-Manager verwalten</button>' : ''}</div>`;
     if (canApps(d)) h += `<div class="appbtns"><button class="btn small" id="appDesk">Desktop öffnen</button>${d.type === 'server' ? '<button class="btn small" id="appSvc">Dienste</button>' : ''}</div>`;
@@ -5384,6 +5584,9 @@ const Sandbox = (function () {
     };
     if (g('dos')) g('dos').onchange = () => act(() => { d.os = g('dos').value; delete S.out[d.id]; delete S.sess[d.id]; toast(`Betriebssystem: ${d.os === 'windows' ? 'Windows Server 2022' : 'Ubuntu Linux'}. Konsole und Web-GUI wechseln mit.`); });
     if (g('pwrBtn')) g('pwrBtn').onclick = () => togglePower(d.id);
+    if (g('apInj')) g('apInj').onchange = e => act(() => { NL.apState(d).injector = e.target.checked; toast(e.target.checked ? 'PoE-Injector angeschlossen.' : 'PoE-Injector entfernt.'); });
+    if (g('wfGo')) g('wfGo').onclick = () => { let r; act(() => { r = NL.wifiConnect(S.net, d, g('wfs').value, g('wfp').value); toast(r.err ? `<span class="neg">${esc(r.err)}</span>` : `Verbunden mit „${esc(g('wfs').value)}“ über ${esc(r.ap)}.${(d.cfg.dhcp || (hip(d, d.ports[0]) || {}).ip) ? '' : ' Gib dem Gerät jetzt eine IP-Adresse (oder nutze DHCP).'}`); }); };
+    if (g('wfX')) g('wfX').onclick = () => act(() => { NL.wifiDisconnect(S.net, d); toast('WLAN getrennt.'); });
     if (g('guiOpen')) g('guiOpen').onclick = () => GUIN.open(d.id);
     if (g('hvOpen')) g('hvOpen').onclick = () => GUIN.open(d.vm.host);
     if (g('appDesk')) g('appDesk').onclick = () => { if (isPc(d)) DESKN.open(d.id); else openApps(d.id, 'home'); };
@@ -5480,6 +5683,8 @@ const Sandbox = (function () {
     for (const ip in ips) if (ips[ip].length > 1) add('Fehler', null, `IP ${ip} doppelt vergeben: ${ips[ip].join(', ')}`);
     for (const d of devs) {
       const id = d.id;
+      if (d.type === 'ap') { const pw = NL.apPower(net, d); if (!pw.ok) add('Fehler', id, 'Access Point ohne Strom: ' + pw.reason); else { if (!(hip(d, d.ports[0]) || {}).ip) add('Hinweis', id, 'AP hat keine Management-IP'); const j = NL.apJoined(net, d); if (j && !j.ok) add('Fehler', id, 'AP im Controller-Modus ohne Join: ' + j.why); else if (!NL.apSsids(net, d).length) add('Hinweis', id, 'Keine SSID konfiguriert'); } continue; }
+      if (d.wifi && !(d.wifi.ssid)) { add('Hinweis', id, 'WLAN-Gerät ist mit keinem WLAN verbunden'); continue; }
       if (isIcon(d)) { const p = d.ports[0], h = hip(d, p); if (d.vm && d.vm.state !== 'running') add('Hinweis', id, 'VM ist ausgeschaltet'); else if (d.vm && net.devs[d.vm.host].off) add('Hinweis', id, `Der Host ${net.devs[d.vm.host].cfg.hostname} ist ausgeschaltet`); else if (!d.vm && !NL.linkOf(net, id, p)) add('Hinweis', id, 'Endgerät ist nicht verkabelt'); else if (!d.vm && NL.portStatus(net, id, p).st !== 'connected') add('Fehler', id, 'kein Link – ' + NL.portStatus(net, id, p).reason); else if (!h || !h.ip) add('Hinweis', id, 'keine IP-Adresse'); else if (!d.cfg.gw) add('Hinweis', id, 'kein Default-Gateway gesetzt'); continue; }
       if (d.type === 'server' || d.type === 'storage') lintHost(net, d, add); else if (d.type === 'fc') lintFc(net, d, add); else if (d.fw) lintFw(net, d, add); else lintIos(net, d, add);
     }
@@ -5639,8 +5844,8 @@ const Sandbox = (function () {
     m.addEventListener('click', e => { if (e.target === m || e.target.classList.contains('mclose')) close(); }); document.addEventListener('keydown', k); $('.mclose', m).focus(); return m;
   }
   // ---------------- Apps & Dienste (PC/Server, Packet-Tracer-Desktop) ----------------
-  const isPc = d => !!d && d.type === 'pc' && d.icon === 'pc';
-  const canApps = d => !!d && ((d.type === 'pc' && d.icon === 'pc') || d.type === 'server');
+  const isPc = d => !!d && d.type === 'pc' && (d.icon === 'pc' || d.icon === 'laptop');
+  const canApps = d => !!d && ((d.type === 'pc' && ['pc', 'laptop', 'smartphone', 'tablet'].includes(d.icon)) || d.type === 'server');
   const allIps = () => { const m = {}; for (const d of Object.values(S.net.devs)) { if (NL.isHost(d)) d.ports.forEach(p => { const h = hip(d, p); if (h && h.ip) m[h.ip] = d; }); else if (d.type !== 'fc') Object.values(d.cfg.ifs).forEach(i => { if (i.ip) m[i.ip] = d; }); } return m; };
   function setHostIp(d, p, ip, mask) { if (p === d.ports[0]) { d.cfg.ip = ip; d.cfg.mask = mask; } else if (ip) { d.cfg.nic = d.cfg.nic || {}; d.cfg.nic[p] = { ip, mask }; } else if (d.cfg.nic) delete d.cfg.nic[p]; }
   function resolve(c, name) {
@@ -5744,6 +5949,13 @@ const Sandbox = (function () {
   function hostLine(d, s, raw) {
     const line = raw.trim().replace(/\s+/g, ' '), t = line.split(' '), c0 = (t[0] || '').toLowerCase(), ex = l => NL.exec(S.net, d.id, s, l);
     if (c0 === 'ping' && t[1] && !NL.validIp(t[1])) { const r = resolve(d, t[1]); return r.err ? `Ping-Anfrage konnte Host „${t[1]}“ nicht finden: ${r.err}` : `Ping ${t[1]} [${r.ip}]\n` + ex('ping ' + r.ip); }
+    if (d.type === 'ap' || d.type === 'wlc') {
+      const lw = line.toLowerCase();
+      if (d.type === 'ap' && /^show (dot11 )?(associations|clients|wireless client summary)/.test(lw)) { const cl = NL.apClients(S.net, d); return cl.length ? ['Client           IP-Adresse       SSID', ...cl.map(c => `${c.cfg.hostname.padEnd(16)} ${((hip(c, c.ports[0]) || {}).ip || '–').padEnd(16)} ${(c.wifi || {}).ssid}`)].join('\n') : 'Keine Clients verbunden.'; }
+      if (/^show (wlan|dot11 ssid|wireless wlan summary)/.test(lw)) { const j = d.type === 'ap' ? NL.apJoined(S.net, d) : null, ss = d.type === 'wlc' ? NL.wlcState(d).ssids : (j === null ? NL.apState(d).ssids : NL.apSsids(S.net, d)); return ss.length ? ['SSID             Sicherheit  VLAN  Status', ...ss.map(x => `${x.name.padEnd(16)} ${x.sec.toUpperCase().padEnd(11)} ${String(x.vlan || 'nativ').padEnd(5)} ${x.on === false ? 'aus' : 'aktiv'}`)].join('\n') : 'Keine SSID konfiguriert.'; }
+      if (d.type === 'wlc' && /^show (ap summary|wireless ap summary)/.test(lw)) { const ip = (hip(d, d.ports[0]) || {}).ip, aps = Object.values(S.net.devs).filter(x => x.type === 'ap' && NL.apState(x).wlc === ip); return aps.length ? ['AP               Status', ...aps.map(a => { const j = NL.apJoined(S.net, a); return `${a.cfg.hostname.padEnd(16)} ${j && j.ok ? 'angemeldet' : 'nicht angemeldet: ' + (j ? j.why : '')}`; })].join('\n') : 'Kein Access Point zeigt auf diesen Controller.'; }
+      if (d.type === 'wlc' && /^show (client summary|wireless client summary)/.test(lw)) { const ip = (hip(d, d.ports[0]) || {}).ip, cl = []; Object.values(S.net.devs).filter(x => x.type === 'ap' && NL.apState(x).wlc === ip).forEach(a => NL.apClients(S.net, a).forEach(c => cl.push(`${c.cfg.hostname.padEnd(16)} ${a.cfg.hostname.padEnd(10)} ${(c.wifi || {}).ssid}`))); return cl.length ? ['Client           AP         SSID', ...cl].join('\n') : 'Keine Clients verbunden.'; }
+    }
     if (c0 === 'nslookup' && t[1]) { const r = resolve(d, t[1]); return r.err ? '*** ' + r.err : `Server:  ${d.cfg.dns}\nName:    ${t[1]}\nAddress: ${r.ip}`; }
     if (c0 === 'curl' && t[1]) { const r = httpGet(d, t[1]); return r.err ? 'curl: ' + r.err + (r.why ? '\n[Ping-Debugger] ' + r.why : '') : `HTTP/1.1 200 OK (${r.scheme}://${r.host} → ${r.ip}:${r.port})\n\n${r.title}\n${r.body}`; }
     if (c0 === 'ipconfig' && t[1] && /^\/renew$/i.test(t[1])) { if (!d.cfg.dhcp) return 'Der Adapter ist nicht für DHCP konfiguriert. In der IP-Konfiguration „DHCP“ wählen.'; let o; act(() => { const r = dhcpRequest(d); o = r.err ? 'DHCP fehlgeschlagen: ' + r.err : `DHCP-Zuweisung von ${r.server}:\n  IP-Adresse . . . . : ${r.ip}\n  Subnetzmaske . . . : ${r.mask}\n  Standardgateway  . : ${r.gw || '–'}\n  DNS-Server . . . . : ${r.dns || '–'}`; }); return o; }
@@ -5761,10 +5973,10 @@ const Sandbox = (function () {
     function draw() {
       $('#apptabs', md).innerHTML = d.type === 'server' ? `<button class="${tab === 'desk' ? 'act' : ''}" data-t="desk">Desktop</button><button class="${tab === 'svc' ? 'act' : ''}" data-t="svc">Dienste</button>` : '';
       $$('#apptabs [data-t]', md).forEach(b => b.onclick = () => { tab = b.dataset.t; v = tab === 'svc' ? 'svc' : 'home'; draw(); });
-      if (tab === 'svc') drawSvc(); else ({ home: drawHome, ip: drawIp, cmd: drawCmd, web: drawWeb, edit: drawEdit })[v]();
+      if (tab === 'svc') drawSvc(); else ({ home: drawHome, ip: drawIp, cmd: drawCmd, web: drawWeb, edit: drawEdit, wifi: drawWifi })[v]();
       if (g('appBack')) g('appBack').onclick = () => { v = 'home'; draw(); };
     }
-    function drawHome() { body.innerHTML = `<div class="appgrid">${[['ip', 'IP-Konfiguration', 'network'], ['cmd', 'Eingabeaufforderung', 'terminal'], ['web', 'Webbrowser', 'globe'], ['edit', 'Texteditor', 'file']].map(([k, n, i]) => `<button class="appic" data-v="${k}">${ico(i)}<span>${n}</span></button>`).join('')}</div>`; $$('.appic', body).forEach(b => b.onclick = () => { v = b.dataset.v; draw(); }); }
+    function drawHome() { body.innerHTML = `<div class="appgrid">${[...(d.pk[d.ports[0]] === 'wifi' ? [['wifi', 'WLAN', 'wifi']] : []), ['ip', 'IP-Konfiguration', 'network'], ['cmd', 'Eingabeaufforderung', 'terminal'], ['web', 'Webbrowser', 'globe'], ['edit', 'Texteditor', 'file']].map(([k, n, i]) => `<button class="appic" data-v="${k}">${ico(i)}<span>${n}</span></button>`).join('')}</div>`; $$('.appic', body).forEach(b => b.onclick = () => { v = b.dataset.v; draw(); }); }
     function drawIp() {
       const ports = d.ports.filter(p => d.pk[p] !== 'fc'); if (!ports.includes(ipPort)) ipPort = ports[0];
       const prim = ipPort === d.ports[0], cur = hip(d, ipPort) || {}, isD = prim && d.cfg.dhcp, ro = isD ? 'disabled' : '';
@@ -5782,6 +5994,15 @@ const Sandbox = (function () {
         if (ip && (!NL.validIp(ip) || NL.maskLen(mk) === null)) return bad('Ungültige IP-Adresse oder Subnetzmaske.'); if (gw && (!NL.validIp(gw) || !NL.inNet(gw, ip, mk))) return bad('Das Gateway liegt nicht im Subnetz der IP-Adresse.'); if (dns && !NL.validIp(dns)) return bad('Ungültiger DNS-Server.');
         act(() => { if (prim) d.cfg.dhcp = false; setHostIp(d, ipPort, ip || null, ip ? mk : null); if (prim) { d.cfg.gw = gw || null; d.cfg.dns = dns || null; } }); drawIp(); g('ipmsg').innerHTML = '<span class="okmsg">Gespeichert.</span>';
       };
+    }
+    function drawWifi() {
+      const sc = NL.wifiScan(S.net), cur = d.wifi && d.wifi.ssid, st = NL.portStatus(S.net, d.id, d.ports[0]);
+      body.innerHTML = back('WLAN') + `<div class="appform"><p class="appmsg">${cur ? (st.st === 'connected' ? `<span class="okmsg">Verbunden mit „${esc(cur)}“</span>` : `<span class="neg">„${esc(cur)}“: ${esc(st.reason)}</span>`) : 'Nicht verbunden'}</p>
+        <div class="f"><label for="wfs2">Verfügbare Netzwerke</label><select id="wfs2">${sc.length ? sc.map(x => `<option value="${esc(x.ssid)}" ${x.ssid === cur ? 'selected' : ''}>${esc(x.ssid)} – ${x.sec === 'open' ? 'offen' : x.sec.toUpperCase()}</option>`).join('') : '<option value="">Kein WLAN gefunden</option>'}</select></div>
+        <div class="f"><label for="wfp2">WLAN-Schlüssel</label><input id="wfp2" type="password" value="${esc((d.wifi && d.wifi.psk) || '')}" autocomplete="off"></div>
+        <div class="irow"><button class="btn primary" id="wfGo2" ${sc.length ? '' : 'disabled'}>Verbinden</button><button class="btn" id="wfX2" ${cur ? '' : 'disabled'}>Trennen</button></div><p id="wfmsg" class="appmsg" aria-live="polite"></p></div>`;
+      if (g('wfGo2')) g('wfGo2').onclick = () => { let r; act(() => { r = NL.wifiConnect(S.net, d, g('wfs2').value, g('wfp2').value); }); drawWifi(); g('wfmsg').innerHTML = r.err ? `<span class="neg">${esc(r.err)}</span>` : `<span class="okmsg">Verbunden über ${esc(r.ap)}. IP-Adresse unter „IP-Konfiguration“ (oder DHCP).</span>`; };
+      if (g('wfX2')) g('wfX2').onclick = () => { act(() => { NL.wifiDisconnect(S.net, d); }); drawWifi(); };
     }
     function drawCmd() {
       const L = S.cmd[id] = S.cmd[id] || [{ c: 'sys', t: `Eingabeaufforderung ${d.cfg.hostname}\nBefehle: ipconfig [/all|/renew|/release], ping <Name|IP>, nslookup <Name>, curl <URL>, nc <IP> <Port>, trace <IP>` }];
@@ -5832,6 +6053,23 @@ const Sandbox = (function () {
       LXN.init(sd).scsi = [];
     });
     if (!o.noStorage) { const t = hd(net, 'STO-01'); [['A-slot2/1', 'fc1/9'], ['B-slot2/1', 'fc1/10']].forEach(([q, w]) => { lk(net, 'STO-01', q, 'MDS-A', w, 'mmf'); t.xcvr[q] = FCX; hd(net, 'MDS-A').xcvr[w] = FCX; }); }
+  }
+  // WLAN-Lab: PoE-Switch, Gateway, Webserver, Access Point(s), Clients
+  function wlBase(net, o = {}) {
+    mk(net, 'C9200L-24P-4X', 360, 80, 'SW'); mk(net, 'ISR4331', 700, 80, 'R-GW'); lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24);
+    if (!o.wlc) {
+      rn(net, 'SW', ['vlan 20', 'name BUERO', 'interface g1/0/24', 'switchport mode access', 'switchport access vlan 20', 'interface g1/0/3', 'switchport mode access', 'switchport access vlan 20']);
+      rn(net, 'R-GW', ['interface g0/0/1', 'ip address 10.20.0.1 255.255.255.0', 'no shutdown']);
+      mk(net, 'HW-1288H-V5', 700, 300, 'SRV-WEB'); lk(net, 'SRV-WEB', 'eth0', 'SW', G + 3); rn(net, 'SRV-WEB', ['ip 10.20.0.10/24 10.20.0.1']);
+      mk(net, 'C9120AXI', 360, 300, 'AP-1'); lk(net, 'AP-1', 'GigabitEthernet0', 'SW', G + 2); rn(net, 'AP-1', ['ip 10.20.0.60/24 10.20.0.1']); NL.apState(hd(net, 'AP-1')).ssids.push({ name: 'Buero', sec: 'wpa2', psk: 'Buero-2026', vlan: 20, on: true });
+      mk(net, 'Laptop', 200, 460, 'LAP-1'); rn(net, 'LAP-1', ['ip 10.20.0.50/24 10.20.0.1']);
+    } else {
+      rn(net, 'SW', ['interface g1/0/24', 'switchport mode access']); rn(net, 'R-GW', ['interface g0/0/1', 'ip address 10.0.0.1 255.255.255.0', 'no shutdown']);
+      mk(net, 'C9800-L', 700, 300, 'WLC'); lk(net, 'WLC', 'GigabitEthernet0/0/0', 'SW', G + 3); rn(net, 'WLC', ['ip 10.0.0.70/24 10.0.0.1']);
+      mk(net, 'C9120AXI', 260, 300, 'AP-1'); lk(net, 'AP-1', 'GigabitEthernet0', 'SW', G + 1); rn(net, 'AP-1', ['ip 10.0.0.61/24 10.0.0.1']);
+      mk(net, 'C9120AXI', 460, 300, 'AP-2'); lk(net, 'AP-2', 'GigabitEthernet0', 'SW', G + 2); rn(net, 'AP-2', ['ip 10.0.0.62/24 10.0.0.1']);
+      mk(net, 'Smartphone', 360, 470, 'MOB-1'); rn(net, 'MOB-1', ['ip 10.0.0.80/24 10.0.0.1']);
+    }
   }
   // HyperMetro-Lab: zwei Arrays am selben FC-Switch, Quorum-Server am Management-Switch
   function hmBase(net, o = {}) {
@@ -6055,6 +6293,28 @@ const Sandbox = (function () {
         { t: 'Als Absicherung ist „Statische Priorität als Fallback“ eingeschaltet', c: n => !!STORN.hm(hd(n, 'STO-01')).staticFallback }],
       hints: ['Öffne die HyperMetro-Seite von STO-01: Die Domänenübersicht zeigt, ob die Arrays den Quorum-Server erreichen und ob die Replikationsverbindung steht.', 'Der Quorum-Dienst auf QSRV ist gestoppt (<code>sudo systemctl start quorum-server</code>), und die Replikationszone am MDS-A fehlt („Replikationszonen anlegen“).', 'Unter „Einstellungen“ schaltest du die statische Priorität ein: Dann arbeitet der bevorzugte Standort auch weiter, wenn der Quorum-Server ausfällt.'],
       sol(net) { const t1 = hd(net, 'STO-01'); lxr(net, 'QSRV', 'sudo systemctl start quorum-server'); STORN.hmAutoZone(net, t1); STORN.hmSet(net, t1, { staticFallback: true }); } }
+    ,
+    { id: 'sc-wl-dev', kind: 'Fehlersuche', title: 'WLAN: Notebook kommt nicht ins Büro-Netz', est: '20 min',
+      intro: 'Das Notebook <code>LAP-1</code> soll sich über den Access Point <code>AP-1</code> mit dem WLAN <code>Buero</code> verbinden und den Webserver <code>SRV-WEB</code> (10.20.0.10) im VLAN 20 erreichen. Das WLAN-Passwort ist <code>Buero-2026</code>. Es klappt weder die Verbindung noch der Zugriff. Es gibt zwei Ursachen.',
+      build(net) { wlBase(net); const sw = hd(net, 'SW'); NL.wifiConnect(net, hd(net, 'LAP-1'), 'Buero', 'Buero-2026'); hd(net, 'LAP-1').wifi.psk = 'Buero-2025'; rn(net, 'SW', ['interface g1/0/2', 'switchport mode access', 'switchport access vlan 1']); },
+      goals: [
+        { t: '<code>LAP-1</code> ist mit dem WLAN <code>Buero</code> verbunden', c: n => NL.portStatus(n, hd(n, 'LAP-1').id, 'wlan0').st === 'connected' },
+        { t: 'Der Switchport zu AP-1 ist ein Trunk, der VLAN 20 erlaubt', c: n => { const i = hd(n, 'SW').cfg.ifs[Object.keys(hd(n, 'SW').cfg.ifs).find(k => /1\/0\/2$/.test(k))]; return i.mode === 'trunk' && (i.allowed === null || i.allowed.includes(20)); } },
+        { t: '<code>LAP-1</code> erreicht das Gateway 10.20.0.1', c: n => pg(n, 'LAP-1', '10.20.0.1') },
+        { t: '<code>LAP-1</code> erreicht <code>SRV-WEB</code> (10.20.0.10)', c: n => pg(n, 'LAP-1', '10.20.0.10') }],
+      hints: ['Klicke LAP-1 an: Im Feld „WLAN“ steht der Grund, warum die Verbindung nicht steht. Prüfe den Schlüssel.', 'Die SSID Buero liegt in VLAN 20 und wird deshalb getaggt auf den Uplink gelegt. Der Switchport zu AP-1 muss dafür ein Trunk sein, der VLAN 20 erlaubt (Web-GUI von SW → Schnittstellen).', 'Das Notebook hat die IP 10.20.0.50 mit Gateway 10.20.0.1. Wenn das WLAN steht und der Trunk stimmt, gehen beide Pings durch.'],
+      sol(net) { NL.wifiConnect(net, hd(net, 'LAP-1'), 'Buero', 'Buero-2026'); rn(net, 'SW', ['interface g1/0/2', 'switchport mode trunk', 'switchport trunk allowed vlan 1,20']); } }
+    ,
+    { id: 'sc-wl-wlc', kind: 'Aufbau', title: 'WLAN: Zwei Access Points am Controller', est: '25 min',
+      intro: 'Statt zwei Access Points einzeln zu pflegen, soll der WLAN-Controller <code>WLC</code> (10.0.0.70) das WLAN <code>Firma</code> (WPA2, Schlüssel <code>Firma-2026</code>) für <code>AP-1</code> (10.0.0.61) und <code>AP-2</code> (10.0.0.62) verteilen. Danach soll sich das Smartphone <code>MOB-1</code> verbinden und das Gateway erreichen.',
+      build(net) { wlBase(net, { wlc: true }); },
+      goals: [
+        { t: 'Auf dem Controller gibt es das WLAN <code>Firma</code> mit WPA2', c: n => NL.wlcState(hd(n, 'WLC')).ssids.some(x => x.name === 'Firma' && x.sec === 'wpa2') },
+        { t: '<code>AP-1</code> und <code>AP-2</code> sind beim Controller angemeldet', c: n => ['AP-1', 'AP-2'].every(a => (NL.apJoined(n, hd(n, a)) || {}).ok) },
+        { t: '<code>MOB-1</code> ist mit dem WLAN <code>Firma</code> verbunden', c: n => (hd(n, 'MOB-1').wifi || {}).ssid === 'Firma' && NL.portStatus(n, hd(n, 'MOB-1').id, 'wlan0').st === 'connected' },
+        { t: '<code>MOB-1</code> erreicht das Gateway 10.0.0.1', c: n => pg(n, 'MOB-1', '10.0.0.1') }],
+      hints: ['Öffne die Web-GUI des Controllers (WLC): Unter „WLANs“ legst du die SSID Firma mit WPA2 und dem Schlüssel an.', 'Die Access Points gehören dem Controller erst, wenn du in ihrer Web-GUI unter „Controller“ die IP 10.0.0.70 einträgst. Danach zeigt der Controller unter „Access Points“ den Status.', 'Verbinde MOB-1 im Detailfeld (Feld „WLAN“) mit Firma und dem Schlüssel.'],
+      sol(net) { NL.wlcState(hd(net, 'WLC')).ssids.push({ name: 'Firma', sec: 'wpa2', psk: 'Firma-2026', vlan: 0, on: true }); NL.apState(hd(net, 'AP-1')).wlc = '10.0.0.70'; NL.apState(hd(net, 'AP-2')).wlc = '10.0.0.70'; NL.wifiConnect(net, hd(net, 'MOB-1'), 'Firma', 'Firma-2026'); } }
     ,
     // ---- System Engineer: Windows Server und Active Directory ----
     { id: 'sc-win-ad', kind: 'Aufbau', title: 'Windows: Active Directory aufbauen', est: '25 min',
@@ -6431,13 +6691,13 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, NL, dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || (S.sess[d.id] = NL.newSess()), line),
     prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; }, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st,
-    guiTarget: (d, u) => guiTarget(d, u), httpGet: (d, u) => httpGet(d, u), dhcp: d => dhcpRequest(d), setIp: setHostIp, validIp: NL.validIp, maskLen: NL.maskLen, inNet: NL.inNet, WIN: WINN, GUI: GUIN
+    wifi: { scan: () => NL.wifiScan(S.net), connect: (d, ssid, psk) => { let r; act(() => { r = NL.wifiConnect(S.net, d, ssid, psk); }); return r; }, disconnect: d => act(() => { NL.wifiDisconnect(S.net, d); }), link: d => NL.wifiLinkOf(S.net, d) }, guiTarget: (d, u) => guiTarget(d, u), httpGet: (d, u) => httpGet(d, u), dhcp: d => dhcpRequest(d), setIp: setHostIp, validIp: NL.validIp, maskLen: NL.maskLen, inNet: NL.inNet, WIN: WINN, GUI: GUIN
   });
   // Browser im Planer: https://<Gerät>:8443 öffnet die Web-GUI des Geräts, wenn es erreichbar ist
   function guiTarget(c, url) {

@@ -273,7 +273,7 @@ const WIN = (function () {
     void w; return out.join('\n');
   }
   const prompt = d => { const w = init(d); return isClient(d) ? `C:\\Users\\admin>` : `PS ${w.cwd}> `; };
-  const isWin = d => !!d && ((d.type === 'server' && d.os === 'windows') || (d.type === 'pc' && d.icon === 'pc'));
+  const isWin = d => !!d && ((d.type === 'server' && d.os === 'windows') || (d.type === 'pc' && (d.icon === 'pc' || d.icon === 'laptop')));
   return { exec, prompt, init, isWin, sync, FEATURES, SERVICES, NB, dn };
 })();
 if (typeof module !== 'undefined') module.exports = WIN;

@@ -35,31 +35,69 @@ const NL = (function () {
   const OB10 = [['eth0', 'sfp+'], ['eth1', 'sfp+'], ['ibmc', 'rj45']];
   const MODELS = {
     // ---- Switches
-    'C9200L-24P-4X': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9200L-24P-4X', info: '24× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
-    'C9200L-48P-4X': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9200L-48P-4X', info: '48× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9200L-24P-4X': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9200L-24P-4X', info: '24× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9200L-48P-4X': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9200L-48P-4X', info: '48× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9200L-24T-4G': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9200L-24T-4G', info: '24× 1G RJ45, 4× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('GigabitEthernet1/1/', 1, 4, 'sfp')] },
+    'C9300-24P': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9300-24P', info: '24× 1G RJ45 PoE+, Uplink-Modul 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9300-48P': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9300-48P', info: '48× 1G RJ45 PoE+, Uplink-Modul 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9300X-24Y': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9300X-24Y', info: '24× 10/25G SFP28, Uplink-Modul 2× 100G QSFP28', ports: [...gp('TwentyFiveGigE1/0/', 1, 24, 'sfp28'), ...gp('HundredGigE1/1/', 1, 2, 'qsfp28')] },
+    'C9500-32C': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9500-32C (100G Core)', info: '32× 100G QSFP28', ports: gp('HundredGigE1/0/', 1, 32, 'qsfp28') },
+    'C2960X-24TS-L': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 2960-X 24TS-L', info: '24× 1G RJ45, 4× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('GigabitEthernet1/0/', 25, 28, 'sfp')] },
+    'C2960X-48FPS-L': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 2960-X 48FPS-L', info: '48× 1G RJ45 PoE+, 4× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('GigabitEthernet1/0/', 49, 52, 'sfp')] },
     'C9500-16X': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9500-16X (Core)', info: '16× 10G SFP+', ports: gp('TenGigabitEthernet1/0/', 1, 16, 'sfp+') },
     'C9500-24Y4C': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9500-24Y4C (25G/100G Core)', info: '24× 10/25G SFP28, 4× 100G QSFP28', ports: [...gp('TwentyFiveGigE1/0/', 1, 24, 'sfp28'), ...gp('HundredGigE1/0/', 25, 28, 'qsfp28')] },
     'C1000-8T-2G-L': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 1000-8T-2G-L', info: '8× 1G RJ45, 2× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 8, 'rj45'), ...gp('GigabitEthernet1/0/', 9, 10, 'sfp')] },
     // ---- SAN
     'MDS-9132T': { type: 'fc', vendor: 'Cisco', u: 1, label: 'MDS 9132T (FC-Switch)', info: '32× 32G Fibre Channel (SFP+)', ports: gp('fc1/', 1, 32, 'fc') },
+    'MDS-9148T': { type: 'fc', vendor: 'Cisco', u: 1, label: 'MDS 9148T (FC-Switch)', info: '48× 32G Fibre Channel (SFP+)', ports: gp('fc1/', 1, 48, 'fc') },
+    'MDS-9396T': { type: 'fc', vendor: 'Cisco', u: 2, label: 'MDS 9396T (FC-Switch)', info: '96× 32G Fibre Channel (SFP+)', ports: gp('fc1/', 1, 96, 'fc') },
     // ---- Router / Firewall
     'ISR4331': { type: 'router', vendor: 'Cisco', u: 1, label: 'ISR 4331', info: '2× 1G RJ45, 1× 1G SFP', ports: [['GigabitEthernet0/0/0', 'rj45'], ['GigabitEthernet0/0/1', 'rj45'], ['GigabitEthernet0/0/2', 'sfp']] },
+    'ISR4321': { type: 'router', vendor: 'Cisco', u: 1, label: 'ISR 4321', info: '2× 1G RJ45, 2× 1G SFP', ports: [['GigabitEthernet0/0/0', 'rj45'], ['GigabitEthernet0/0/1', 'rj45'], ['GigabitEthernet0/1/0', 'sfp'], ['GigabitEthernet0/1/1', 'sfp']] },
+    'ISR4351': { type: 'router', vendor: 'Cisco', u: 1, label: 'ISR 4351', info: '3× 1G RJ45, 3× 1G SFP', ports: [['GigabitEthernet0/0/0', 'rj45'], ['GigabitEthernet0/0/1', 'rj45'], ['GigabitEthernet0/0/2', 'rj45'], ['GigabitEthernet0/1/0', 'sfp'], ['GigabitEthernet0/1/1', 'sfp'], ['GigabitEthernet0/1/2', 'sfp']] },
+    'ISR4451-X': { type: 'router', vendor: 'Cisco', u: 2, label: 'ISR 4451-X', info: '4× 1G RJ45, 2× 10G SFP+', ports: [...gp('GigabitEthernet0/0/', 0, 3, 'rj45'), ...gp('TenGigabitEthernet0/1/', 0, 1, 'sfp+')] },
+    'C1111-8P': { type: 'router', vendor: 'Cisco', u: 1, label: 'ISR 1111-8P', info: '1× 1G WAN RJ45, 8× 1G LAN (Switchports als Routerports vereinfacht)', ports: [['GigabitEthernet0/0/0', 'rj45'], ...gp('GigabitEthernet0/1/', 0, 7, 'rj45')] },
+    'C8300-1N1S': { type: 'router', vendor: 'Cisco', u: 1, label: 'Catalyst 8300-1N1S (Edge)', info: '4× 1G RJ45/SFP, 2× 10G SFP+', ports: [...gp('GigabitEthernet0/0/', 0, 3, 'rj45'), ...gp('TenGigabitEthernet0/1/', 0, 1, 'sfp+')] },
     'ASA-5516-X': { type: 'router', fw: true, vendor: 'Cisco', u: 1, label: 'ASA 5516-X (Firewall)', info: '8× 1G RJ45 + Management', ports: [...gp('GigabitEthernet1/', 1, 8, 'rj45'), ['Management1/1', 'rj45']] },
+    'ASA-5506-X': { type: 'router', fw: true, vendor: 'Cisco', u: 1, label: 'ASA 5506-X (Firewall)', info: '8× 1G RJ45 + Management', ports: [...gp('GigabitEthernet1/', 1, 8, 'rj45'), ['Management1/1', 'rj45']] },
+    'ASA-5508-X': { type: 'router', fw: true, vendor: 'Cisco', u: 1, label: 'ASA 5508-X (Firewall)', info: '8× 1G RJ45 + Management', ports: [...gp('GigabitEthernet1/', 1, 8, 'rj45'), ['Management1/1', 'rj45']] },
+    'ASA-5525-X': { type: 'router', fw: true, vendor: 'Cisco', u: 1, label: 'ASA 5525-X (Firewall)', info: '8× 1G RJ45 + Management', ports: [...gp('GigabitEthernet0/', 0, 7, 'rj45'), ['Management0/0', 'rj45']] },
+    'ASA-5545-X': { type: 'router', fw: true, vendor: 'Cisco', u: 1, label: 'ASA 5545-X (Firewall)', info: '8× 1G RJ45 + 2× 10G SFP+ + Management', ports: [...gp('GigabitEthernet0/', 0, 7, 'rj45'), ...gp('TenGigabitEthernet0/', 8, 9, 'sfp+'), ['Management0/0', 'rj45']] },
     // ---- Server (Huawei + generisch)
     'HW-2288H-V5': { type: 'server', vendor: 'Huawei', u: 2, slots: 4, label: 'Huawei FusionServer Pro 2288H V5', info: '2U, 2× 1G LOM + iBMC, 4 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB },
     'HW-1288H-V5': { type: 'server', vendor: 'Huawei', u: 1, slots: 2, label: 'Huawei FusionServer Pro 1288H V5', info: '1U, 2× 1G LOM + iBMC, 2 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB },
     'HW-TaiShan-2280': { type: 'server', vendor: 'Huawei', u: 2, slots: 4, label: 'Huawei TaiShan 200 (Modell 2280, ARM)', info: '2U, 2× 1G LOM + iBMC, 4 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB },
     'SRV-1U': { type: 'server', vendor: 'Generisch', u: 1, slots: 2, label: 'Server 1U (generisch)', info: '1U, 2× 10G SFP+ + BMC, 2 PCIe-Slots', onboard: OB10 },
     'SRV-2U': { type: 'server', vendor: 'Generisch', u: 2, slots: 4, label: 'Server 2U (generisch)', info: '2U, 2× 10G SFP+ + BMC, 4 PCIe-Slots', onboard: OB10 },
+    'HW-1288H-V6': { type: 'server', vendor: 'Huawei', u: 1, slots: 3, label: 'Huawei FusionServer Pro 1288H V6', info: '1U, 2× 10G SFP+ LOM + iBMC, 3 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB10 },
+    'HW-2288H-V6': { type: 'server', vendor: 'Huawei', u: 2, slots: 6, label: 'Huawei FusionServer Pro 2288H V6', info: '2U, 2× 10G SFP+ LOM + iBMC, 6 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB10 },
+    'HW-2488H-V5': { type: 'server', vendor: 'Huawei', u: 2, slots: 6, label: 'Huawei FusionServer Pro 2488H V5 (4 Sockel)', info: '2U, 2× 1G LOM + iBMC, 6 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB },
+    'HW-5885H-V5': { type: 'server', vendor: 'Huawei', u: 4, slots: 8, label: 'Huawei FusionServer Pro 5885H V5', info: '4U, 2× 1G LOM + iBMC, 8 PCIe-Slots (vereinfachtes Planungsmodell)', onboard: OB },
+    'SRV-4U': { type: 'server', vendor: 'Generisch', u: 4, slots: 8, label: 'Server 4U (generisch)', info: '4U, 2× 10G SFP+ + BMC, 8 PCIe-Slots', onboard: OB10 },
     // ---- Storage
     'HW-Dorado-5000V6': { type: 'storage', vendor: 'Huawei', u: 2, slots: 4, label: 'Huawei OceanStor Dorado 5000 V6', info: '2U, 2 Controller, 4 Interface-Slots je Controller (vereinfachtes Planungsmodell)', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
+    'HW-Dorado-3000V6': { type: 'storage', vendor: 'Huawei', u: 2, slots: 2, label: 'Huawei OceanStor Dorado 3000 V6', info: '2U, 2 Controller, 2 Interface-Slots je Controller (vereinfachtes Planungsmodell)', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
+    'HW-Dorado-6000V6': { type: 'storage', vendor: 'Huawei', u: 4, slots: 6, label: 'Huawei OceanStor Dorado 6000 V6', info: '4U, 2 Controller, 6 Interface-Slots je Controller (vereinfachtes Planungsmodell)', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
+    'HW-Dorado-18000V6': { type: 'storage', vendor: 'Huawei', u: 4, slots: 8, label: 'Huawei OceanStor Dorado 18000 V6', info: '4U-Controller-Gehäuse, 2 Controller, 8 Interface-Slots je Controller (vereinfachtes Planungsmodell)', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
     'STO-GEN': { type: 'storage', vendor: 'Generisch', u: 2, slots: 4, label: 'Storage (generisch, 2 Controller)', info: '2U, 2 Controller, 4 Interface-Slots je Controller', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
+    // ---- WLAN
+    'C9105AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Catalyst 9105AX Access Point', info: 'Wi-Fi 6, 2×2, 1× 1G RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'C9120AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Catalyst 9120AX Access Point', info: 'Wi-Fi 6, 4×4, 1× 2.5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'C9130AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Catalyst 9130AX Access Point', info: 'Wi-Fi 6, 8×8, 1× 5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'AIR-AP2802I': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Aironet 2802I Access Point', info: 'Wi-Fi 5, 4×4, 1× 2.5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'C9800-L': { type: 'wlc', vendor: 'Cisco', icon: 'wlc', label: 'Catalyst 9800-L WLAN-Controller', info: 'Controller für bis zu 250 Access Points (vereinfacht: ein 1G-Kupfer-Uplink)', ports: [['GigabitEthernet0/0/0', 'rj45']] },
     // ---- Endgeräte
     'Server': { type: 'server', label: 'Server (einfach, 1 Port)', icon: 'server' },
     'ISP-Cloud': { type: 'server', cloud: true, label: 'Internet / ISP (Cloud)', info: 'Simuliertes Internet: DNS und Webserver, 1 Uplink', icon: 'cloud' },
     'PC': { type: 'pc', label: 'PC / Notebook', icon: 'pc' },
     'IP-Phone': { type: 'pc', label: 'IP-Telefon', icon: 'phone' },
-    'Printer': { type: 'pc', label: 'Drucker', icon: 'printer' }
+    'Printer': { type: 'pc', label: 'Drucker', icon: 'printer' },
+    'Laptop': { type: 'pc', info: 'Funk-Client (Wi-Fi 6): verbindet sich mit einer SSID, bekommt per DHCP oder statisch eine IP', label: 'Notebook (WLAN)', icon: 'laptop', wifi: true, ports: [['wlan0', 'wifi']] },
+    'Smartphone': { type: 'pc', info: 'Funk-Client: verbindet sich mit einer SSID, Browser und IP-Einstellungen', label: 'Smartphone (WLAN)', icon: 'smartphone', wifi: true, ports: [['wlan0', 'wifi']] },
+    'Tablet': { type: 'pc', info: 'Funk-Client: verbindet sich mit einer SSID, Browser und IP-Einstellungen', label: 'Tablet (WLAN)', icon: 'tablet', wifi: true, ports: [['wlan0', 'wifi']] },
+    'IP-Camera': { type: 'pc', info: 'PoE-Kamera am Switchport, Videostrom per RTSP (vereinfacht: ein Netzwerkport)', label: 'IP-Kamera', icon: 'camera' },
+    'Smart-TV': { type: 'pc', info: 'Netzwerkgerät mit einem LAN-Port, braucht IP, Gateway und DNS', label: 'Smart-TV', icon: 'tv' },
+    'Access-Control': { type: 'pc', info: 'Badge-Leser an einem Switchport (Beispiel für IoT-Geräte im eigenen VLAN)', label: 'Zutrittsleser (Badge)', icon: 'reader' }
   };
   const CARDS = {
     'NIC-4x1G': { for: 'server', kind: 'rj45', n: 4, short: '4×1G', label: '4× 1G RJ45 (z. B. Intel I350-T4)' },
@@ -87,7 +125,7 @@ const NL = (function () {
     'DS-SFP-FC16G-SW': { speed: 16000, media: 'mmf', fam: 'FC', proto: 'fc', label: '16G FC Shortwave' },
     'DS-SFP-FC32G-SW': { speed: 32000, media: 'mmf', fam: 'FC', proto: 'fc', label: '32G FC Shortwave' }
   };
-  const KIND = { rj45: { label: 'RJ45' }, sfp: { label: 'SFP', speeds: [1000] }, 'sfp+': { label: 'SFP+', speeds: [1000, 10000] }, sfp28: { label: 'SFP28', speeds: [10000, 25000] }, qsfp28: { label: 'QSFP28', speeds: [100000] }, fc: { label: 'FC-SFP+' } };
+  const KIND = { wifi: { label: 'WLAN' }, rj45: { label: 'RJ45' }, sfp: { label: 'SFP', speeds: [1000] }, 'sfp+': { label: 'SFP+', speeds: [1000, 10000] }, sfp28: { label: 'SFP28', speeds: [10000, 25000] }, qsfp28: { label: 'QSFP28', speeds: [100000] }, fc: { label: 'FC-SFP+' } };
   const CABLES = { cu: 'Kupfer Cat6 (RJ45)', mmf: 'Glasfaser OM3/OM4 Multimode (LC-LC)', smf: 'Glasfaser OS2 Singlemode (LC-LC)', dac: 'DAC-Twinax (passiv)' };
   const MEDIA = { cu: 'Kupfer', mmf: 'Multimode-Faser', smf: 'Singlemode-Faser' };
   const DACSPEED = { 'sfp+': 10000, sfp28: 25000, qsfp28: 100000 };
@@ -135,7 +173,7 @@ const NL = (function () {
     gone.forEach(p => { delete d.xcvr[p]; delete d.cfg.nic[p]; });
     d.ports = b.ports; d.pk = b.pk; d.pcard = b.pcard; d.grp = b.grp; return removed;
   }
-  const isHost = d => d.type === 'pc' || d.type === 'server' || d.type === 'storage';
+  const isHost = d => d.type === 'pc' || d.type === 'server' || d.type === 'storage' || d.type === 'ap' || d.type === 'wlc';
   const host = (net, id) => net.devs[id].cfg.hostname;
 
   function peerOf(net, d, p) {
@@ -149,7 +187,70 @@ const NL = (function () {
   function portAdminUp(net, dId, p) { const d = net.devs[dId]; if (isDown(d)) return false; if (isHost(d)) return true; const i = d.cfg.ifs[p]; return !!i && !i.shutdown; }
   function linkOf(net, d, p) { return net.links.find(l => (l.a === d && l.ap === p) || (l.b === d && l.bp === p)) || null; }
   const cfgSpeed = (d, p) => { const i = d.cfg.ifs && d.cfg.ifs[p]; const e = i && i.extra.find(x => /^speed \d+$/.test(x)); return e ? +e.split(' ')[1] : null; };
+  // ---------- WLAN: Access Points, Controller, Clients ----------
+  const apState = d => d.ap || (d.ap = { ssids: [], wlc: '', injector: false });
+  const wlcState = d => d.wlc || (d.wlc = { ssids: [] });
+  // Stromversorgung des AP: PoE-Port eines PoE-Switches oder PoE-Injector
+  function apPower(net, ap) {
+    if (apState(ap).injector) return { ok: true, via: 'PoE-Injector' };
+    const pe = peerOf(net, ap.id, ap.ports[0]); if (!pe) return { ok: false, reason: 'Kein Kabel: ohne PoE-Switch oder Injector hat der AP keinen Strom' };
+    const sw = net.devs[pe.dev];
+    if (sw.type === 'switch' && MODELS[sw.model] && MODELS[sw.model].poe) {
+      if (isDown(sw)) return { ok: false, reason: `${sw.cfg.hostname} ${downWhy(sw)}` };
+      const i = sw.cfg.ifs[pe.port]; if (i && i.shutdown) return { ok: false, reason: `${sw.cfg.hostname} ${sh(pe.port)} ist shutdown, damit auch kein PoE` };
+      return { ok: true, via: `PoE von ${sw.cfg.hostname} ${sh(pe.port)}` };
+    }
+    return { ok: false, reason: `${sw.cfg.hostname} liefert kein PoE (kein PoE-Switch). Nutze einen PoE-Port oder aktiviere den PoE-Injector.` };
+  }
+  // Lightweight-Modus: Ist ein Controller eingetragen, gehören die SSIDs dem Controller
+  const JOINING = new Set();
+  function apJoined(net, ap) {
+    const st = apState(ap); if (!st.wlc) return null;
+    if (JOINING.has(ap.id)) return { ok: false, why: 'Join wird gerade geprüft' };
+    JOINING.add(ap.id); try { return apJoin2(net, ap, st); } finally { JOINING.delete(ap.id); }
+  }
+  function apJoin2(net, ap, st) {
+    const w = Object.values(net.devs).find(x => x.type === 'wlc' && (hip(x, x.ports[0]) || {}).ip === st.wlc);
+    if (!w) return { ok: false, why: `Unter ${st.wlc} gibt es keinen WLAN-Controller` };
+    if (isDown(w)) return { ok: false, why: `Der Controller ${w.cfg.hostname} ${downWhy(w)}` };
+    const r = ping(net, ap.id, st.wlc); if (!r.ok) return { ok: false, why: `Der AP erreicht den Controller ${st.wlc} nicht: ${r.reason}` };
+    return { ok: true, wlc: w };
+  }
+  function apSsids(net, ap) {
+    const j = apJoined(net, ap); if (j === null) return apState(ap).ssids.filter(x => x.on !== false);
+    return j.ok ? wlcState(j.wlc).ssids.filter(x => x.on !== false) : [];
+  }
+  const wifiLinkOf = (net, c) => net.links.find(l => l.wifi && l.a === c.id) || null;
+  const apClients = (net, ap) => net.links.filter(l => l.wifi && l.b === ap.id).map(l => net.devs[l.a]).filter(Boolean);
+  // Sichtbare SSIDs: alle eingeschalteten APs mit Strom (ein Eintrag je SSID, mit der Liste der APs)
+  function wifiScan(net) {
+    const m = {};
+    for (const ap of Object.values(net.devs)) { if (ap.type !== 'ap' || isDown(ap) || !apPower(net, ap).ok) continue; for (const s of apSsids(net, ap)) { (m[s.name] = m[s.name] || { ssid: s.name, sec: s.sec, aps: [] }).aps.push(ap.id); } }
+    return Object.values(m);
+  }
+  function wifiConnect(net, c, ssid, psk) {
+    net.links = net.links.filter(l => !(l.wifi && l.a === c.id)); c.wifi = { ssid: '', psk: '' };
+    const sc = wifiScan(net).find(x => x.ssid === ssid); if (!sc) return { err: `Das WLAN „${ssid}“ wird von keinem erreichbaren Access Point gesendet.` };
+    let lastErr = null;
+    for (const id of sc.aps) {
+      const ap = net.devs[id], s = apSsids(net, ap).find(x => x.name === ssid);
+      if (s.sec !== 'open' && s.psk !== psk) { lastErr = 'Authentifizierung fehlgeschlagen: Der WLAN-Schlüssel ist falsch.'; continue; }
+      c.wifi = { ssid, psk: psk || '' }; net.links.push({ a: c.id, ap: c.ports[0], b: ap.id, bp: 'wlan-' + c.id, virt: true, wifi: true }); return { ok: true, ap: ap.cfg.hostname, sec: s.sec, vlan: s.vlan || 0 };
+    }
+    return { err: lastErr || 'Verbindung fehlgeschlagen.' };
+  }
+  function wifiDisconnect(net, c) { net.links = net.links.filter(l => !(l.wifi && l.a === c.id)); if (c.wifi) c.wifi = { ssid: '', psk: '' }; return { ok: true }; }
+
   function phys(net, l) {
+    if (l.wifi) {
+      const c = net.devs[l.a], ap = net.devs[l.b], w = c.wifi || {}, bad = r => ({ ok: false, reason: r });
+      if (isDown(c)) return bad(`${c.cfg.hostname} ${downWhy(c)}`); if (isDown(ap)) return bad(`${ap.cfg.hostname} ${downWhy(ap)}`);
+      const pw = apPower(net, ap); if (!pw.ok) return bad(`${ap.cfg.hostname}: ${pw.reason}`);
+      const j = apJoined(net, ap); if (j && !j.ok) return bad(`${ap.cfg.hostname} sendet kein WLAN: ${j.why}`);
+      const sd = apSsids(net, ap).find(x => x.name === w.ssid); if (!sd) return bad(`Das WLAN „${w.ssid}“ wird von ${ap.cfg.hostname} nicht (mehr) gesendet`);
+      if (sd.sec !== 'open' && sd.psk !== w.psk) return bad('WLAN-Authentifizierung fehlgeschlagen: falscher Schlüssel');
+      return { ok: true, speed: 1200, proto: 'wifi' };
+    }
     if (l.virt) { // virtueller Link VM ↔ vSwitch des Hypervisor-Hosts
       const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], h = net.devs[vm.vm.host];
       if (vm.vm.state !== 'running') return { ok: false, reason: `${vm.cfg.hostname} ist ausgeschaltet (VM gestoppt)` };
@@ -161,6 +262,7 @@ const NL = (function () {
     const bad = r => ({ ok: false, reason: r });
     if (l.cut) return bad('Kabel ist gezogen (Ausfall-Simulation)');
     const offs = S.filter(s => isDown(s.d)); if (offs.length) return bad(`${offs[0].h} ${downWhy(offs[0].d)}`);
+    const np = S.find(s => s.d.type === 'ap' && !apPower(net, s.d).ok); if (np) return bad(`${np.h} hat keinen Strom: ${apPower(net, np.d).reason}`);
     const fcA = S[0].k === 'fc', fcB = S[1].k === 'fc';
     if (fcA !== fcB) { const f = S[fcA ? 0 : 1], e = S[fcA ? 1 : 0]; return bad(`Fibre-Channel-Port (${f.h} ${sh(f.p)}) und Ethernet-Port (${e.h} ${sh(e.p)}) lassen sich nicht verbinden`); }
     const sp = [];
@@ -228,6 +330,9 @@ const NL = (function () {
           const s = d.cfg.ifs[sub]; if (s.shutdown) { note(`${h} ${sh(sub)} ist shutdown`); return; }
           if (s.ip) eps.push({ dev: dId, ifn: sub });
         }
+      } else if (d.type === 'ap') { // Access Point: Brücke zwischen WLAN-Clients und dem Uplink
+        if (p.startsWith('wlan-')) { const c = net.devs[p.slice(5)], sd = c && c.wifi && apSsids(net, d).find(x => x.name === c.wifi.ssid); inAp(dId, sd ? (sd.vlan || 0) : 0); }
+        else { if (tag === null) eps.push({ dev: dId, ifn: p }); inAp(dId, tag === null ? 0 : tag); }
       } else if (d.vsw) { // Hypervisor: virtueller Switch zwischen VMs und Uplinks
         if (p.startsWith('vm-')) { const vm = net.devs[p.slice(3)]; if (vm && vm.vm) inVsw(dId, vm.vm.vlan || 0); }
         else {
@@ -239,6 +344,11 @@ const NL = (function () {
         if (tag === null) eps.push({ dev: dId, ifn: p });
         else note(`${h} empfängt getaggte Frames (VLAN ${tag}) – das Endgerät hängt an einem Trunk-Port`);
       }
+    };
+    const inAp = (aId, v) => {
+      const k = 'ap|' + aId + '|' + v; if (seen.has(k)) return; seen.add(k); const ap = net.devs[aId], ss = apSsids(net, ap);
+      for (const c of apClients(net, ap)) { const sd = ss.find(x => x.name === (c.wifi || {}).ssid); if (!sd || (sd.vlan || 0) !== v) continue; const l = wifiLinkOf(net, c), ph = l && phys(net, l); if (ph && ph.ok) eps.push({ dev: c.id, ifn: c.ports[0] }); else if (ph) note(ph.reason); }
+      if (peerOf(net, aId, ap.ports[0])) send(aId, ap.ports[0], v === 0 ? null : v);
     };
     const inVsw = (hId, v) => {
       const k = 'vsw|' + hId + '|' + v; if (seen.has(k)) return; seen.add(k);
@@ -1017,6 +1127,6 @@ const NL = (function () {
   function snapshot(net) { const o = {}; for (const id in net.devs) o[id] = { cfg: net.devs[id].cfg, saved: net.devs[id].saved }; return o; }
   function restore(net, snap) { for (const id in snap) if (net.devs[id]) { net.devs[id].cfg = snap[id].cfg; net.devs[id].saved = snap[id].saved; } }
 
-  return { isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
+  return { apState, wlcState, apPower, apJoined, apSsids, apClients, wifiScan, wifiConnect, wifiDisconnect, wifiLinkOf, isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
 })();
 if (typeof module !== 'undefined') module.exports = NL;

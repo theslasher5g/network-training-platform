@@ -16,8 +16,8 @@ Lern- und Planungsplattform für Netzwerk und System Engineering, komplett im Br
 | **ASA im ASDM-Stil:** Zonen, Zugriffsregeln, NAT, Routing, DHCP. | **Storage-Manager:** Pools, LUNs, Zugriff und Ports. |
 | ![PC-Desktop](docs/screenshots/09-pc-desktop.png) | ![HyperMetro](docs/screenshots/10-hypermetro.png) |
 | **PC-Desktop:** Fenster, Taskleiste, Browser mit Zugriff auf die Switch-Oberfläche. | **HyperMetro:** zwei Arrays, Quorum-Server und Arbitrierung. |
-| ![Wiki](docs/screenshots/11-wiki.png) | |
-| **Wiki:** 150+ Artikel zu Kabeln, Geräten, Protokollen und Storage. | |
+| ![WLAN-Controller](docs/screenshots/12-wlan.png) | ![Wiki](docs/screenshots/11-wiki.png) |
+| **WLAN:** Controller mit angemeldeten Access Points, Clients verbinden sich per SSID. | **Wiki:** 150+ Artikel zu Kabeln, Geräten, Protokollen und Storage. |
 
 Die Bilder entstehen mit `node scripts/screenshots.js` aus dem gebauten Stand.
 
@@ -38,6 +38,8 @@ Die Bilder entstehen mit `node scripts/screenshots.js` aus dem gebauten Stand.
 - **Ein- und Ausschalten mit Bootvorgang** – Geräte lassen sich ausschalten und starten dann mit Bootzeit. Cisco-Geräte laden danach nur die Startup-Config: ungespeicherte Änderungen gehen verloren.
 - **PC-Desktop** – Doppelklick auf einen PC öffnet einen Windows-ähnlichen Desktop (verschiebbares Fenster, Taskleiste, Startmenü) mit Eingabeaufforderung, Webbrowser, Netzwerkverbindungen, Datei-Explorer, Editor und Einstellungen.
 - **Web-GUIs der Geräte** – Server, Hypervisor, Windows-Server, Storage und FC-Switch haben eine Weboberfläche mit Anmeldung, Menü, Tabellen und Dialogen (Linux: Dienste, Dateien, Speicher, Firewall; Hypervisor: VMs, vSwitch, Datastores, Cluster; Windows: Rollen, Active Directory, DNS, DHCP, Freigaben; Storage: Pools, LUNs, Zuordnung; Fabric: Zoning). Aufruf über „Web-GUI öffnen“ am Gerät oder per Webbrowser eines PCs unter `https://<IP>:8443`. Jede Aktion zeigt den gleichwertigen Terminal-Befehl.
+- **WLAN** – Access Points (Catalyst 9105/9120/9130AX, Aironet 2802I), WLAN-Controller (Catalyst 9800-L) und Funk-Clients (Notebook, Smartphone, Tablet). SSIDs mit WPA2/WPA3 oder offen und eigenem VLAN, PoE-Versorgung am PoE-Switch oder per Injector, autonomer oder Controller-Betrieb mit Join. Verbindung per Schlüssel, DHCP über das WLAN und Web-GUIs für AP und Controller. Zwei Szenarien.
+- **Hardware** – 57 Modelle: Catalyst 1000/2960-X/9200L/9300/9300X/9500, ISR 1100/4300/4400 und Catalyst 8300, ASA 5506-X bis 5545-X, MDS 9132T/9148T/9396T, Huawei FusionServer (1288H/2288H V5 und V6, 2488H, 5885H, TaiShan), OceanStor Dorado 3000/5000/6000/18000 V6, generische Server und Storage, dazu Endgeräte wie IP-Telefon, Drucker, IP-Kamera, Smart-TV und Zutrittsleser.
 - **DHCP überall** – Server (Linux, Windows), Cisco-Router und Layer-3-Switches (`ip dhcp pool`, Ausschlüsse) und die ASA (`dhcpd`) vergeben Adressen. Mit `ip helper-address` leitet ein Relay Anfragen an einen Server in einem anderen Netz weiter. Einrichtung in den Weboberflächen oder per CLI, Kontrolle mit `show ip dhcp binding`.
 - **HyperMetro** – Zwei Storage-Arrays bilden eine aktiv-aktiv-Domäne mit gespiegelten LUN-Paaren. Ein Quorum-Server (Linux-Paket `quorum-server`) entscheidet bei Ausfällen, welche Seite weiterarbeitet; Replikationsverbindung über FC-Zonen, statische Priorität als Fallback. Der Host sieht ein Gerät mit Pfaden zu beiden Arrays. Zwei Szenarien.
 - **Aufgaben** – Aufbau- und Fehlersuche-Szenarien mit live abgehakten Zielen.
