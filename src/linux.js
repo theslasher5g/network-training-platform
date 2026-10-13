@@ -6,7 +6,7 @@ const LX = (function () {
   const PKGS = {
     nginx: { d: 'Webserver', units: ['nginx'], bins: ['nginx'] }, bind9: { d: 'DNS-Server', units: ['bind9'], bins: ['named', 'rndc'] },
     'isc-dhcp-server': { d: 'DHCP-Server', units: ['isc-dhcp-server'], bins: ['dhcpd'] }, 'openssh-server': { d: 'SSH-Server', units: ['ssh'], bins: ['sshd'] },
-    curl: { d: 'URL-Werkzeug', bins: ['curl'] }, nano: { d: 'Editor', bins: ['nano'] }, ufw: { d: 'Firewall-Frontend', bins: ['ufw'] },
+    curl: { d: 'URL-Werkzeug', bins: ['curl'] }, openssl: { d: 'OpenSSL: Schlüssel, Zertifikate, Prüfung', bins: ['openssl', 'update-ca-certificates'] }, nano: { d: 'Editor', bins: ['nano'] }, ufw: { d: 'Firewall-Frontend', bins: ['ufw'] },
     htop: { d: 'Prozessanzeige', bins: ['htop'] }, vim: { d: 'Editor', bins: ['vim'] }, tree: { d: 'Verzeichnisbaum', bins: ['tree'] },
     'net-tools': { d: 'ifconfig, netstat', bins: ['ifconfig', 'netstat', 'route', 'arp'] }, dnsutils: { d: 'dig', bins: ['dig'] }, tcpdump: { d: 'Paketmitschnitt', bins: ['tcpdump'] },
     'multipath-tools': { d: 'Multipathing für SAN-LUNs', bins: ['multipath', 'multipathd'] },
@@ -18,7 +18,7 @@ const LX = (function () {
     k3s: { d: 'Kubernetes (k3s): Deployments, Pods und Services mit kubectl', units: ['k3s'], bins: ['k3s', 'kubectl'] }
   };
   const EXTRA = ['quorum-server', 'zabbix-server', 'zabbix-agent', 'backup-server', 'docker', 'k3s'];
-  const PRE = ['curl', 'nano', 'ufw', 'openssh-server'];
+  const PRE = ['curl', 'nano', 'ufw', 'openssh-server', 'openssl'];
   const UNITS = {
     nginx: { d: 'A high performance web server and a reverse proxy server', svc: 'http', port: '80', proto: 'tcp', proc: 'nginx' },
     bind9: { d: 'BIND Domain Name Server', svc: 'dns', port: '53', proto: 'udp', proc: 'named' },
@@ -43,7 +43,7 @@ const LX = (function () {
     const sv = d.svc || {}, name = d.cfg.hostname, fs = {};
     const dir = (p, o) => { fs[p] = { d: 1, o: o || 'root' }; }, file = (p, t, o, m) => { fs[p] = { t, o: o || 'root', m: m || '644' }; };
     ['/', '/bin', '/sys', '/sys/class', '/sys/class/scsi_host', '/sys/class/scsi_host/host0', '/sys/class/scsi_host/host1', '/etc', '/etc/nginx', '/etc/bind', '/etc/dhcp', '/home', '/root', '/tmp', '/usr', '/usr/bin', '/var', '/var/log', '/var/log/nginx', '/var/www', '/var/www/html', '/opt', '/srv', '/dev', '/proc'].forEach(p => dir(p));
-    dir('/home/admin', 'admin'); dir('/tmp'); fs['/tmp'].m = '777';
+    dir('/home/admin', 'admin'); dir('/usr/local'); dir('/usr/local/share'); dir('/usr/local/share/ca-certificates'); dir('/etc/ssl'); dir('/etc/ssl/private'); dir('/tmp'); fs['/tmp'].m = '777';
     const pk = new Set(PRE); if (sv.http && sv.http.on) pk.add('nginx'); if (sv.dns && sv.dns.on) pk.add('bind9'); if (sv.dhcp && sv.dhcp.on) pk.add('isc-dhcp-server');
     file('/sys/class/scsi_host/host0/scan', '', 'root', '200'); file('/sys/class/scsi_host/host1/scan', '', 'root', '200');
     file('/etc/hostname', name + '\n'); file('/etc/hosts', `127.0.0.1 localhost\n127.0.1.1 ${name}\n`);
@@ -88,23 +88,37 @@ const LX = (function () {
   function jl(d, L, u, msg) { const line = `${DATE}:${String(L.log.length % 60).padStart(2, '0')} ${d.cfg.hostname} ${u}[${L.pid++}]: ${msg}`; L.log.push({ u, t: line }); if (L.log.length > 200) L.log.shift(); const e = L.fs['/var/log/syslog']; if (e) e.t = (e.t + line + '\n').split('\n').slice(-80).join('\n'); }
   function reconcile(d, L) { for (const u in UNITS) { const s = UNITS[u].svc, x = L.units[u]; if (!s || !d.svc) continue; if (x.seen !== d.svc[s].on) { if (x.seen !== null) x.active = d.svc[s].on; x.seen = d.svc[s].on; } } }
   const setSvc = (d, L, u, on) => { const s = UNITS[u].svc; if (s && d.svc) { d.svc[s].on = on; L.units[u].seen = on; } };
+  const pki = () => typeof PKI !== 'undefined' ? PKI : require('./pki.js');
   function nginxCheck(L) {
     const t = readFile(L, '/etc/nginx/nginx.conf'); if (t === null) return { err: 'nginx: [emerg] open() "/etc/nginx/nginx.conf" failed (2: No such file or directory)' };
-    const lines = t.split('\n'); let depth = 0, port = null;
+    const lines = t.split('\n'); let depth = 0, port = null; const listens = []; let cert = null, key = null, sslLine = 0;
     for (let i = 0; i < lines.length; i++) {
       const l = lines[i].trim(); if (!l || l.startsWith('#')) continue;
       if (!/[;{}]$/.test(l)) return { err: `nginx: [emerg] directive "${l.split(/\s+/)[0]}" is not terminated by ";" in /etc/nginx/nginx.conf:${i + 1}` };
       depth += (l.match(/\{/g) || []).length - (l.match(/\}/g) || []).length; if (depth < 0) return { err: `nginx: [emerg] unexpected "}" in /etc/nginx/nginx.conf:${i + 1}` };
-      const m = l.match(/^listen\s+(\d+)\s*;/); if (m && port === null) port = +m[1];
+      const m = l.match(/^listen\s+(\d+)((?:\s+\w+)*)\s*;/); if (m) { if (port === null) port = +m[1]; const ssl = /\bssl\b/.test(m[2]); listens.push({ port: +m[1], ssl }); if (ssl && !sslLine) sslLine = i + 1; }
+      const c = l.match(/^ssl_certificate\s+(\S+)\s*;/), k = l.match(/^ssl_certificate_key\s+(\S+)\s*;/); if (c) cert = c[1]; if (k) key = k[1];
     }
     if (depth > 0) return { err: 'nginx: [emerg] unexpected end of file, expecting "}" in /etc/nginx/nginx.conf:' + lines.length };
-    return { ok: true, port: port || 80 };
+    let certObj = null;
+    if (listens.some(x => x.ssl)) {
+      if (!cert) return { err: `nginx: [emerg] no "ssl_certificate" is defined for the "listen ... ssl" directive in /etc/nginx/nginx.conf:${sslLine}` };
+      if (!key) return { err: `nginx: [emerg] no "ssl_certificate_key" is defined for the "listen ... ssl" directive in /etc/nginx/nginx.conf:${sslLine}` };
+      const ct = readFile(L, cert), kt = readFile(L, key);
+      if (ct === null) return { err: `nginx: [emerg] cannot load certificate "${cert}": BIO_new_file() failed (SSL: error:80000002:system library::No such file or directory:calling fopen(${cert}, r) error:10000080:BIO routines::no such file)` };
+      const cp = pki().parse(ct); if (!cp || cp.kind !== 'cert') return { err: `nginx: [emerg] cannot load certificate "${cert}": PEM_read_bio_X509_AUX() failed (SSL: error:0480006C:PEM routines::no start line:Expecting: TRUSTED CERTIFICATE)` };
+      if (kt === null) return { err: `nginx: [emerg] cannot load certificate key "${key}": BIO_new_file() failed (SSL: error:80000002:system library::No such file or directory:calling fopen(${key}, r) error:10000080:BIO routines::no such file)` };
+      const kp = pki().parse(kt); if (!kp || kp.kind !== 'key') return { err: `nginx: [emerg] cannot load certificate key "${key}": PEM_read_bio_PrivateKey() failed (SSL: error:0480006C:PEM routines::no start line:Expecting: ANY PRIVATE KEY)` };
+      if (kp.o.kid !== cp.o.kid) return { err: `nginx: [emerg] SSL_CTX_use_PrivateKey("${key}") failed (SSL: error:05800074:x509 certificate routines::key values mismatch)` };
+      certObj = cp.o;
+    }
+    return { ok: true, port: port || 80, listens, cert: certObj, certPath: cert };
   }
   function applyConf(d, L, u) {
     if (u === 'nginx') {
       const c = nginxCheck(L); if (c.err) return c; const idx = readFile(L, '/var/www/html/index.html'), sv = d.svc;
       if (sv) { const m = idx && idx.match(/<title>([\s\S]*?)<\/title>/i); sv.http.title = m ? m[1] : d.cfg.hostname; sv.http.body = idx === null ? '404 Not Found (nginx)' : html2t(idx); }
-      L.listen = L.listen || {}; L.listen.nginx = c.port; return { ok: true, on: c.port === 80 };
+      L.listen = L.listen || {}; L.listen.nginx = c.port; L.web = { listens: c.listens, cert: c.cert, certPath: c.certPath }; if (sv) sv.http.https = c.listens.some(x => x.ssl && x.port === 443); return { ok: true, on: c.listens.some(x => x.port === 80 && !x.ssl) || (!c.listens.length && c.port === 80) };
     }
     if (u === 'bind9') {
       const t = readFile(L, '/etc/bind/db.lab'); const recs = []; let origin = 'lab.local';
@@ -302,6 +316,9 @@ const LX = (function () {
     lsblk: (a, st) => lsblk(st), multipath: (a, st) => multipathLL(st), 'rescan-scsi-bus.sh': (a, st) => st.root ? rescan(st) : 'rescan-scsi-bus.sh: Permission denied (versuche: sudo rescan-scsi-bus.sh)',
     'mkfs.ext4': (a, st) => mkfs(a, st, 'ext4'), 'mkfs.xfs': (a, st) => mkfs(a, st, 'xfs'), mount: (a, st) => mount(a, st), umount: (a, st) => umount(a, st),
     fdisk: (a, st) => { if (!st.root) return 'fdisk: cannot open /dev/sda: Permission denied (versuche: sudo fdisk -l)'; return ['Disk /dev/sda: 20 GiB'].concat(devTable(st.L).flatMap(x => x.paths.map(q => `Disk /dev/${q.name}: ${x.e.gb} GiB`))).join('\n'); },
+    openssl: (a, st) => hasBin(st.L, 'openssl') ? (st.ctx.pki ? st.ctx.pki(st.d, st.L, a, st.root) : 'openssl: nicht verfügbar') : "Command 'openssl' not found",
+    'update-ca-certificates': (a, st) => { if (!st.root) return 'update-ca-certificates: Permission denied (versuche: sudo update-ca-certificates)'; const P = pki(), dir = '/usr/local/share/ca-certificates'; const fs = Object.keys(st.L.fs).filter(p => p.startsWith(dir + '/') && p.endsWith('.crt')); let n = 0; fs.forEach(p => { const x = P.parse(st.L.fs[p].t); if (x && x.kind === 'cert' && P.trustAdd(st.d, x.o).ok) n++; }); return `Updating certificates in /etc/ssl/certs...\n${n} added, 0 removed; done.`; },
+    scp: (a, st) => st.ctx.scp ? st.ctx.scp(st.d, st.L, a.filter(x => !x.startsWith('-')), st.root) : 'scp: nicht verfügbar',
     docker: (a, st) => hasBin(st.L, 'docker') ? (st.ctx.ctr ? st.ctx.ctr(st.d, st.L, 'docker', a, st.root, onlineErr(st.ctx, st.d)) : 'docker: nicht verfügbar') : "Command 'docker' not found, but can be installed with:\nsudo apt install docker.io",
     kubectl: (a, st) => hasBin(st.L, 'kubectl') ? (st.ctx.ctr ? st.ctx.ctr(st.d, st.L, 'kubectl', a, st.root, onlineErr(st.ctx, st.d)) : 'kubectl: nicht verfügbar') : "Command 'kubectl' not found, but can be installed with:\nsudo apt install k3s",
     k3s: (a, st) => a[0] === 'kubectl' ? C.kubectl(a.slice(1), st) : hasBin(st.L, 'k3s') ? 'k3s version v1.29.4+k3s1' : "Command 'k3s' not found, but can be installed with:\nsudo apt install k3s",
@@ -323,7 +340,7 @@ const LX = (function () {
   }
   function ssTable(st) {
     const L = st.L, rows = ['Netid State  Recv-Q Send-Q Local Address:Port  Peer Address:Port Process'];
-    Object.keys(UNITS).forEach(u => { const x = UNITS[u]; if (!x.port || !L.units[u].active) return; const p = u === 'nginx' && L.listen && L.listen.nginx ? L.listen.nginx : x.port; rows.push(`${x.proto.padEnd(5)} ${x.proto === 'tcp' ? 'LISTEN' : 'UNCONN'} 0      ${x.proto === 'tcp' ? '511' : '0  '}    ${(x.proto === 'tcp' ? '0.0.0.0:' : '0.0.0.0:') + p}   0.0.0.0:*     users:(("${x.proc}",pid=${400 + u.length * 17}))`); });
+    Object.keys(UNITS).forEach(u => { const x = UNITS[u]; if (!x.port || !L.units[u].active) return; const ps = u === 'nginx' && L.web && L.web.listens && L.web.listens.length ? L.web.listens.map(q => q.port) : [u === 'nginx' && L.listen && L.listen.nginx ? L.listen.nginx : x.port]; ps.forEach(p => rows.push(`${x.proto.padEnd(5)} ${x.proto === 'tcp' ? 'LISTEN' : 'UNCONN'} 0      ${x.proto === 'tcp' ? '511' : '0  '}    ${(x.proto === 'tcp' ? '0.0.0.0:' : '0.0.0.0:') + p}   0.0.0.0:*     users:(("${x.proc}",pid=${400 + u.length * 17}))`)); });
     return rows.join('\n');
   }
   function ipCmd(a, st) {

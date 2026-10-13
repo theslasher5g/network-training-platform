@@ -13,6 +13,7 @@ const Sandbox = (function () {
   const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
   const GUIN = typeof WEBGUI !== 'undefined' ? WEBGUI : require('./webgui.js');
   const BKPN = typeof BKP !== 'undefined' ? BKP : require('./backup.js');
+  const PKIN = typeof PKI !== 'undefined' ? PKI : require('./pki.js');
   const CTRN = typeof CTR !== 'undefined' ? CTR : require('./container.js');
   const MONN = typeof MON !== 'undefined' ? MON : require('./monitor.js');
   const RTGN = typeof RTG !== 'undefined' ? RTG : require('./routing.js');
@@ -1172,7 +1173,7 @@ const Sandbox = (function () {
     if (!sv.svc || !sv.svc.dns.on) return { err: `Auf ${sv.cfg.hostname} ist der DNS-Dienst ausgeschaltet.` };
     const rec = sv.svc.dns.records.find(x => x.name.toLowerCase() === name.toLowerCase()); if (rec && rec.ip === '@') { const own = hip(sv, sv.ports[0]); return own && own.ip ? { ip: own.ip, server: sv.cfg.hostname } : { err: `${sv.cfg.hostname} hat noch keine IP-Adresse – der Eintrag „${name}“ zeigt auf die eigene Adresse.` }; } return rec ? { ip: rec.ip, server: sv.cfg.hostname } : { err: `Name „${name}“ nicht gefunden (NXDOMAIN auf ${sv.cfg.hostname}).` };
   }
-  function httpGet(c, url) {
+  function httpGet(c, url, opts) {
     const u = (url || '').trim(); if (!u) return { err: 'Bitte eine Adresse eingeben.' };
     const m = u.match(/^(?:(https?):\/\/)?([^\/:]+)(?::(\d+))?(\/.*)?$/i); if (!m) return { err: 'Ungültige Adresse.' };
     const scheme = (m[1] || 'http').toLowerCase(), host = m[2], port = m[3] ? +m[3] : scheme === 'https' ? 443 : 80; let ip = host;
@@ -1181,6 +1182,13 @@ const Sandbox = (function () {
     const srv = allIps()[ip], sv = srv && srv.svc;
     if (srv && srv.win && srv.win.fwOn && srv.win.feats['Web-Server'] && !srv.win.fw.some(r => r.on && r.port === port && r.proto === 'TCP')) return { err: `Zeitüberschreitung: ${ip}:${port} antwortet nicht.`, why: `Die Windows-Firewall auf ${srv.cfg.hostname} blockiert Port ${port}. Auf dem Server: New-NetFirewallRule oder Enable-NetFirewallRule` };
     if (srv && srv.lx && srv.lx.ufw && srv.lx.ufw.on && !srv.lx.ufw.allow.includes(String(port))) return { err: `Zeitüberschreitung: ${ip}:${port} antwortet nicht.`, why: `Die Firewall (ufw) auf ${srv.cfg.hostname} blockiert Port ${port}. Auf dem Server: sudo ufw allow ${port}` };
+    const nw = srv && srv.lx && srv.lx.web && srv.lx.units.nginx && srv.lx.units.nginx.active ? srv.lx.web : null, le = nw && nw.listens.find(x => x.port === port);
+    if (le) {
+      if (le.ssl && scheme === 'http') return { err: `400 Bad Request: The plain HTTP request was sent to HTTPS port (nginx auf ${srv.cfg.hostname}). Verwende https://.` };
+      if (!le.ssl && scheme === 'https') return { err: `Verbindung fehlgeschlagen (ERR_SSL_PROTOCOL_ERROR): Auf Port ${port} spricht ${srv.cfg.hostname} kein TLS (in nginx fehlt „listen ${port} ssl“).` };
+      if (le.ssl && !(opts && opts.insecure)) { const v = PKIN.clientCheck(c, nw.cert, host, S.net.day || 0); if (!v.ok) return { err: `Verbindung nicht sicher (${v.code}): ${v.why}`, certErr: v.code, cert: nw.cert }; }
+      return { ok: true, ip, host, scheme, port, title: sv ? sv.http.title : srv.cfg.hostname, body: sv ? sv.http.body : '', cert: le.ssl ? nw.cert : null };
+    }
     const cw = srv && srv.ctr && CTRN.web(srv, port, srv.lx, LXN.online(lxCtx(S.net), srv)); if (cw) { if (cw.empty) return { err: cw.none ? `HTTP 503 Service Unavailable: Für den Dienst ${cw.via} läuft kein bereiter Pod.` : `Verbindung steht, aber der Dienst (${cw.via}) liefert keine Webseite.` }; return { ok: true, ip, host, scheme, port, title: cw.title, body: cw.body }; }
     if (!sv || !((port === 80 && sv.http.on) || (port === 443 && sv.http.on && sv.http.https))) return { err: `Verbindung abgelehnt: Auf ${srv ? srv.cfg.hostname : ip} lauscht kein ${port === 443 ? 'HTTPS' : 'HTTP'}-Server auf Port ${port}.` };
     return { ok: true, ip, host, scheme, port, title: sv.http.title || srv.cfg.hostname, body: sv.http.body };
@@ -1253,11 +1261,29 @@ const Sandbox = (function () {
   const promptOf = (d, s) => isLx(d) ? LXN.prompt(d) : isWn(d) ? WINN.prompt(d) : NL.prompt(d, s);
   // Führt fn gegen ein bestimmtes Netz aus (auch beim Aufbau von Szenarien, wenn S.net ein anderes ist)
   function withNet(net, fn) { const keep = S; S = Object.assign({ sess: {}, out: {} }, S || {}, { net }); try { return fn(); } finally { S = keep; } }
+  // scp zwischen Linux-Servern (SSH muss laufen und die Firewall Port 22 erlauben)
+  function scpRun(net, d, L, args, root) {
+    if (args.length < 2) return 'usage: scp QUELLE ZIEL (eine Seite als benutzer@ip:/pfad)';
+    const rem = x => { const m = /^(?:(\w+)@)?(\d+\.\d+\.\d+\.\d+):(.*)$/.exec(x); return m ? { user: m[1] || 'admin', ip: m[2], path: m[3] || '.' } : { path: x }; }, s0 = rem(args[0]), t0 = rem(args[1]);
+    if (!!s0.ip === !!t0.ip) return 'scp: Genau eine Seite muss die Form benutzer@ip:/pfad haben.';
+    const r = s0.ip ? s0 : t0, sv = Object.values(net.devs).find(x => x.type === 'server' && x.ports.some(p => (NL.hip(x, p) || {}).ip === r.ip));
+    if (!sv || !LXN.isLinux(sv)) return `ssh: connect to host ${r.ip} port 22: Connection refused`;
+    const pr = NL.ping(net, d.id, r.ip, { proto: 'tcp', port: 22 }); if (!pr.ok) return `ssh: connect to host ${r.ip} port 22: Connection timed out (${pr.reason})`;
+    const RL = LXN.init(sv); if (!RL.pkgs.includes('openssh-server') || !(RL.units.ssh && RL.units.ssh.active)) return `ssh: connect to host ${r.ip} port 22: Connection refused (auf ${sv.cfg.hostname} läuft kein SSH-Dienst)`;
+    if (RL.ufw.on && !RL.ufw.allow.some(a => String(a).split('/')[0] === '22')) return `ssh: connect to host ${r.ip} port 22: Connection timed out (ufw auf ${sv.cfg.hostname} blockt Port 22)`;
+    if (!RL.users.includes(r.user)) return `${r.user}@${r.ip}: Permission denied (publickey,password).`;
+    const abs = (Lx, cwd, p) => (p.startsWith('/') ? p : (cwd + '/' + p)).replace(/\/+/g, '/').replace(/\/$/, '') || '/', canW = (user, rt, p) => rt || user === 'root' || p.startsWith('/home/' + user + '/') || p.startsWith('/tmp/');
+    const src = s0.ip ? { L: RL, p: abs(RL, '/home/' + r.user, s0.path) } : { L, p: abs(L, L.cwd, s0.path) }; const e = src.L.fs[src.p]; if (!e || e.d) return `scp: ${s0.path}: No such file or directory`;
+    let dst; if (t0.ip) { dst = { L: RL, user: r.user, rt: r.user === 'root', p: abs(RL, '/home/' + r.user, t0.path) }; } else { dst = { L, user: L.user, rt: root, p: abs(L, L.cwd, t0.path) }; }
+    if (dst.L.fs[dst.p] && dst.L.fs[dst.p].d) dst.p += '/' + src.p.split('/').pop(); const dir = dst.p.replace(/\/[^/]*$/, '') || '/';
+    if (!dst.L.fs[dir] || !dst.L.fs[dir].d) return `scp: ${t0.ip ? t0.path : dst.p}: No such file or directory`; if (!canW(dst.user, dst.rt, dst.p)) return `scp: ${t0.ip ? t0.path : dst.p}: Permission denied`;
+    dst.L.fs[dst.p] = { t: e.t, o: dst.user, m: e.m || '644' }; return `${src.p.split('/').pop()}                                  100% ${e.t.length}     1.0KB/s   00:00`;
+  }
   function lxCtx(net) {
     net = net || S.net;
     return {
       net, ifaces: d => d.ports.filter(p => !isMg(p)).map((p, i) => { const h = hip(d, p) || {}; return { lin: 'eth' + i, alias: 'Ethernet' + i, port: p, ip: h.ip || null, mask: h.mask || null, up: NL.portStatus(net, d.id, p).st === 'connected' }; }),
-      luns: d => STORN.hostLuns(net, d), setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => withNet(net, () => resolve(d, n)), virsh: (d, a, root) => VIRTN.virsh(net, d, a, root), ctr: (d, L, tool, a, root, online) => CTRN.run(d, L, tool, a, root, { online, day: net.day || 0 }), reach: (d, ip) => NL.ping(net, d.id, ip).ok, ping: (d, ip, flow) => NL.ping(net, d.id, ip, flow), net,
+      luns: d => STORN.hostLuns(net, d), setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => withNet(net, () => resolve(d, n)), virsh: (d, a, root) => VIRTN.virsh(net, d, a, root), ctr: (d, L, tool, a, root, online) => CTRN.run(d, L, tool, a, root, { online, day: net.day || 0 }), pki: (d, L, a, root) => PKIN.run(d, L, a, root, { day: net.day || 0 }), scp: (d, L, a, root) => scpRun(net, d, L, a, root), reach: (d, ip) => NL.ping(net, d.id, ip).ok, ping: (d, ip, flow) => NL.ping(net, d.id, ip, flow), net,
       fallback: (d, line) => withNet(net, () => hostLine(d, (S && S.sess && S.sess[d.id]) || NL.newSess(), line))
     };
   }
@@ -1275,7 +1301,20 @@ const Sandbox = (function () {
       if (d.type === 'wlc' && /^show (client summary|wireless client summary)/.test(lw)) { const ip = (hip(d, d.ports[0]) || {}).ip, cl = []; Object.values(S.net.devs).filter(x => x.type === 'ap' && NL.apState(x).wlc === ip).forEach(a => NL.apClients(S.net, a).forEach(c => cl.push(`${c.cfg.hostname.padEnd(16)} ${a.cfg.hostname.padEnd(10)} ${(c.wifi || {}).ssid}`))); return cl.length ? ['Client           AP         SSID', ...cl].join('\n') : 'Keine Clients verbunden.'; }
     }
     if (c0 === 'nslookup' && t[1]) { const r = resolve(d, t[1]); return r.err ? '*** ' + r.err : `Server:  ${d.cfg.dns}\nName:    ${t[1]}\nAddress: ${r.ip}`; }
-    if (c0 === 'curl' && t[1]) { const r = httpGet(d, t[1]); return r.err ? 'curl: ' + r.err + (r.why ? '\n[Ping-Debugger] ' + r.why : '') : `HTTP/1.1 200 OK (${r.scheme}://${r.host} → ${r.ip}:${r.port})\n\n${r.title}\n${r.body}`; }
+    if (c0 === 'certmgr') {
+      const sub = (t[1] || '').toLowerCase(), tl = d.trust || [];
+      if (sub === 'list' || !sub) return tl.length ? 'Vertrauenswürdige Stammzertifikate:\n' + tl.map(x => `  ${x.cn}  (gültig bis ${PKIN.isoOf(x.na)})`).join('\n') : 'Keine eigenen Stammzertifikate importiert.\nImport: certmgr import <Servername>:<Pfad zur .crt>';
+      if (sub === 'remove') { const n = PKIN.trustRemove(d, t.slice(2).join(' ')); return n ? 'Entfernt.' : 'Nicht gefunden. Namen mit certmgr list ansehen.'; }
+      if (sub === 'import') {
+        const m = /^([^:]+):(\/.+)$/.exec(t[2] || ''); if (!m) return 'Verwendung: certmgr import <Servername>:<Pfad>   z. B. certmgr import SRV-CA:/etc/ssl/ca/ca.crt';
+        const sv = Object.values(S.net.devs).find(x => x.type === 'server' && x.cfg.hostname.toLowerCase() === m[1].toLowerCase() && x.id !== d.id); if (!sv || !LXN.isLinux(sv)) return `Server „${m[1]}“ nicht gefunden.`;
+        const ipx = sv.ports.map(p => (hip(sv, p) || {}).ip).find(Boolean); if (!ipx || !NL.ping(S.net, d.id, ipx).ok) return `Keine Verbindung zu ${m[1]}.`;
+        const e = LXN.init(sv).fs[m[2]]; if (!e || e.d) return `Datei ${m[2]} existiert auf ${m[1]} nicht.`; const x = PKIN.parse(e.t); if (!x || x.kind !== 'cert') return 'Die Datei enthält kein Zertifikat (PEM).';
+        const r = PKIN.trustAdd(d, x.o); return r.err || (r.dup ? `„${x.o.cn}“ war schon importiert.` : `Importiert: „${x.o.cn}“ ist jetzt vertrauenswürdig.`);
+      }
+      return 'Verwendung: certmgr list | certmgr import <Server>:<Pfad> | certmgr remove <Name>';
+    }
+    if (c0 === 'curl' && t.slice(1).some(x => !x.startsWith('-'))) { const ins = t.includes('-k') || t.includes('--insecure'), r = httpGet(d, t.slice(1).filter(x => !x.startsWith('-')).pop(), { insecure: ins }); return r.err ? (r.certErr ? 'curl: (60) SSL certificate problem: ' + r.err + '\nMit curl -k lässt sich die Prüfung ausschalten (nur zum Testen).' : 'curl: ' + r.err) + (r.why ? '\n[Ping-Debugger] ' + r.why : '') : `HTTP/1.1 200 OK (${r.scheme}://${r.host} → ${r.ip}:${r.port})\n\n${r.title}\n${r.body}`; }
     if (c0 === 'ipconfig' && t[1] && /^\/renew$/i.test(t[1])) { if (!d.cfg.dhcp) return 'Der Adapter ist nicht für DHCP konfiguriert. In der IP-Konfiguration „DHCP“ wählen.'; let o; act(() => { const r = dhcpRequest(d); o = r.err ? 'DHCP fehlgeschlagen: ' + r.err : `DHCP-Zuweisung von ${r.server}:\n  IP-Adresse . . . . : ${r.ip}\n  Subnetzmaske . . . : ${r.mask}\n  Standardgateway  . : ${r.gw || '–'}\n  DNS-Server . . . . : ${r.dns || '–'}`; }); return o; }
     if (c0 === 'ipconfig' && t[1] && /^\/release$/i.test(t[1])) { act(() => { setHostIp(d, d.ports[0], null, null); d.cfg.gw = null; d.cfg.dns = null; Object.values(S.net.devs).forEach(x => { if (x.svc) delete x.svc.dhcp.leases[d.id]; }); }); return 'Adresse freigegeben.'; }
     if (c0 === 'ipconfig' && t[1] && /^\/all$/i.test(t[1])) return ex('show ip') + `\nDNS-Server: ${d.cfg.dns || '–'}\nDHCP: ${d.cfg.dhcp ? 'aktiviert' : 'deaktiviert'}`;
@@ -1433,6 +1472,24 @@ const Sandbox = (function () {
     rn(net, 'SRV-CT', ['ip 10.0.0.10/24 10.0.0.1']); rn(net, 'PC-1', ['ip 10.0.0.20/24 10.0.0.1']); const L = LXN.init(hd(net, 'SRV-CT')); L.ufw = { on: true, allow: ['22'] };
     if (o.docker) lxr(net, 'SRV-CT', ['sudo apt install docker.io', 'sudo systemctl enable --now docker']);
     if (o.k3s) lxr(net, 'SRV-CT', ['sudo apt install k3s', 'sudo systemctl enable --now k3s']);
+  }
+  // PKI-Lab: Switch, Router, CA-Server, Webserver (nginx), PC. o.ca: CA vorhanden, o.web: https eingerichtet, o.trust: PC kennt die CA
+  function pkiBase(net, o = {}) {
+    mk(net, 'C9200L-24T-4G', 360, 120, 'SW'); mk(net, 'ISR4321', 700, 120, 'R-GW'); lk(net, 'R-GW', RG + 0, 'SW', G + 24);
+    mk(net, 'HW-1288H-V5', 160, 340, 'SRV-CA'); mk(net, 'HW-1288H-V5', 360, 340, 'SRV-WEB'); mk(net, 'PC', 560, 340, 'PC-1'); lk(net, 'SRV-CA', 'eth0', 'SW', G + 1); lk(net, 'SRV-WEB', 'eth0', 'SW', G + 2); lk(net, 'PC-1', 'eth0', 'SW', G + 3);
+    rn(net, 'R-GW', ['interface g0/0/0', 'ip address 10.0.0.1 255.255.255.0', 'no shutdown']); rn(net, 'SW', ['interface vlan 1', 'ip address 10.0.0.2 255.255.255.0', 'no shutdown']);
+    rn(net, 'SRV-CA', ['ip 10.0.0.5/24 10.0.0.1']); rn(net, 'SRV-WEB', ['ip 10.0.0.10/24 10.0.0.1']); rn(net, 'PC-1', ['ip 10.0.0.20/24 10.0.0.1']);
+    const ca = hd(net, 'SRV-CA'), web = hd(net, 'SRV-WEB'), pc = hd(net, 'PC-1'); LXN.init(ca); LXN.init(web); LXN.init(web).ufw = { on: true, allow: ['22'] };
+    lxr(net, 'SRV-WEB', ['sudo apt install nginx', 'sudo systemctl enable --now nginx', 'sudo mkdir -p /etc/nginx/ssl']);
+    if (o.ca || o.web) {
+      lxr(net, 'SRV-CA', ['sudo mkdir -p /etc/ssl/ca']); const c = PKIN.mkCa(ca, 'Lab-CA', 0, 3650); LXN.saveFile(ca, '/etc/ssl/ca/ca.key', c.key); LXN.saveFile(ca, '/etc/ssl/ca/ca.crt', c.cert);
+      if (o.trust) PKIN.trustAdd(pc, c.certObj);
+      if (o.web) {
+        const key = PKIN.mkKey(web, 2048), cert = PKIN.mkCert(web, { cn: o.cn || 'web01.lab.local', san: o.san || ['DNS:web01.lab.local', 'IP:10.0.0.10'], kid: key.kid, issuer: 'Lab-CA', ik: c.keyObj.kid, ca: false, day: o.day === undefined ? 0 : o.day, days: o.days || 365 });
+        LXN.saveFile(web, '/etc/nginx/ssl/web.key', PKIN.pem('key', key)); LXN.saveFile(web, '/etc/nginx/ssl/web.crt', PKIN.pem('cert', cert));
+        LXN.saveFile(web, '/etc/nginx/nginx.conf', 'server {\n    listen 443 ssl;\n    server_name _;\n    ssl_certificate /etc/nginx/ssl/web.crt;\n    ssl_certificate_key /etc/nginx/ssl/web.key;\n    root /var/www/html;\n}\n'); lxr(net, 'SRV-WEB', ['sudo systemctl restart nginx', 'sudo ufw allow 443']);
+      }
+    }
   }
   // WLAN-Lab: PoE-Switch, Gateway, Webserver, Access Point(s), Clients
   function wlBase(net, o = {}) {
@@ -1820,6 +1877,34 @@ const Sandbox = (function () {
         { t: '<code>PC-1</code> lädt <code>http://10.0.0.10:30080</code>', c: n => !!httpGet(hd(n, 'PC-1'), 'http://10.0.0.10:30080').ok }],
       hints: ['<code>sudo kubectl get pods</code> zeigt den Status „ImagePullBackOff“. <code>sudo kubectl describe pod &lt;Name&gt;</code> nennt den Grund.', 'Das Image heißt <code>ngnix</code>, ein Tippfehler. Es gibt kein Image mit diesem Namen.', 'Korrigiere das Image: <code>sudo kubectl set image deployment/app nginx=nginx</code>, oder lösche das Deployment und lege es neu an.'],
       sol(net) { lxr(net, 'SRV-CT', ['sudo kubectl set image deployment/app nginx=nginx']); } }
+    ,
+    { id: 'sc-pki-new', kind: 'Aufbau', title: 'Zertifikate: Intranet mit eigener CA absichern', est: '35 min',
+      intro: 'Der Webserver <code>SRV-WEB</code> (10.0.0.10) soll per HTTPS erreichbar sein, und der Browser von <code>PC-1</code> soll keine Warnung zeigen. Baue dafür auf <code>SRV-CA</code> (10.0.0.5) eine eigene Zertifizierungsstelle, stelle ein Zertifikat für den Webserver aus (die Adresse 10.0.0.10 muss im Zertifikat stehen), trage es in nginx ein und lass PC-1 der CA vertrauen.',
+      build(net) { pkiBase(net); },
+      goals: [
+        { t: 'Auf <code>SRV-CA</code> gibt es ein CA-Zertifikat samt Schlüssel', c: n => { const d = hd(n, 'SRV-CA'); return PKIN.files(d, LXN.init(d), 0).some(f => f.kind === 'cert' && f.ca) && PKIN.files(d, LXN.init(d), 0).some(f => f.kind === 'key'); } },
+        { t: 'nginx auf <code>SRV-WEB</code> nutzt TLS mit einem Zertifikat dieser CA, in dem die IP 10.0.0.10 steht', c: n => { const w = hd(n, 'SRV-WEB').lx.web, ca = PKIN.files(hd(n, 'SRV-CA'), LXN.init(hd(n, 'SRV-CA')), 0).find(f => f.kind === 'cert' && f.ca); return !!(w && w.cert && ca && w.cert.ik === ca.kid && (w.cert.san || []).includes('IP:10.0.0.10')); } },
+        { t: '<code>PC-1</code> vertraut der CA', c: n => (hd(n, 'PC-1').trust || []).length > 0 },
+        { t: '<code>PC-1</code> öffnet <code>https://10.0.0.10</code> ohne Warnung', c: n => !!httpGet(hd(n, 'PC-1'), 'https://10.0.0.10').ok }],
+      hints: ['Web-GUI von SRV-CA → „Zertifikate“ → „CA anlegen“, danach „Server-Zertifikat ausstellen“ (SAN: <code>IP:10.0.0.10</code>). Der Name der CA ist egal, der Schlüssel bleibt auf SRV-CA.', 'Schlüssel und Zertifikat müssen auf den Webserver: <code>sudo scp /etc/ssl/10.0.0.10.crt admin@10.0.0.10:/tmp/</code> (und das .key aus /etc/ssl/private). In nginx: <code>listen 443 ssl;</code>, <code>ssl_certificate</code>, <code>ssl_certificate_key</code>. Dann <code>sudo nginx -t</code> und <code>sudo systemctl restart nginx</code>, und die Firewall: <code>sudo ufw allow 443</code>.', 'Auf PC-1 (Terminal): <code>certmgr import SRV-CA:/etc/ssl/ca/ca.crt</code>. Es ist das Zertifikat der CA, nicht das des Servers.'],
+      sol(net) { const ca = hd(net, 'SRV-CA'), web = hd(net, 'SRV-WEB'); lxr(net, 'SRV-CA', ['sudo mkdir -p /etc/ssl/ca', 'sudo openssl genrsa -out /etc/ssl/ca/ca.key 4096', 'sudo openssl req -x509 -new -key /etc/ssl/ca/ca.key -days 3650 -subj "/CN=Lab-CA" -out /etc/ssl/ca/ca.crt']);
+        lxr(net, 'SRV-WEB', ['sudo openssl genrsa -out /etc/nginx/ssl/web.key 2048', 'sudo openssl req -new -key /etc/nginx/ssl/web.key -out /tmp/web.csr -subj "/CN=web01.lab.local" -addext "subjectAltName=DNS:web01.lab.local,IP:10.0.0.10"', 'sudo scp /tmp/web.csr admin@10.0.0.5:/tmp/web.csr']);
+        lxr(net, 'SRV-CA', ['sudo openssl x509 -req -in /tmp/web.csr -CA /etc/ssl/ca/ca.crt -CAkey /etc/ssl/ca/ca.key -days 365 -out /tmp/web.crt', 'sudo scp /tmp/web.crt admin@10.0.0.10:/tmp/web.crt']); lxr(net, 'SRV-WEB', ['sudo cp /tmp/web.crt /etc/nginx/ssl/web.crt']);
+        LXN.saveFile(web, '/etc/nginx/nginx.conf', 'server {\n    listen 443 ssl;\n    ssl_certificate /etc/nginx/ssl/web.crt;\n    ssl_certificate_key /etc/nginx/ssl/web.key;\n    root /var/www/html;\n}\n'); lxr(net, 'SRV-WEB', ['sudo systemctl restart nginx', 'sudo ufw allow 443']); PKIN.trustAdd(hd(net, 'PC-1'), PKIN.parse(ca.lx.fs['/etc/ssl/ca/ca.crt'].t).o); } }
+    ,
+    { id: 'sc-pki-expired', kind: 'Fehlersuche', title: 'Zertifikate: Die Webseite zeigt eine Warnung', est: '25 min',
+      intro: 'Die Mitarbeitenden melden, dass <code>https://10.0.0.10</code> seit heute eine Sicherheitswarnung zeigt. Die eigene CA liegt auf <code>SRV-CA</code> (10.0.0.5), <code>PC-1</code> vertraut ihr schon. Finde die Ursache und erneuere das Zertifikat des Webservers.',
+      build(net) { pkiBase(net, { web: true, trust: true, day: -400, days: 365 }); },
+      goals: [{ t: '<code>PC-1</code> öffnet <code>https://10.0.0.10</code> ohne Warnung', c: n => !!httpGet(hd(n, 'PC-1'), 'https://10.0.0.10').ok }, { t: 'Das neu ausgestellte Zertifikat ist mindestens 300 Tage gültig', c: n => { const w = hd(n, 'SRV-WEB').lx.web; return !!(w && w.cert && w.cert.na - (n.day || 0) >= 300); } }],
+      hints: ['Die Fehlermeldung im Browser nennt den Grund. Mit <code>openssl x509 -in /etc/nginx/ssl/web.crt -noout -dates</code> siehst du die Laufzeit.', 'Das Zertifikat ist abgelaufen. Ein neues stellt die CA aus: Antrag mit dem vorhandenen Schlüssel erzeugen (<code>openssl req -new -key …</code>), per scp zur CA, dort signieren.', 'Neues Zertifikat auf den Webserver kopieren, über das alte legen und nginx neu laden (<code>sudo systemctl reload nginx</code>). Ohne Reload liefert nginx weiter das alte aus.'],
+      sol(net) { lxr(net, 'SRV-WEB', ['sudo openssl req -new -key /etc/nginx/ssl/web.key -out /tmp/web.csr -subj "/CN=web01.lab.local" -addext "subjectAltName=DNS:web01.lab.local,IP:10.0.0.10"', 'sudo scp /tmp/web.csr admin@10.0.0.5:/tmp/web.csr']); lxr(net, 'SRV-CA', ['sudo openssl x509 -req -in /tmp/web.csr -CA /etc/ssl/ca/ca.crt -CAkey /etc/ssl/ca/ca.key -days 365 -out /tmp/web.crt', 'sudo scp /tmp/web.crt admin@10.0.0.10:/tmp/web.crt']); lxr(net, 'SRV-WEB', ['sudo cp /tmp/web.crt /etc/nginx/ssl/web.crt', 'sudo systemctl reload nginx']); } }
+    ,
+    { id: 'sc-pki-name', kind: 'Fehlersuche', title: 'Zertifikate: Falscher Name im Zertifikat', est: '25 min',
+      intro: 'Die Kollegen rufen den Webserver über die Adresse <code>https://10.0.0.10</code> auf und bekommen eine Warnung, obwohl das Zertifikat gültig ist und die CA bekannt. Passe das Zertifikat so an, dass der Aufruf per IP-Adresse ohne Warnung klappt.',
+      build(net) { pkiBase(net, { web: true, trust: true, san: ['DNS:web01.lab.local'] }); },
+      goals: [{ t: '<code>PC-1</code> öffnet <code>https://10.0.0.10</code> ohne Warnung', c: n => !!httpGet(hd(n, 'PC-1'), 'https://10.0.0.10').ok }, { t: 'Das Zertifikat nennt die Adresse 10.0.0.10', c: n => { const w = hd(n, 'SRV-WEB').lx.web; return !!(w && w.cert && (w.cert.san || []).includes('IP:10.0.0.10')); } }],
+      hints: ['Browser vergleichen die Adresse mit der Liste im Zertifikat (SAN). Zeige sie mit <code>openssl x509 -in /etc/nginx/ssl/web.crt -noout -text</code>.', 'Im Zertifikat steht nur ein DNS-Name. Für eine IP-Adresse braucht es einen Eintrag <code>IP:10.0.0.10</code>.', 'Neuen Antrag mit <code>-addext "subjectAltName=DNS:web01.lab.local,IP:10.0.0.10"</code> erzeugen, von der CA signieren lassen und nginx neu laden.'],
+      sol(net) { lxr(net, 'SRV-WEB', ['sudo openssl req -new -key /etc/nginx/ssl/web.key -out /tmp/web.csr -subj "/CN=web01.lab.local" -addext "subjectAltName=DNS:web01.lab.local,IP:10.0.0.10"', 'sudo scp /tmp/web.csr admin@10.0.0.5:/tmp/web.csr']); lxr(net, 'SRV-CA', ['sudo openssl x509 -req -in /tmp/web.csr -CA /etc/ssl/ca/ca.crt -CAkey /etc/ssl/ca/ca.key -days 365 -out /tmp/web.crt', 'sudo scp /tmp/web.crt admin@10.0.0.10:/tmp/web.crt']); lxr(net, 'SRV-WEB', ['sudo cp /tmp/web.crt /etc/nginx/ssl/web.crt', 'sudo systemctl reload nginx']); } }
     ,
     { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
       intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',
@@ -2245,7 +2330,7 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, BKP: BKPN, CTR: CTRN, ctrOnline: d => LXN.online(lxCtx(S.net), d), bkH: () => bkH(S.net), advanceDays, day: () => S.net.day || 0, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, BKP: BKPN, CTR: CTRN, PKI: PKIN, ctrOnline: d => LXN.online(lxCtx(S.net), d), bkH: () => bkH(S.net), advanceDays, day: () => S.net.day || 0, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
@@ -2267,7 +2352,7 @@ const Sandbox = (function () {
 
   function close() { if (S) clearInterval(S._monT); document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, BKP: BKPN, CTR: CTRN, bkH: () => bkH(net), advanceDays: n => { for (let i = 0; i < n; i++) { net.day = (net.day || 0) + 1; BKPN.advance(net, bkH(net)); STORN.snapAdvance(net, net.day); } }, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, BKP: BKPN, CTR: CTRN, PKI: PKIN, bkH: () => bkH(net), advanceDays: n => { for (let i = 0; i < n; i++) { net.day = (net.day || 0) + 1; BKPN.advance(net, bkH(net)); STORN.snapAdvance(net, net.day); } }, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;
