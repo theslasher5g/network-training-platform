@@ -3,7 +3,7 @@ global.NL = require('../src/engine.js'); global.window = undefined;
 const SB = require('../src/sandbox.js'), GUI = require('../src/webgui.js');
 let bad = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) bad++; };
 const probe = SB.testApi(SB.example()); let pages = 0, kinds = new Set();
-for (const id of ['sc-lx-web', 'sc-st-lun', 'sc-win-ad', 'sc-win-dhcp', 'sc-vm-ha', 'sc-vm-migrate', 'sc-st-zone', 'sc-fw', 'sc-st-hm', 'sc-st-hm2', 'sc-wl-dev', 'sc-wl-wlc', 'sc-stp-root', 'sc-ec-mismatch', 'sc-ospf-dev', 'sc-eigrp-dev', 'sc-bgp-isp', 'sc-poe-budget']) {
+for (const id of ['sc-lx-web', 'sc-st-lun', 'sc-win-ad', 'sc-win-dhcp', 'sc-vm-ha', 'sc-vm-migrate', 'sc-st-zone', 'sc-fw', 'sc-st-hm', 'sc-st-hm2', 'sc-wl-dev', 'sc-wl-wlc', 'sc-stp-root', 'sc-ec-mismatch', 'sc-ospf-dev', 'sc-eigrp-dev', 'sc-bgp-isp', 'sc-poe-budget', 'sc-vpn-new', 'sc-vpn-dev', 'sc-mon-new']) {
   const net = probe.buildScen(id); const api = SB.testApi(net);
   for (const d of Object.values(net.devs)) {
     if (!GUI.hasGui(d)) continue; kinds.add(GUI.kindOf(d));

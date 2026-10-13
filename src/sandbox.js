@@ -12,6 +12,7 @@ const Sandbox = (function () {
   const WINN = typeof WIN !== 'undefined' ? WIN : require('./windows.js');
   const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
   const GUIN = typeof WEBGUI !== 'undefined' ? WEBGUI : require('./webgui.js');
+  const MONN = typeof MON !== 'undefined' ? MON : require('./monitor.js');
   const RTGN = typeof RTG !== 'undefined' ? RTG : require('./routing.js');
   const DESKN = typeof DESKTOP !== 'undefined' ? DESKTOP : require('./desktop.js');
   const SH = NL.sh, MODELS = NL.MODELS, CARDS = NL.CARDS, XCVR = NL.XCVR, KIND = NL.KIND, hip = NL.hip;
@@ -125,10 +126,10 @@ const Sandbox = (function () {
   // ---------------- open / toolbar ----------------
   const GROUPS = [['Switches', M => M.type === 'switch'], ['WLAN', M => M.type === 'ap' || M.type === 'wlc'], ['Router', M => M.type === 'router' && !M.fw], ['Firewall', M => M.fw], ['FC-Switch (SAN)', M => M.type === 'fc'], ['Server', M => M.type === 'server' && !M.icon], ['Storage', M => M.type === 'storage'], ['Endgeräte', M => M.type === 'pc' || M.icon]];
   function open(root) {
-    app = root; document.title = 'Netzplaner – NetLab'; initDL(); document.removeEventListener('keydown', escKey);
+    if (S && S._monT) clearInterval(S._monT); app = root; document.title = 'Netzplaner – NetLab'; initDL(); document.removeEventListener('keydown', escKey);
     const sid = store.get('sbxscen', null), sc = sid && SC.find(x => x.id === sid), net = sc ? (store.get('scen.' + sid) || buildScen(sid)) : (store.get('sandbox') || example()); migrate(net);
     S = { net, scen: sc ? sid : null, undo: [], redo: [], sel: null, port: null, cable: 'cu', cabling: false, pend: null, view: store.get('sbxview', 'plan'), mode: store.get('sbxmode', 'rt'), tool: 'select', pcat: 0, flyout: null, dock: 'ports', dockOpen: true, itab: 'port', _sp: null, pdus: [], pduN: 0, pduSrc: null, sim: null, ptab: 'pdu', tf: 'all', out: {}, sess: {}, hist: [], hi: 0, drag: null, toast: '' };
-    S.dockOpen = false; S.inspOpen = false; S.snap = !!store.get('sbxsnap', false); S.multi = new Set(); S.selNote = null;
+    S.mon = {}; S._monT = setInterval(monTick, 5000); S.dockOpen = false; S.inspOpen = false; S.snap = !!store.get('sbxsnap', false); S.multi = new Set(); S.selNote = null;
     S.sel = Object.keys(net.devs).find(id => net.devs[id].type === 'switch') || Object.keys(net.devs)[0] || null;
     app.innerHTML = `<div class="sbx">
       <header class="sbar">
@@ -673,6 +674,17 @@ const Sandbox = (function () {
     for (const id in S.net.devs) { const d = S.net.devs[id]; if (!d.boot || S._bt[id]) continue; const rest = d.boot.t0 + d.boot.ms - Date.now(); if (rest <= 0) { d.boot = null; continue; } S._bt[id] = setTimeout(() => { delete S._bt[id]; finishBoot(id); }, rest + 40); }
   }
   const downMsg = d => d.off ? `${d.cfg.hostname} ist ausgeschaltet. Schalte das Gerät ein, dann startet es.` : NL.booting(d) ? `${d.cfg.hostname} startet noch (Bootvorgang läuft).` : '';
+  // Monitoring und Syslog
+  const monH = () => ({ diskPct: d => { const u = LXN.diskUse(d); return u && u.total ? Math.round(u.used / u.total * 100) : null; }, unitCount: d => LXN.unitList(d).filter(u => u.active).length, vmCount: d => VIRTN.vmsOf(S.net, d.id).length });
+  function collectSyslog(id, text) {
+    const d = S.net.devs[id]; if (!d || NL.isHost(d) || d.fw && false) return;
+    for (const srv of MONN.syslogRoute(S.net, d, text)) { const st = (S.mon[srv.id] = S.mon[srv.id] || { hist: {}, probs: [], syslog: [] }); st.syslog.push({ t: Date.now(), host: d.cfg.hostname, sev: MONN.sevOf(text), text }); if (st.syslog.length > 300) st.syslog.splice(0, 60); }
+  }
+  function monTick() {
+    if (!S || !S.net) return; S.mon._H = monH(); let any = false;
+    for (const d of Object.values(S.net.devs)) if (d.type === 'server') any = MONN.tick(S.net, d, S.mon, Date.now()) || any;
+    if (any) GUIN.refreshAll('mon');
+  }
   function togglePower(id) { const d = S.net.devs[id]; if (d) { if (d.off) powerOn(id); else powerOff(id); } }
   function toggleOff(id) { togglePower(id); }
   function toggleOffOld(id) { const d = S.net.devs[id]; act(() => { d.off = !d.off; toast(d.off ? `<b>${esc(d.cfg.hostname)}</b> ist ausgeschaltet – alle Links daran sind down.` : `${esc(d.cfg.hostname)} läuft wieder.`); }); }
@@ -929,7 +941,7 @@ const Sandbox = (function () {
   }
 
   // ---------------- console ----------------
-  function push(id, c, t) { (S.out[id] = S.out[id] || []).push({ c, t }); if (S.out[id].length > 800) S.out[id].splice(0, 150); }
+  function push(id, c, t) { (S.out[id] = S.out[id] || []).push({ c, t }); if (c === 'log' && S.mon) collectSyslog(id, t); if (S.out[id].length > 800) S.out[id].splice(0, 150); }
   function ensureOut(id) { const d = S.net.devs[id]; if (!S.sess[id]) S.sess[id] = NL.newSess(); if (!S.out[id]) push(id, 'sys', isWn(d) ? `${d.cfg.hostname} – ${d.type === 'pc' ? 'Windows 11' : 'Windows Server 2022'} (PowerShell). Beispiele: Get-NetIPAddress, ipconfig /all, Get-Service. Hilfe: Get-Command.` : isLx(d) ? `${d.cfg.hostname} – Ubuntu 22.04 LTS (Terminal). Hilfe mit help. Dienste: systemctl, Pakete: apt, Dateien: ls cat echo sed. Systemdateien brauchen sudo.` : NL.isHost(d) ? `${d.cfg.hostname} – Konsole. Befehle: ip [Port] <IP>/<Präfix> [Gateway], show ip, ping, nc <IP> <Port>, trace.` : d.type === 'fc' ? `${d.cfg.hostname} – FC-Switch: Konfiguration über die Oberfläche, Zoning im Export.` : d.fw ? `${d.cfg.hostname} – ASA-Konsole. Einrichten über die Port-Karte oder per CLI (nameif, security-level, access-list, nat, route).` : `${d.cfg.hostname} – Konsole. ? zeigt Befehle. Auch: show interfaces status, show cdp neighbors, show inventory.`); }
   function drawOut() {
     const id = S.sel, d = id && S.net.devs[id];
@@ -1366,6 +1378,26 @@ const Sandbox = (function () {
     rn(net, 'R3', ['interface g0/0/0', 'ip address 10.23.0.3 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.3.0.1 255.255.255.0', 'no shutdown']);
     rn(net, 'H1', ['ip 10.1.0.10/24 10.1.0.1']); rn(net, 'H3', ['ip 10.3.0.10/24 10.3.0.1']);
   }
+  // VPN-Lab: zwei Standorte (RHQ, RBR) über einen Internet-Router (R-NET)
+  const vpnSide = (peer, tip, lan, psk = 'Vpn!Lab2026', o = {}) => ['crypto ikev2 proposal PROP-T0', 'encryption ' + (o.enc || 'aes-cbc-256'), 'integrity sha256', 'group 14', 'exit', 'crypto ikev2 policy POL-T0', 'proposal PROP-T0', 'exit', 'crypto ikev2 keyring KR-T0', 'peer SITE', 'address ' + peer, 'pre-shared-key ' + psk, 'exit', 'exit', 'crypto ikev2 profile IKE-T0', `match identity remote address ${peer} 255.255.255.255`, 'authentication remote pre-share', 'authentication local pre-share', 'keyring local KR-T0', 'exit',
+    'crypto ipsec transform-set TS-T0 ' + (o.esp || 'esp-aes 256') + ' esp-sha256-hmac', 'mode tunnel', 'exit', 'crypto ipsec profile IPS-T0', 'set transform-set TS-T0', 'set ikev2-profile IKE-T0', 'exit', 'interface Tunnel0', 'ip address ' + tip + ' 255.255.255.252', 'tunnel source g0/0/0', 'tunnel destination ' + peer, 'tunnel mode ipsec ipv4', 'tunnel protection ipsec profile IPS-T0', 'exit', ...(o.noRoute ? [] : ['ip route ' + lan + ' 255.255.255.0 Tunnel0'])];
+  function vpnBase(net, o = {}) {
+    mk(net, 'ISR4321', 200, 240, 'RHQ'); mk(net, 'ISR4321', 460, 240, 'R-NET'); mk(net, 'ISR4321', 720, 240, 'RBR'); mk(net, 'PC', 200, 440, 'PC-HQ'); mk(net, 'PC', 720, 440, 'PC-BR');
+    lk(net, 'RHQ', RG + 0, 'R-NET', RG + 0); lk(net, 'R-NET', RG + 1, 'RBR', RG + 0); lk(net, 'PC-HQ', 'eth0', 'RHQ', RG + 1); lk(net, 'PC-BR', 'eth0', 'RBR', RG + 1);
+    rn(net, 'RHQ', ['interface g0/0/0', 'ip address 203.0.113.1 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.1.0.1 255.255.255.0', 'no shutdown', 'ip route 0.0.0.0 0.0.0.0 203.0.113.254']);
+    rn(net, 'R-NET', ['interface g0/0/0', 'ip address 203.0.113.254 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 198.51.100.254 255.255.255.0', 'no shutdown']);
+    rn(net, 'RBR', ['interface g0/0/0', 'ip address 198.51.100.1 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.2.0.1 255.255.255.0', 'no shutdown', 'ip route 0.0.0.0 0.0.0.0 198.51.100.254']);
+    rn(net, 'PC-HQ', ['ip 10.1.0.10/24 10.1.0.1']); rn(net, 'PC-BR', ['ip 10.2.0.10/24 10.2.0.1']);
+    if (o.configured) { rn(net, 'RHQ', vpnSide('198.51.100.1', '172.16.0.1', '10.2.0.0', 'Vpn!Lab2026', o.hq)); rn(net, 'RBR', vpnSide('203.0.113.1', '172.16.0.2', '10.1.0.0', o.pskBr || 'Vpn!Lab2026', o.br)); }
+  }
+  // Monitoring-Lab: Switch, Router, Server, PC; SRV-MON noch ohne Monitoring
+  function monBase(net, o = {}) {
+    mk(net, 'C9200L-24T-4G', 360, 120, 'SW'); mk(net, 'ISR4321', 700, 120, 'R-GW'); lk(net, 'R-GW', RG + 0, 'SW', G + 24);
+    mk(net, 'HW-1288H-V5', 160, 340, 'SRV-MON'); mk(net, 'HW-1288H-V5', 360, 340, 'SRV-WEB'); mk(net, 'PC', 560, 340, 'PC-1'); lk(net, 'SRV-MON', 'eth0', 'SW', G + 1); lk(net, 'SRV-WEB', 'eth0', 'SW', G + 2); lk(net, 'PC-1', 'eth0', 'SW', G + 3);
+    rn(net, 'R-GW', ['interface g0/0/0', 'ip address 10.0.0.1 255.255.255.0', 'no shutdown']); rn(net, 'SW', ['interface vlan 1', 'ip address 10.0.0.2 255.255.255.0', 'no shutdown']);
+    rn(net, 'SRV-MON', ['ip 10.0.0.5/24 10.0.0.1']); rn(net, 'SRV-WEB', ['ip 10.0.0.10/24 10.0.0.1']); rn(net, 'PC-1', ['ip 10.0.0.20/24 10.0.0.1']);
+    LXN.init(hd(net, 'SRV-MON')); LXN.init(hd(net, 'SRV-WEB'));
+  }
   // WLAN-Lab: PoE-Switch, Gateway, Webserver, Access Point(s), Clients
   function wlBase(net, o = {}) {
     mk(net, 'C9200L-24P-4X', 360, 80, 'SW'); mk(net, 'ISR4331', 700, 80, 'R-GW'); lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24);
@@ -1659,6 +1691,39 @@ const Sandbox = (function () {
         { t: 'Mindestens 8 der 12 Kameras laufen weiter', c: n => [...Array(12).keys()].filter(i => NL.poePower(n, hd(n, 'CAM-' + (i + 1))).ok).length >= 8 }],
       hints: ['Prüfe im Switch (Web-GUI → Dashboard → PoE-Budget oder <code>show power inline</code>), welche Ports <code>power-deny</code> haben.', 'Das Budget wird in Port-Reihenfolge vergeben, außer Ports haben eine höhere Priorität.', 'Setze an den Ports der Access Points und Telefone (Gi1/0/13 bis 22) <code>power inline port priority high</code>. Die Kameras bekommen dann das, was übrig bleibt.'],
       sol(net) { rn(net, 'SW-PoE', ['interface range g1/0/13 - 22', 'power inline port priority high']); } }
+    ,
+    { id: 'sc-vpn-new', kind: 'Aufbau', title: 'VPN: Zwei Standorte verbinden', est: '30 min',
+      intro: 'Die Zentrale <code>RHQ</code> (LAN 10.1.0.0/24, WAN 203.0.113.1) und die Filiale <code>RBR</code> (LAN 10.2.0.0/24, WAN 198.51.100.1) sind über das „Internet“ (<code>R-NET</code>) verbunden. Baue ein Site-to-Site-VPN mit IPsec (IKEv2, Schlüssel <code>Vpn!Lab2026</code>), sodass die PCs beider Standorte sich erreichen. Tunnel-Adressen: 172.16.0.1 (RHQ) und 172.16.0.2 (RBR).',
+      build(net) { vpnBase(net); },
+      goals: [
+        { t: 'Der Tunnel auf <code>RHQ</code> ist Up', c: n => !!hd(n, 'RHQ').cfg.ifs.Tunnel0 && NL.tunnel(n, hd(n, 'RHQ').id, 'Tunnel0').up },
+        { t: 'Der Tunnel auf <code>RBR</code> ist Up', c: n => !!hd(n, 'RBR').cfg.ifs.Tunnel0 && NL.tunnel(n, hd(n, 'RBR').id, 'Tunnel0').up },
+        { t: '<code>PC-HQ</code> erreicht <code>PC-BR</code>', c: n => pg(n, 'PC-HQ', '10.2.0.10') },
+        { t: '<code>PC-BR</code> erreicht <code>PC-HQ</code>', c: n => pg(n, 'PC-BR', '10.1.0.10') }],
+      hints: ['Web-GUI von RHQ → „Site-to-Site-VPN“ → VPN-Assistent. Trage die WAN-Adresse der Filiale als Peer ein.', 'Auf RBR machst du dasselbe gespiegelt: Peer ist 203.0.113.1, Tunnel-Adresse 172.16.0.2, Netz der Gegenseite 10.1.0.0. Schlüssel und Algorithmen müssen übereinstimmen.', 'Im Tunnel-Status steht bei Down der Grund. Ohne Route zum Netz der Gegenseite (der Assistent legt sie an) geht kein Verkehr durch den Tunnel.'],
+      sol(net) { rn(net, 'RHQ', vpnSide('198.51.100.1', '172.16.0.1', '10.2.0.0')); rn(net, 'RBR', vpnSide('203.0.113.1', '172.16.0.2', '10.1.0.0')); } }
+    ,
+    { id: 'sc-vpn-dev', kind: 'Fehlersuche', title: 'VPN: Tunnel bleibt unten', est: '25 min',
+      intro: 'Das VPN zwischen <code>RHQ</code> und <code>RBR</code> wurde eingerichtet, die PCs <code>PC-HQ</code> und <code>PC-BR</code> erreichen sich aber nicht. Die Gegenstellen sind zwar konfiguriert, doch der Tunnel kommt nicht hoch. Danach fehlt noch etwas für den Datenverkehr. Es gibt drei Fehler.',
+      build(net) { vpnBase(net, { configured: true, pskBr: 'Vpn!Lab2025', br: { esp: 'esp-aes 128', noRoute: true } }); },
+      goals: [
+        { t: 'Der Tunnel auf <code>RBR</code> ist Up', c: n => NL.tunnel(n, hd(n, 'RBR').id, 'Tunnel0').up },
+        { t: '<code>RBR</code> hat eine Route zum Netz 10.1.0.0/24 durch den Tunnel', c: n => hd(n, 'RBR').cfg.routes.some(r => r.net === '10.1.0.0' && r.ifn === 'Tunnel0') },
+        { t: '<code>PC-HQ</code> erreicht <code>PC-BR</code>', c: n => pg(n, 'PC-HQ', '10.2.0.10') },
+        { t: '<code>PC-BR</code> erreicht <code>PC-HQ</code>', c: n => pg(n, 'PC-BR', '10.1.0.10') }],
+      hints: ['Die Web-GUI von RBR (Site-to-Site-VPN) zeigt beim Tunnel den Grund für „Down“. Er ändert sich, wenn du einen Fehler behoben hast.', 'Der Pre-Shared Key stimmt nicht überein (…2025 gegen …2026), und das IPsec-Transform-Set nutzt auf einer Seite AES-128, auf der anderen AES-256.', 'Wenn der Tunnel steht, fehlt auf RBR noch die Route: <code>ip route 10.1.0.0 255.255.255.0 Tunnel0</code>.'],
+      sol(net) { rn(net, 'RBR', ['crypto ikev2 keyring KR-T0', 'peer SITE', 'pre-shared-key Vpn!Lab2026', 'exit', 'exit', 'crypto ipsec transform-set TS-T0 esp-aes 256 esp-sha256-hmac', 'mode tunnel', 'exit', 'ip route 10.1.0.0 255.255.255.0 Tunnel0']); } }
+    ,
+    { id: 'sc-mon-new', kind: 'Aufbau', title: 'Monitoring: Das Netz überwachen', est: '30 min',
+      intro: 'Im Netz gibt es noch keine Überwachung. Richte auf dem Server <code>SRV-MON</code> (10.0.0.5) ein Monitoring mit Zabbix ein. Es soll Switch, Router, Server und PC per Ping überwachen, den Switch und den Router per SNMP abfragen (Community <code>public</code>) und die Syslog-Meldungen der beiden Netzwerkgeräte sammeln.',
+      build(net) { monBase(net); },
+      goals: [
+        { t: 'Auf <code>SRV-MON</code> läuft der Dienst <code>zabbix-server</code>', c: n => MONN.isMonitor(n, hd(n, 'SRV-MON')) },
+        { t: 'Mindestens vier Hosts werden überwacht', c: n => MONN.zbx(hd(n, 'SRV-MON')).hosts.length >= 4 },
+        { t: '<code>SW</code> und <code>R-GW</code> haben eine SNMP-Community <code>public</code>', c: n => ['SW', 'R-GW'].every(h => MONN.communities(hd(n, h)).includes('public')) },
+        { t: '<code>SW</code> und <code>R-GW</code> senden Syslog an 10.0.0.5', c: n => ['SW', 'R-GW'].every(h => hd(n, h).cfg.lines.some(l => /^logging (host )?10\.0\.0\.5/i.test(l))) }],
+      hints: ['Installiere das Paket auf SRV-MON: Web-GUI → „Software“, oder <code>sudo apt install zabbix-server</code>, dann <code>sudo systemctl enable --now zabbix-server</code>.', 'Danach erscheint in der Web-GUI des Servers der Punkt „Monitoring“. Unter „Hosts“ findet „Netz durchsuchen“ alle Geräte mit IP-Adresse.', 'Auf Switch und Router: <code>snmp-server community public RO</code> und <code>logging host 10.0.0.5</code>. Unter „Einrichtung“ siehst du, was noch fehlt.'],
+      sol(net) { lxr(net, 'SRV-MON', ['sudo apt install zabbix-server', 'sudo systemctl enable --now zabbix-server']); MONN.discover(net, hd(net, 'SRV-MON')); rn(net, 'SW', ['snmp-server community public RO', 'logging host 10.0.0.5']); rn(net, 'R-GW', ['snmp-server community public RO', 'logging host 10.0.0.5']); } }
     ,
     { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
       intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',
@@ -2084,7 +2149,7 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, NL, RTG: RTGN, dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
@@ -2104,9 +2169,9 @@ const Sandbox = (function () {
     return { id: dev.id };
   }
 
-  function close() { document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
+  function close() { if (S) clearInterval(S._monT); document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;

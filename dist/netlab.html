@@ -732,6 +732,9 @@ table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vert
 @keyframes blink{50%{opacity:.25}}
 .wlink{fill:none;stroke:#0ea5a4;stroke-width:2;stroke-dasharray:2 5;stroke-linecap:round;pointer-events:none}.wlink.dn{stroke:var(--red);opacity:.5}
 .chk{display:flex;gap:.5rem;align-items:center;font-size:.84rem;margin:.3rem 0}
+.wg-spark{width:100%;height:64px;display:block}.wg-sp-l{fill:none;stroke:var(--wga);stroke-width:2;stroke-linejoin:round}.wg-sp-l.cpu{stroke:#d97706}.wg-sp-thr{stroke:#dc2626;stroke-width:1;stroke-dasharray:4 4}.wg-sp-t{fill:#8a96a6;font:12px var(--sans)}
+.wg-tiles{display:flex;flex-wrap:wrap;gap:.5rem}.wg-tile{display:flex;flex-direction:column;min-width:120px;padding:.5rem .8rem;border-radius:10px;border:1px solid #dde3ec;background:#f4f7fa;line-height:1.3}.wg-tile span{font-size:.78rem;color:#6a7686}.wg-tile.ok{background:#e9f7ef;border-color:#bfe5cf}.wg-tile.down{background:#fdecec;border-color:#f4bdbd}.wg-tile.warn{background:#fff6e5;border-color:#f1d9a0}
+.wg-cnt{display:inline-block;background:#dc2626;color:#fff;border-radius:99px;font-size:.7rem;padding:0 .4rem;margin-left:.2rem}.wg-big.wg-bad{color:#dc2626}
 .stpl[hidden]{display:none}.stpl{display:flex;align-items:center;gap:.4rem;font-size:.82rem;color:var(--muted)}.stpl select{border:1px solid var(--line);border-radius:8px;padding:.25rem .4rem;font:inherit;background:var(--panel);color:var(--ink)}
 .stpx circle{fill:#f59e0b;stroke:#fff;stroke-width:1.2}.stpx path{stroke:#fff;stroke-width:1.8;stroke-linecap:round}.lw.stpb .wire:not(.hit){stroke-dasharray:6 5}
 .rootb rect{fill:#0ea5a4}.rootb text{fill:#fff;font:700 9px var(--sans);text-anchor:middle;letter-spacing:.04em}
@@ -2925,7 +2928,9 @@ const LX = (function () {
     htop: { d: 'Prozessanzeige', bins: ['htop'] }, vim: { d: 'Editor', bins: ['vim'] }, tree: { d: 'Verzeichnisbaum', bins: ['tree'] },
     'net-tools': { d: 'ifconfig, netstat', bins: ['ifconfig', 'netstat', 'route', 'arp'] }, dnsutils: { d: 'dig', bins: ['dig'] }, tcpdump: { d: 'Paketmitschnitt', bins: ['tcpdump'] },
     'multipath-tools': { d: 'Multipathing für SAN-LUNs', bins: ['multipath', 'multipathd'] },
-    'quorum-server': { d: 'HyperMetro-Quorum-Server (Schiedsrichter für zwei Storage-Arrays)', units: ['quorum-server'], bins: ['quorumd'] }
+    'quorum-server': { d: 'HyperMetro-Quorum-Server (Schiedsrichter für zwei Storage-Arrays)', units: ['quorum-server'], bins: ['quorumd'] },
+    'zabbix-server': { d: 'Monitoring-Server (Zabbix): ICMP, SNMP, Trigger, Syslog-Auswertung', units: ['zabbix-server'], bins: ['zabbix_server'] },
+    'zabbix-agent': { d: 'Monitoring-Agent für Server (CPU, RAM, Platte)', units: ['zabbix-agent'], bins: ['zabbix_agentd'] }
   };
   const PRE = ['curl', 'nano', 'ufw', 'openssh-server'];
   const UNITS = {
@@ -2933,6 +2938,8 @@ const LX = (function () {
     bind9: { d: 'BIND Domain Name Server', svc: 'dns', port: '53', proto: 'udp', proc: 'named' },
     'isc-dhcp-server': { d: 'ISC DHCP IPv4 server', svc: 'dhcp', port: '67', proto: 'udp', proc: 'dhcpd' },
     'quorum-server': { d: 'HyperMetro Quorum Server', port: '30002', proto: 'tcp', proc: 'quorumd' },
+    'zabbix-server': { d: 'Zabbix Server', port: '10051', proto: 'tcp', proc: 'zabbix_server' },
+    'zabbix-agent': { d: 'Zabbix Agent', port: '10050', proto: 'tcp', proc: 'zabbix_agentd' },
     ssh: { d: 'OpenBSD Secure Shell server', port: '22', proto: 'tcp', proc: 'sshd' }, cron: { d: 'Regular background program processing daemon', proc: 'cron' }, rsyslog: { d: 'System Logging Service', proc: 'rsyslogd' }
   };
   const ALIAS = { sshd: 'ssh', named: 'bind9', dhcpd: 'isc-dhcp-server', 'isc-dhcp': 'isc-dhcp-server' };
@@ -2944,7 +2951,7 @@ const LX = (function () {
 
   // ---------- Zustand ----------
   function init(d) {
-    if (d.lx) { if (!d.lx.units['quorum-server']) d.lx.units['quorum-server'] = { enabled: false, active: false, seen: null }; return d.lx; }
+    if (d.lx) { ['quorum-server', 'zabbix-server', 'zabbix-agent'].forEach(u => { if (!d.lx.units[u]) d.lx.units[u] = { enabled: false, active: false, seen: null }; }); return d.lx; }
     const sv = d.svc || {}, name = d.cfg.hostname, fs = {};
     const dir = (p, o) => { fs[p] = { d: 1, o: o || 'root' }; }, file = (p, t, o, m) => { fs[p] = { t, o: o || 'root', m: m || '644' }; };
     ['/', '/bin', '/sys', '/sys/class', '/sys/class/scsi_host', '/sys/class/scsi_host/host0', '/sys/class/scsi_host/host1', '/etc', '/etc/nginx', '/etc/bind', '/etc/dhcp', '/home', '/root', '/tmp', '/usr', '/usr/bin', '/var', '/var/log', '/var/log/nginx', '/var/www', '/var/www/html', '/opt', '/srv', '/dev', '/proc'].forEach(p => dir(p));
@@ -2959,7 +2966,7 @@ const LX = (function () {
     if (pk.has('bind9')) file('/etc/bind/db.lab', DB_SAMPLE + (sv.dns && sv.dns.records || []).map(r => `${r.name}. IN A ${r.ip === '@' ? (d.cfg.ip || '0.0.0.0') : r.ip}`).join('\n') + '\n');
     if (pk.has('isc-dhcp-server')) { const p = sv.dhcp || {}; file('/etc/dhcp/dhcpd.conf', p.start && p.mask ? dhcpText(d, p) : DHCP_SAMPLE); }
     const units = {}; Object.keys(UNITS).forEach(u => { units[u] = { enabled: true, active: !UNITS[u].svc, seen: null }; });
-    units['quorum-server'].active = false; units['quorum-server'].enabled = false;
+    ['quorum-server', 'zabbix-server', 'zabbix-agent'].forEach(u => { units[u].active = false; units[u].enabled = false; });
     Object.keys(UNITS).forEach(u => { const s = UNITS[u].svc; if (s) { units[u].active = !!(sv[s] && sv[s].on); units[u].seen = units[u].active; units[u].enabled = units[u].active; } });
     d.lx = { user: 'admin', root: false, cwd: '/home/admin', fs, pkgs: [...pk], units, users: ['root', 'admin'], fail: {}, log: [], ufw: { on: false, allow: [] }, pid: 600, scsi: null, fmt: {}, mounts: {} };
     return d.lx;
@@ -3346,6 +3353,79 @@ const LX = (function () {
 })();
 if (typeof module !== 'undefined') module.exports = LX;
 
+// ===================== NetLab Monitoring (Zabbix-ähnlich) =====================
+// Ein Linux-Server mit dem Paket zabbix-server fragt Geräte per ICMP und SNMP ab (Erreichbarkeit, Latenz, CPU,
+// Speicher, Verkehr), wertet Trigger aus und sammelt Syslog-Meldungen. Der Verlauf liegt nur im Arbeitsspeicher.
+const MON = (function () {
+  const N = typeof NL !== 'undefined' ? NL : require('./engine.js');
+  const MAXH = 120;
+  const hash = s => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; };
+  const nz = (key, t) => (hash(key + '|' + Math.floor(t / 5000)) % 1000) / 1000;
+  const zbx = d => d.zbx || (d.zbx = { hosts: [], sysSrc: true });
+  const devIp = (d) => { if (N.isHost(d)) { for (const p of d.ports) { const h = N.hip(d, p); if (h && h.ip) return h.ip; } return null; } const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip && !k.startsWith('Tunnel')); return n ? d.cfg.ifs[n].ip : null; };
+  const unitOn = (d, u) => !!(d.lx && d.lx.pkgs && d.lx.pkgs.includes(u) && d.lx.units[u] && d.lx.units[u].active);
+  const isMonitor = (net, d) => !!d && d.type === 'server' && !N.isDown(d) && unitOn(d, 'zabbix-server');
+  const isSyslog = (net, d) => !!d && d.type === 'server' && !N.isDown(d) && !!d.lx && d.lx.units.rsyslog && d.lx.units.rsyslog.active;
+  const communities = d => d.cfg.lines.map(l => l.match(/^snmp-server community (\S+) (ro|rw)/i)).filter(Boolean).map(m => m[1]);
+  const syslogTargets = d => d.cfg.lines.map(l => l.match(/^logging (?:host )?(\d+\.\d+\.\d+\.\d+)/i)).filter(Boolean).map(m => m[1]);
+  const sevOf = t => { const m = /^%[A-Z0-9_-]+-(\d)-/.exec(t); return m ? +m[1] : 6; };
+
+  // ---------- Messwerte ----------
+  function sample(net, srv, h, t, H) {
+    const d = net.devs[h.dev]; const s = { t, up: false, rtt: null, snmp: null, cpu: null, mem: null, disk: null, inK: null, outK: null, why: '' };
+    if (!d) { s.why = 'Gerät existiert nicht mehr'; return s; }
+    const ip = devIp(d); if (!ip) { s.why = 'Das Gerät hat keine IP-Adresse'; return s; }
+    const r = N.ping(net, srv.id, ip); s.up = !!r.ok; if (!s.up) { s.why = r.reason || 'nicht erreichbar'; return s; }
+    s.rtt = Math.round(((r.path ? r.path.length : 1) * 1.4 + nz('rtt' + d.id, t) * 1.2) * 10) / 10;
+    const net_ = !N.isHost(d), conn = d.ports.filter(p => N.portStatus(net, d.id, p).st === 'connected').length;
+    if (net_) {
+      if (h.snmp) { const cs = communities(d); s.snmp = cs.includes(h.snmp); if (!s.snmp) s.why = cs.length ? `SNMP: Community „${h.snmp}“ stimmt nicht` : 'SNMP: auf dem Gerät ist keine Community konfiguriert (snmp-server community)'; }
+      if (s.snmp) {
+        let cpu = 6 + conn * 0.9 + (N.isRouter(d) ? 9 : 0) + nz('cpu' + d.id, t) * 6;
+        if (d.type === 'switch') { for (const v of Object.keys(d.cfg.vlans).map(Number)) { if (N.stp(net, v).storm.has(d.id)) { cpu = 97 + nz('st' + d.id, t) * 2; break; } } }
+        s.cpu = Math.min(100, Math.round(cpu * 10) / 10); s.mem = Math.round((28 + conn * 0.7 + nz('mem' + d.id, t) * 3) * 10) / 10;
+        s.inK = Math.round(conn * 140 * (0.7 + nz('in' + d.id, t) * 0.6)); s.outK = Math.round(conn * 110 * (0.7 + nz('out' + d.id, t) * 0.6));
+      }
+    } else if (h.agent && H && d.type === 'server' && unitOn(d, 'zabbix-agent')) {
+      const up = H.unitCount ? H.unitCount(d) : 2, vms = H.vmCount ? H.vmCount(d) : 0;
+      s.snmp = true; s.cpu = Math.min(100, Math.round((5 + up * 5 + vms * 12 + nz('cpu' + d.id, t) * 7) * 10) / 10); s.mem = Math.min(100, Math.round((18 + up * 4 + vms * 15 + nz('mem' + d.id, t) * 4) * 10) / 10);
+      s.disk = H.diskPct ? H.diskPct(d) : null; s.inK = Math.round(conn * 90 * (0.6 + nz('in' + d.id, t) * 0.8)); s.outK = Math.round(conn * 70 * (0.6 + nz('out' + d.id, t) * 0.8));
+    } else if (h.agent && d.type === 'server') { s.snmp = false; s.why = 'Zabbix-Agent läuft nicht (Paket zabbix-agent installieren und starten)'; }
+    return s;
+  }
+
+  // ---------- Trigger ----------
+  const SEV = { 4: 'Katastrophe', 3: 'Hoch', 2: 'Mittel', 1: 'Warnung', 0: 'Info' };
+  function evalTriggers(net, srv, S, t) {
+    const st = S[srv.id] = S[srv.id] || { hist: {}, probs: [], syslog: [] }; const open = k => st.probs.find(p => p.key === k && !p.until);
+    const need = (key, on, host, sev, text) => { const cur = open(key); if (on && !cur) st.probs.push({ key, host, sev, text, since: t, until: null }); else if (!on && cur) cur.until = t; else if (on && cur) cur.text = text; };
+    for (const h of zbx(srv).hosts) {
+      const d = net.devs[h.dev]; const hist = (st.hist[h.dev] || []), last = hist.slice(-3), name = d ? d.cfg.hostname : h.dev; if (!d) continue;
+      need('down:' + h.dev, last.length >= 2 && last.slice(-2).every(x => !x.up), name, 4, `${name} ist nicht erreichbar${last.length && last[last.length - 1].why ? ' (' + last[last.length - 1].why + ')' : ''}`);
+      need('cpu:' + h.dev, last.length >= 3 && last.every(x => x.cpu !== null && x.cpu > 90), name, 3, `CPU-Auslastung auf ${name} über 90 %`);
+      need('disk:' + h.dev, last.length >= 1 && last[last.length - 1].disk !== null && last[last.length - 1].disk > 90, name, 2, `Speicherplatz auf ${name} fast voll`);
+      need('snmp:' + h.dev, last.length >= 2 && last.slice(-2).every(x => x.up && x.snmp === false), name, 1, `${name}: Abfrage per SNMP/Agent nicht möglich`);
+    }
+    if (st.probs.length > 200) st.probs.splice(0, st.probs.length - 200);
+  }
+  function tick(net, srv, S, t) {
+    if (!isMonitor(net, srv)) return false; const st = S[srv.id] = S[srv.id] || { hist: {}, probs: [], syslog: [] };
+    for (const h of zbx(srv).hosts) { const a = st.hist[h.dev] = st.hist[h.dev] || []; a.push(sample(net, srv, h, t, S._H)); if (a.length > MAXH) a.shift(); }
+    evalTriggers(net, srv, S, t); return true;
+  }
+  const availability = hist => hist.length ? Math.round(hist.filter(x => x.up).length / hist.length * 1000) / 10 : null;
+  function addHost(net, srv, devId, o = {}) { const z = zbx(srv); if (!net.devs[devId]) return { err: 'Gerät nicht gefunden' }; if (z.hosts.some(h => h.dev === devId)) return { err: 'Das Gerät wird schon überwacht.' }; const d = net.devs[devId]; z.hosts.push({ dev: devId, snmp: o.snmp !== undefined ? o.snmp : (N.isHost(d) ? '' : 'public'), agent: o.agent !== undefined ? !!o.agent : d.type === 'server' }); return { ok: true }; }
+  function discover(net, srv) { let n = 0; for (const d of Object.values(net.devs)) { if (d.id === srv.id || (d.model && N.MODELS[d.model] && N.MODELS[d.model].cloud)) continue; if (d.vm) continue; if (!devIp(d)) continue; if (addHost(net, srv, d.id).ok) n++; } return n; }
+  // Syslog: Gerät schickt an "logging host", Server muss rsyslog laufen haben und erreichbar sein
+  function syslogRoute(net, d, text) {
+    const out = []; for (const ip of syslogTargets(d)) { const srv = Object.values(net.devs).find(x => x.type === 'server' && devIp0(x).includes(ip)); if (!srv || !isSyslog(net, srv)) continue; const dip = devIp(d); if (!dip) continue; if (!N.ping(net, d.id, ip).ok) continue; out.push(srv); }
+    return out;
+  }
+  const devIp0 = d => d.ports.map(p => (N.hip(d, p) || {}).ip).filter(Boolean);
+  return { zbx, sample, tick, evalTriggers, availability, addHost, discover, isMonitor, isSyslog, syslogRoute, communities, devIp, sevOf, SEV, MAXH, unitOn };
+})();
+if (typeof module !== 'undefined') module.exports = MON;
+
 </script>
 <script>
 // ===================== NetLab Wiki =====================
@@ -3506,6 +3586,8 @@ const WIKI = (function () {
   art('vm-migration-ha', 'server', 'Migration, Cluster und HA', 'VMs verschieben und Ausfälle überstehen.', tbl(['Verfahren', 'Voraussetzung', 'Wirkung'], [['Kalte Migration', 'VM aus; Hosts im selben Cluster', 'VM zieht um, Platte bleibt, wenn sie auf dem Ziel erreichbar ist'], ['Live-Migration (vMotion)', 'VM auf gemeinsamem Datastore; Ziel sieht ihn; Ziel hat freien RAM', 'VM läuft ohne Unterbrechung auf anderem Host weiter'], ['HA (High Availability)', 'Cluster, gemeinsamer Datastore, Reserve-Kapazität', 'Fällt ein Host aus, starten seine VMs auf anderen Hosts neu (kurze Unterbrechung)']]) + `<p>Ein <b>Cluster</b> ist eine Gruppe von Hosts mit gleicher Netz- und Storage-Anbindung. Typische Fehler: Datastore nur für einen Host freigegeben, Hosts mit unterschiedlichen VLANs am vSwitch, kein RAM für den Ausfall eines Hosts (<b>N+1</b>-Kapazität fehlt).</p>` + plan('Szenarien: „VMs auf zwei Hosts verteilen“, „Live-Migration über SAN-Datastore“, „Host-Ausfall und HA“.'), ['vm-datastore', 'virt-grundlagen', 'spof']);
   art('virsh-kvm', 'server', 'virsh: VMs auf einem KVM-Host', 'Befehle im Terminal des Hypervisors.', tbl(['Befehl', 'Wirkung'], [['<code>virsh list --all</code>', 'Alle VMs mit Zustand'], ['<code>sudo virsh start WEB-VM</code>', 'VM starten'], ['<code>sudo virsh shutdown WEB-VM</code>', 'VM herunterfahren'], ['<code>virsh dominfo WEB-VM</code>', 'vCPU, RAM, VLAN, Datastore'], ['<code>virsh nodeinfo</code>', 'Kerne und RAM des Hosts'], ['<code>sudo virsh migrate --live WEB-VM HV2</code>', 'Live auf einen Cluster-Host verschieben']]) + `<p>Auf einem Server ohne Hypervisor-Rolle meldet <code>virsh</code>, dass es nicht zum Hypervisor verbinden kann.</p>`, ['virt-grundlagen', 'linux-grundlagen']);
   art('qos', 'l3', 'QoS: Sprache bevorzugen', 'Class-Map, Policy-Map und Service-Policy.', `<p><b>Quality of Service</b> sorgt dafür, dass wichtiger Verkehr (Sprache, Video) auch bei voller Leitung durchkommt. Ohne QoS werden Pakete in der Reihenfolge ihres Eintreffens bearbeitet, bei Stau gehen sie verloren oder verzögern sich. Sprache verträgt kaum Verzögerung.</p><ol><li><b>Klassifizieren:</b> Eine <code>class-map</code> erkennt Verkehr, z. B. <code>match dscp ef</code> für Sprache</li><li><b>Behandeln:</b> Eine <code>policy-map</code> legt fest, was mit der Klasse geschieht: <code>priority percent 30</code> (strikte Priorität) oder <code>bandwidth percent 20</code></li><li><b>Binden:</b> <code>service-policy output NAME</code> an der Schnittstelle</li></ol>` + tbl(['DSCP', 'Name', 'Typischer Verkehr'], [['46', 'EF', 'Sprache (RTP)'], ['34', 'AF41', 'Videokonferenz'], ['18', 'AF21', 'wichtige Daten'], ['8', 'CS1', 'Scavenger (Backup, Updates)'], ['0', 'Default', 'alles andere']]) + ul(['QoS wirkt nur dort, wo ein Engpass ist: meist an der WAN-Schnittstelle', 'Die Markierung (DSCP) sollte so früh wie möglich gesetzt werden und dem Netz vertraut werden (Trust-Grenze am Telefon)', 'Auf Catalyst-Switches schaltet <code>mls qos</code> QoS ein, <code>auto qos voip cisco-phone</code> richtet es für Telefone automatisch ein', 'Prüfen: <code>show policy-map interface</code>, <code>show class-map</code>']) + `<p class="wk-plan"><b>Hinweis:</b> Der Simulator prüft QoS-Konfigurationen auf Gültigkeit, simuliert aber keinen Datenstau.</p>` + plan('Switch oder Router → Web-GUI → „QoS“.'), ['poe', 'vlan']);
+  art('monitoring', 'sec', 'Monitoring: ICMP, SNMP, Syslog und Trigger', 'Wie man im Betrieb erkennt, was ausgefallen ist.', `<p>Ein <b>Monitoring-System</b> (z. B. Zabbix, Nagios, PRTG) beobachtet Geräte laufend, damit Ausfälle auffallen, bevor Anwender anrufen. Es kombiniert mehrere Quellen:</p>` + tbl(['Quelle', 'Was es liefert', 'Voraussetzung'], [['ICMP (Ping)', 'Erreichbarkeit und Antwortzeit', 'Gerät hat eine IP und ist erreichbar'], ['SNMP', 'CPU, Speicher, Schnittstellen-Verkehr der Netzwerkgeräte', '<code>snmp-server community public RO</code> auf dem Gerät, gleiche Community im Monitoring'], ['Agent', 'CPU, RAM, Platte von Servern', 'Paket <code>zabbix-agent</code> läuft auf dem Server'], ['Syslog', 'Ereignisse wie Link-Wechsel (<code>%LINK-3-UPDOWN</code>)', '<code>logging host &lt;IP&gt;</code> auf dem Gerät, rsyslog auf dem Server']]) + `<p>Aus den Werten werden <b>Trigger</b> (Bedingungen) und daraus <b>Probleme</b> mit Schwere und Dauer, etwa „Host zweimal nacheinander nicht erreichbar“ oder „CPU dreimal über 90 %“. Mehrfache Messungen verhindern Fehlalarme durch einzelne verlorene Pakete.</p>` + ul(['Schlechte Community-Namen (<code>public</code>/<code>private</code>) gehören in der Praxis nicht ins Produktivnetz: SNMPv3 verwenden', 'Syslog-Schwere: 0 Notfall bis 7 Debug. Link-Wechsel sind meist Stufe 3 oder 5', 'Eine Broadcast-Sturm-Schleife zeigt sich als CPU-Last nahe 100 % auf allen betroffenen Switches', 'Monitoring braucht selbst Redundanz: Wenn der Monitoring-Server ausfällt, merkt es niemand']) + plan('Server → Web-GUI → „Software“: zabbix-server installieren und in „Dienste“ starten. Dann erscheint „Monitoring“ mit Hosts, Graphen, Problemen und Syslog. Szenario „Monitoring: Das Netz überwachen“.'), ['web-gui', 'stp', 'subnetting']);
+  art('vpn-s2s', 'sec', 'Site-to-Site-VPN mit IPsec', 'Zwei Standorte verschlüsselt über das Internet verbinden.', `<p>Ein <b>Site-to-Site-VPN</b> verbindet die Netze zweier Standorte über das Internet, als wären sie über eine private Leitung verbunden. Die Router beider Seiten bauen einen verschlüsselten <b>IPsec-Tunnel</b> auf. Die Rechner merken davon nichts.</p><ol><li><b>IKEv2 (Phase 1):</b> Die Router authentifizieren sich (hier mit Pre-Shared Key) und handeln Algorithmen aus: Verschlüsselung (AES-256), Integrität (SHA-256) und Diffie-Hellman-Gruppe (14)</li><li><b>IPsec (Phase 2):</b> Transform-Set (z. B. esp-aes 256 mit esp-sha256-hmac) schützt die Nutzdaten</li><li><b>Tunnel-Schnittstelle:</b> Eine Virtual Tunnel Interface (VTI) mit eigener IP-Adresse; Quelle und Ziel sind die WAN-Adressen beider Router</li><li><b>Routing:</b> Eine Route zum Netz der Gegenseite zeigt auf den Tunnel</li></ol>` + ul(['Beide Seiten brauchen <b>identische</b> Algorithmen und denselben Schlüssel, sonst bleibt der Tunnel down', 'Tunnel-Source und -Destination sind auf den Seiten gespiegelt', 'Der Underlay-Pfad muss funktionieren: Die WAN-Adressen müssen sich erreichen (Default-Route!)', 'Ein Tunnel kann up sein, und es geht trotzdem kein Verkehr: dann fehlt die Route zum Zielnetz', 'Prüfen: <code>show crypto session</code>, <code>show interface tunnel 0</code>']) + plan('Router → Web-GUI → „Site-to-Site-VPN“ → VPN-Assistent. Zwei Szenarien: „VPN: Zwei Standorte verbinden“ und „VPN: Tunnel bleibt unten“.'), ['routing-protokolle', 'subnetting']);
   art('wlan-grundlagen', 'l2', 'WLAN: Access Point, SSID, Controller und PoE', 'Wie Funk-Clients ins Netz kommen.', `<p>Ein <b>Access Point</b> (AP) verbindet Funk-Clients mit dem kabelgebundenen Netz. Er sendet eine oder mehrere <b>SSIDs</b> (Funknetzwerke). Jede SSID hat einen Namen, eine Sicherheitsart (WPA2-PSK, WPA3-SAE oder offen) und ein <b>VLAN</b>: Die Frames der Clients werden wie bei einer Brücke in dieses VLAN gelegt.</p><p>Der AP hängt mit <b>einem</b> Kabel am Switch. Sein Strom kommt per <b>PoE</b> (Power over Ethernet) vom Switchport oder von einem PoE-Injector. Ein Nicht-PoE-Switch liefert keinen Strom: Der AP bleibt dunkel. Der Uplink-Port verhält sich so:</p>` + tbl(['SSID-VLAN', 'Switchport zum AP'], [['nativ (0)', 'Access-Port im VLAN der Clients oder Trunk mit passendem Native-VLAN'], ['z. B. 20', 'Trunk, der VLAN 20 erlaubt (<code>switchport mode trunk</code>, <code>allowed vlan 1,20</code>). Ein Access-Port nimmt keine getaggten Frames an.']]) + `<p><b>Autonom oder Controller:</b> Ein autonomer AP trägt seine SSIDs selbst. Mit einem <b>WLAN-Controller</b> (z. B. Catalyst 9800) pflegst du die SSIDs einmal zentral. Die APs melden sich per CAPWAP an (<b>Join</b>), dafür brauchen sie die Controller-IP und Erreichbarkeit. Ohne Join sendet ein Lightweight-AP kein WLAN.</p>` + ul(['Client verbindet sich nicht: SSID-Name, Schlüssel und Sicherheitsart prüfen', 'Verbunden, aber kein Netz: VLAN der SSID, Trunk und IP/Gateway prüfen', 'AP leuchtet nicht: PoE-Switch, Port nicht shutdown, Kabel', 'AP erscheint nicht am Controller: Controller-IP, Gateway, VLAN des Management-Netzes']) + plan('Access Point oder Controller im Katalog unter „Netzwerk“, Notebooks, Smartphones und Tablets unter „Endgeräte“. Die Web-GUI von AP und Controller verwaltet die SSIDs; Clients verbindest du im Detailfeld. Zwei Szenarien unter „Aufgaben“.'), ['vlan', 'trunk', 'dhcp-cisco']);
   art('hypermetro', 'storage', 'HyperMetro und Quorum-Server', 'Zwei Storage-Arrays als aktiv-aktiv-Cluster und wer bei Ausfall entscheidet.', `<p><b>HyperMetro</b> (bei Huawei OceanStor) spiegelt eine LUN synchron auf ein zweites Array an einem anderen Standort. Beide Arrays bedienen die Hosts gleichzeitig (<b>aktiv-aktiv</b>): Der Server sieht <b>ein</b> Gerät mit Pfaden zu beiden Arrays und schaltet bei einem Ausfall per Multipath um, ohne neue Platte und ohne Unterbrechung. Zusammengehörige Arrays bilden eine <b>HyperMetro-Domäne</b>, gespiegelte LUNs heißen <b>HyperMetro-Paare</b>.</p><p>Das Risiko ist <b>Split-Brain</b>: Fällt nur die Verbindung zwischen den Arrays aus, denkt jede Seite, die andere sei tot, und beide nehmen weiter Schreibzugriffe an. Die Daten laufen auseinander. Deshalb gibt es einen <b>Quorum-Server</b> an einem dritten Standort als Schiedsrichter. Wer ihn erreicht, darf weiterarbeiten.</p>` + tbl(['Situation', 'Ergebnis'], [['Alles verbunden', 'Beide Arrays aktiv'], ['Verbindung zwischen den Arrays weg, beide erreichen den Quorum-Server', 'Der bevorzugte Standort gewinnt, die andere Seite geht in Standby'], ['Nur ein Array erreicht den Quorum-Server', 'Dieses Array gewinnt'], ['Ein Array fällt aus', 'Das andere übernimmt (Failover), sofern es den Quorum-Server erreicht'], ['Verbindung und Quorum-Server weg', 'Mit <b>statischer Priorität</b> arbeitet der bevorzugte Standort weiter, ohne sie stoppen beide']]) + ul(['Die Arrays brauchen eine <b>Replikationsverbindung</b>: FC-Kabel direkt oder über den FC-Switch mit einer Zone zwischen den Array-Ports', 'Der Quorum-Server wird über das Management-Netz erreicht, nicht über FC', 'Hosts müssen auf beiden Arrays maskiert und gezont sein']) + plan('Storage anklicken → Web-GUI → „HyperMetro“: Domäne erstellen, Replikationszonen anlegen, Paar erstellen. Auf dem Quorum-Server <code>sudo apt install quorum-server</code> und <code>sudo systemctl enable --now quorum-server</code>. Zwei Szenarien unter „Aufgaben“.'), ['lun', 'lun-masking', 'multipath', 'zoning']);
   art('dhcp-cisco', 'l3', 'DHCP auf Switch, Router und Firewall, DHCP-Relay', 'Adressvergabe ohne eigenen Server.', `<p>Nicht nur Server verteilen IP-Adressen: Ein Router, ein Layer-3-Switch und eine ASA können selbst DHCP-Server sein. Die Clients fragen per Broadcast, deshalb muss der Server im <b>selben VLAN</b> antworten, an der Schnittstelle (SVI) des Netzes. Steht der DHCP-Server in einem anderen Netz, leitet ein <b>Relay</b> (<code>ip helper-address</code>) die Anfrage an ihn weiter.</p>` + tbl(['Gerät', 'Konfiguration'], [['Cisco IOS', '<code>ip dhcp excluded-address 10.30.0.1 10.30.0.20</code>, <code>ip dhcp pool CLIENTS</code>, darin <code>network 10.30.0.0 255.255.255.0</code>, <code>default-router 10.30.0.1</code>, <code>dns-server 10.10.0.53</code>'], ['Relay (am SVI)', '<code>interface vlan 30</code>, <code>ip helper-address 10.10.0.11</code>'], ['Cisco ASA', '<code>dhcpd address 10.255.0.100-10.255.0.150 inside</code>, <code>dhcpd dns 10.10.0.53</code>, <code>dhcpd enable inside</code>'], ['Prüfen', '<code>show ip dhcp binding</code>, <code>show ip dhcp pool</code>, <code>show dhcpd binding</code>']]) + ul(['Der Pool muss zum Netz der Schnittstelle passen, sonst bekommt der Client nichts', 'Gateway und feste Server-Adressen mit <code>excluded-address</code> ausnehmen', 'Beim Relay braucht der Server einen Pool für das Netz der Relay-Schnittstelle']) + plan('Switch, Router oder ASA anklicken → Web-GUI → „DHCP-Server“. Auf einem PC im Desktop unter „Netzwerkverbindungen“ DHCP einschalten.'), ['dhcp', 'vlan', 'web-gui']);
@@ -4276,7 +4358,7 @@ const WEBGUI = (function () {
       const f = root.querySelector('.wg-dlg input, .wg-dlg select'); if (f && G._focus !== G.dlg) { f.focus(); G._focus = G.dlg; }
       if (G.page === 'terminal') { const o = root.querySelector('#wg-out'); if (o) o.scrollTop = 1e9; const i = root.querySelector('#wg-cmd'); if (i && !G.dlg) i.focus(); }
     };
-    G.draw = draw; G.dev = dev; G.root = root; G.kind = kind; return G;
+    G.draw = draw; G.dev = dev; G.root = root; G.kind = kind; if (typeof ALL !== 'undefined') ALL.add(G); return G;
   }
   const logo = k => `<svg class="wg-ico" viewBox="0 0 24 24" aria-hidden="true">${{ linux: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>', hypervisor: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/>', windows: '<path d="M3 5l8-1.2V11H3zM13 3.6L21 2v9h-8zM3 13h8v7.2L3 19zM13 13h8v9l-8-1.6z"/>', storage: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>', firewall: '<path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/>', ap: '<path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a14 14 0 0 1 20 0"/><circle cx="12" cy="19.5" r="1"/>', wlc: '<rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 17h.01M10 17h.01M7 9.5a7 7 0 0 1 10 0M9.5 6.5a3.5 3.5 0 0 1 5 0"/>', switch: '<rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/>', router: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16M8 8l-2-2M16 8l2-2M8 16l-2 2M16 16l2 2"/>', fabric: '<circle cx="12" cy="12" r="3"/><circle cx="4" cy="5" r="2"/><circle cx="20" cy="5" r="2"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="19" r="2"/><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>' }[k]}</svg>`;
   const hostIp = d => { if (d.type === 'switch' || d.type === 'router') { const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip); return n ? d.cfg.ifs[n].ip : ''; } const h = d.ports.map(p => A.hip(d, p)).find(x => x && x.ip); return h ? h.ip : ''; };
@@ -4303,9 +4385,10 @@ const WEBGUI = (function () {
   }
 
   // ---------- Navigation ----------
+  const monOn = d => { try { return A.LX.init(d).pkgs.includes('zabbix-server'); } catch (e) { return false; } };
   const NAV = {
-    linux: d => [['overview', 'Übersicht'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['virt', 'Virtualisierung'], ['terminal', 'Terminal']],
-    hypervisor: d => [['overview', 'Übersicht'], ['vms', 'Virtuelle Maschinen'], ['vswitch', 'Virtueller Switch'], ['datastores', 'Datastores'], ['cluster', 'Cluster und HA'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['terminal', 'Terminal']],
+    linux: d => (monOn(d) ? [['mon', 'Monitoring']] : []).concat([['overview', 'Übersicht'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['virt', 'Virtualisierung'], ['terminal', 'Terminal']]),
+    hypervisor: d => (monOn(d) ? [['mon', 'Monitoring']] : []).concat([['overview', 'Übersicht'], ['vms', 'Virtuelle Maschinen'], ['vswitch', 'Virtueller Switch'], ['datastores', 'Datastores'], ['cluster', 'Cluster und HA'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['terminal', 'Terminal']]),
     windows: d => [['dashboard', 'Dashboard'], ['local', 'Lokaler Server'], ['roles', 'Rollen und Features'], ['ad', 'Active Directory'], ['dns', 'DNS'], ['dhcp', 'DHCP'], ['shares', 'Dateidienste'], ['services', 'Dienste'], ['firewall', 'Firewall'], ['terminal', 'PowerShell']],
     storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['hypermetro', 'HyperMetro'], ['ports', 'Ports und Controller']],
     fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']],
@@ -4313,7 +4396,7 @@ const WEBGUI = (function () {
     firewall: d => [].concat(...Object.values(FW)),
     ap: d => [['dashboard', 'Übersicht'], ['wlan', 'Funknetzwerke (SSID)'], ['clients', 'Clients'], ['network', 'Netzwerk'], ['controller', 'Controller'], ['cli', 'Konsole']],
     wlc: d => [['dashboard', 'Dashboard'], ['-c', 'Konfiguration'], ['wlan', 'WLANs'], ['aps', 'Access Points'], ['clients', 'Clients'], ['-a', 'Verwaltung'], ['network', 'Netzwerk'], ['cli', 'Konsole']],
-    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['rproto', 'Dynamisches Routing'], ['qos', 'QoS'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
+    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['rproto', 'Dynamisches Routing'], ['vpn', 'Site-to-Site-VPN'], ['qos', 'QoS'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
   };
 
   // ---------- Aktionen ausführen ----------
@@ -4765,6 +4848,59 @@ const WEBGUI = (function () {
       + card('Gebundene Policies', tbl(['Schnittstelle', 'Richtung', 'Policy'], bound.map(([p, dir, nm]) => [`<b>${esc(A.SH(p))}</b>`, dir, esc(nm)]), 'Keine Policy gebunden. Eine Policy wirkt erst an einer Schnittstelle.'));
   };
 
+  // ---------- Site-to-Site-VPN (IPsec mit IKEv2 über Tunnel-Schnittstellen) ----------
+  PAGES.router.vpn = (d, G) => {
+    const net = A.net(), tuns = Object.keys(d.cfg.ifs).filter(n => n.startsWith('Tunnel')), prof = A.blocks(d, 'crypto ipsec profile'), ik = A.blocks(d, 'crypto ikev2 profile');
+    return `<p class="wg-note">Ein <b>Site-to-Site-VPN</b> verbindet zwei Standorte verschlüsselt über das Internet. Der Router baut dafür eine Tunnel-Schnittstelle zum Router der Gegenseite auf (IPsec mit IKEv2 und Pre-Shared Key). Beide Seiten brauchen passende Algorithmen und denselben Schlüssel, außerdem eine Route zum Netz der Gegenseite durch den Tunnel.</p>`
+      + `<div class="wg-row">${btn('VPN-Assistent', 'dlg', { k: 'vpnnew' }, 'primary')}</div>`
+      + card('Tunnel', tbl(['Tunnel', 'Eigene Adresse', 'Peer (Gegenstelle)', 'Modus', 'Status', ''], tuns.map(n => { const i = d.cfg.ifs[n], st = A.NL.tunnel(net, d.id, n); return [`<b>${esc(n)}</b>`, i.ip ? esc(i.ip + '/' + maskLen(i.mask)) : '–', esc(i.tdst || '–'), i.tmode === 'ipsec' ? 'IPsec (VTI)' : 'GRE', st.up ? chip('Up', 'ok') : chip('Down', 'bad') + `<br><small class="wg-mut">${esc(st.reason || '')}</small>`, btn('Löschen', 'vpndel', { n }, 'sm ghost bad')]; }), 'Noch kein Tunnel. Der Assistent legt Proposal, Keyring, Profile und Tunnel an.'))
+      + card('Statische Routen durch den Tunnel', tbl(['Zielnetz', 'Maske', 'Über'], d.cfg.routes.filter(r => r.ifn && r.ifn.startsWith('Tunnel')).map(r => [`<b>${esc(r.net)}</b>`, esc(r.mask), esc(r.ifn)]), 'Keine. Ohne Route zum Netz der Gegenseite geht kein Verkehr durch den Tunnel.'))
+      + card('Krypto-Bausteine', `<dl class="wg-dl"><dt>IKEv2-Profile</dt><dd>${ik.map(b => esc(b.head.split(' ')[3])).join(', ') || '–'}</dd><dt>IPsec-Profile</dt><dd>${prof.map(b => esc(b.head.split(' ')[3])).join(', ') || '–'}</dd></dl>`)
+      + card('show crypto session', showBox(d, 'show crypto session'));
+  };
+
+  // ---------- Monitoring (Zabbix-ähnlich) ----------
+  const spark = (vals, o = {}) => { const w = 360, h = 64, v = vals.filter(x => x !== null && x !== undefined); if (v.length < 2) return `<svg viewBox="0 0 ${w} ${h}" class="wg-spark" role="img" aria-label="Noch keine Daten"><text x="8" y="36" class="wg-sp-t">Noch keine Daten (alle 5 s ein Messwert)</text></svg>`; const mx = o.max || Math.max(...v, 1) * 1.15, n = vals.length, pts = vals.map((x, i) => x === null || x === undefined ? null : [(i / Math.max(1, n - 1) * (w - 4) + 2).toFixed(1), (h - 4 - (x / mx) * (h - 8)).toFixed(1)]); let d = '', pen = false; pts.forEach(p => { if (!p) { pen = false; return; } d += (pen ? 'L' : 'M') + p[0] + ' ' + p[1]; pen = true; }); return `<svg viewBox="0 0 ${w} ${h}" class="wg-spark" role="img" aria-label="Verlauf">${o.thr ? `<line x1="0" x2="${w}" y1="${(h - 4 - (o.thr / mx) * (h - 8)).toFixed(1)}" y2="${(h - 4 - (o.thr / mx) * (h - 8)).toFixed(1)}" class="wg-sp-thr"/>` : ''}<path d="${d}" class="wg-sp-l ${o.cls || ''}"/></svg>`; };
+  const ago = t => { const s = Math.max(0, Math.round((Date.now() - t) / 1000)); return s < 60 ? s + ' s' : s < 3600 ? Math.floor(s / 60) + ' min ' + (s % 60) + ' s' : Math.floor(s / 3600) + ' h'; };
+  const clock = t => new Date(t).toTimeString().slice(0, 8);
+  const monSt = d => { const m = A.mon(); return m[d.id] || { hist: {}, probs: [], syslog: [] }; };
+  PAGES.linux.mon = PAGES.hypervisor.mon = (d, G) => {
+    const net = A.net(), M = A.MON, z = M.zbx(d), st = monSt(d), tab = G.tab.zm || 'dash', on = M.isMonitor(net, d), ip = (A.hip(d, d.ports.find(p => (A.hip(d, p) || {}).ip)) || {}).ip || '';
+    const tabs = [['dash', 'Dashboard'], ['hosts', 'Hosts'], ['graph', 'Graphen'], ['prob', 'Probleme'], ['sys', 'Syslog'], ['setup', 'Einrichtung']];
+    const head = `<div class="wg-tabs" role="tablist">${tabs.map(x => `<button type="button" role="tab" class="${x[0] === tab ? 'act' : ''}" aria-selected="${x[0] === tab}" data-act="tab" data-t="zm" data-v="${x[0]}">${x[1]}${x[0] === 'prob' && st.probs.some(p => !p.until) ? ` <span class="wg-cnt">${st.probs.filter(p => !p.until).length}</span>` : ''}</button>`).join('')}</div>` + (on ? '' : '<div class="wg-msg err">Der Dienst zabbix-server läuft nicht. Starte ihn unter „Dienste“, sonst werden keine Werte erfasst.</div>');
+    const last = id => (st.hist[id] || []).slice(-1)[0], hostName = h => (net.devs[h.dev] || { cfg: { hostname: '?' } }).cfg.hostname;
+    if (tab === 'dash') {
+      const act = st.probs.filter(p => !p.until).sort((a, b) => b.sev - a.sev || b.since - a.since);
+      return head + `<div class="wg-cards">${card('Hosts', `<p class="wg-big">${z.hosts.length}<small> überwacht</small></p><p class="wg-note">${z.hosts.filter(h => last(h.dev) && last(h.dev).up).length} erreichbar, ${z.hosts.filter(h => last(h.dev) && !last(h.dev).up).length} nicht erreichbar</p>`)}${card('Probleme', `<p class="wg-big ${act.length ? 'wg-bad' : ''}">${act.length}<small> aktiv</small></p>${btn('Zu den Problemen', 'tab', { t: 'zm', v: 'prob' }, 'sm')}`)}${card('Syslog', `<p class="wg-big">${st.syslog.length}<small> Meldungen</small></p>${btn('Zum Syslog', 'tab', { t: 'zm', v: 'sys' }, 'sm')}`)}</div>`
+        + card('Verfügbarkeit der Hosts', z.hosts.length ? `<div class="wg-tiles">${z.hosts.map(h => { const l = last(h.dev), cls = !l ? 'na' : !l.up ? 'down' : l.snmp === false ? 'warn' : 'ok'; return `<div class="wg-tile ${cls}"><b>${esc(hostName(h))}</b><span>${!l ? 'wartet …' : !l.up ? 'nicht erreichbar' : l.rtt + ' ms'}</span></div>`; }).join('')}</div>` : '<p class="wg-empty">Noch keine Hosts. Unter „Hosts“ kannst du das Netz durchsuchen.</p>')
+        + card('Aktive Probleme', act.length ? tbl(['Schwere', 'Host', 'Problem', 'Seit'], act.slice(0, 8).map(p => [chip(A.MON.SEV[p.sev], p.sev >= 3 ? 'bad' : ''), `<b>${esc(p.host)}</b>`, esc(p.text), ago(p.since)])) : '<p class="wg-empty">Keine Probleme. Alles ok.</p>');
+    }
+    if (tab === 'hosts') {
+      return head + `<div class="wg-row">${btn('Host hinzufügen', 'dlg', { k: 'zhost' }, 'primary')}${btn('Netz durchsuchen', 'zdisc', null, '')}</div>` + tbl(['Host', 'IP-Adresse', 'ICMP', 'SNMP/Agent', 'CPU', 'Speicher', 'Verfügbarkeit', ''], z.hosts.map(h => { const l = last(h.dev), dev = net.devs[h.dev], ipd = dev ? M.devIp(dev) : '–'; return [`<b>${esc(hostName(h))}</b>`, esc(ipd || '–'), !l ? '…' : l.up ? chip(l.rtt + ' ms', 'ok') : chip('aus', 'bad'), !l || !l.up ? '–' : l.snmp === true ? chip('ok', 'ok') : l.snmp === false ? chip('keine Daten', 'bad') + `<br><small class="wg-mut">${esc(l.why)}</small>` : '<span class="wg-mut">nicht konfiguriert</span>', l && l.cpu !== null ? l.cpu + ' %' : '–', l && l.mem !== null ? l.mem + ' %' : '–', M.availability(st.hist[h.dev] || []) === null ? '–' : M.availability(st.hist[h.dev]) + ' %', `<div class="wg-row">${btn('Bearbeiten', 'dlg', { k: 'zhedit', h: h.dev }, 'sm')}${btn('Entfernen', 'zhdel', { h: h.dev }, 'sm ghost bad')}</div>`]; }), 'Noch keine Hosts.');
+    }
+    if (tab === 'graph') {
+      const hs = z.hosts, cur = hs.find(h => h.dev === G.tab.zh) || hs[0]; if (!cur) return head + '<p class="wg-empty">Füge zuerst Hosts hinzu.</p>';
+      const hi = st.hist[cur.dev] || [], col = k => hi.map(x => x[k]), lastv = k => { const v = col(k).filter(x => x !== null && x !== undefined); return v.length ? v[v.length - 1] : '–'; };
+      return head + `<div class="wg-row end"><div class="wg-f"><label for="wf-zh">Host</label><select id="wf-zh" data-act="zhsel">${hs.map(h => `<option value="${esc(h.dev)}" ${h.dev === cur.dev ? 'selected' : ''}>${esc(hostName(h))}</option>`).join('')}</select></div></div>`
+        + card(`Antwortzeit (ms): ${lastv('rtt')}`, spark(col('rtt'))) + card(`CPU-Auslastung (%): ${lastv('cpu')}`, spark(col('cpu'), { max: 100, thr: 90, cls: 'cpu' })) + card(`Speicher (%): ${lastv('mem')}`, spark(col('mem'), { max: 100 }))
+        + (hi.some(x => x.disk !== null && x.disk !== undefined) ? card(`Festplatte (%): ${lastv('disk')}`, spark(col('disk'), { max: 100, thr: 90 })) : '') + card(`Verkehr eingehend (kbit/s): ${lastv('inK')}`, spark(col('inK'))) + card(`Verkehr ausgehend (kbit/s): ${lastv('outK')}`, spark(col('outK')));
+    }
+    if (tab === 'prob') {
+      const all = st.probs.slice().sort((a, b) => (a.until ? 1 : 0) - (b.until ? 1 : 0) || b.since - a.since);
+      return head + tbl(['Status', 'Schwere', 'Host', 'Problem', 'Seit', 'Dauer'], all.slice(0, 40).map(p => [p.until ? chip('gelöst', 'ok') : chip('aktiv', 'bad'), A.MON.SEV[p.sev], `<b>${esc(p.host)}</b>`, esc(p.text), clock(p.since), p.until ? Math.max(1, Math.round((p.until - p.since) / 1000)) + ' s' : ago(p.since)]), 'Keine Probleme aufgezeichnet.') + '<p class="wg-note">Ein Problem entsteht, wenn ein Trigger zutrifft (z. B. Host zweimal hintereinander nicht erreichbar, CPU dreimal über 90 %). Es wird gelöst, sobald der Wert wieder normal ist.</p>';
+    }
+    if (tab === 'sys') {
+      const flt = G.tab.zsh || '', hostsS = [...new Set(st.syslog.map(x => x.host))].sort(), rows = st.syslog.filter(x => !flt || x.host === flt).slice(-60).reverse(), sevc = s2 => s2 <= 3 ? 'bad' : s2 === 4 ? '' : 'ok';
+      const rs = d.lx && d.lx.units.rsyslog && d.lx.units.rsyslog.active;
+      return head + `<div class="wg-row end"><div class="wg-f"><label for="wf-zsh">Host filtern</label><select id="wf-zsh" data-act="zsh"><option value="">Alle</option>${hostsS.map(h => `<option ${h === flt ? 'selected' : ''}>${esc(h)}</option>`).join('')}</select></div></div>` + (rs ? '' : '<div class="wg-msg err">rsyslog läuft auf diesem Server nicht: Es werden keine Syslog-Meldungen angenommen.</div>')
+        + tbl(['Zeit', 'Host', 'Schwere', 'Meldung'], rows.map(x => [clock(x.t), `<b>${esc(x.host)}</b>`, chip(['Notfall', 'Alarm', 'Kritisch', 'Fehler', 'Warnung', 'Hinweis', 'Info', 'Debug'][x.sev] || 'Info', sevc(x.sev)), `<code>${esc(x.text)}</code>`]), `Noch keine Meldungen. Konfiguriere auf den Geräten <code>logging host ${esc(ip || '<IP dieses Servers>')}</code> und löse ein Ereignis aus (z. B. Kabel ziehen).`);
+    }
+    const ndev = Object.values(net.devs).filter(x => !A.NL.isHost(x) && x.type !== 'fc');
+    return head + `<p class="wg-note">So bindest du Geräte an: Der Server fragt sie per <b>ICMP</b> (Ping) und <b>SNMP</b> ab und empfängt <b>Syslog</b>-Meldungen. Server brauchen für CPU, Speicher und Platte den <b>Zabbix-Agent</b>.</p>`
+      + card('Netzwerkgeräte', tbl(['Gerät', 'SNMP', 'Syslog an diesen Server'], ndev.map(x => { const cs = M.communities(x), sl = x.cfg.lines.some(l => new RegExp('^logging (host )?' + ip.replace(/\./g, '\\.')).test(l)); return [`<b>${esc(x.cfg.hostname)}</b>`, cs.length ? chip('Community ' + cs[0], 'ok') : chip('nicht konfiguriert', 'bad'), sl ? chip('ja', 'ok') : chip('nein', 'bad')]; }), 'Keine Switches oder Router im Plan.') + `<p class="wg-note">Auf einem Cisco-Gerät: <code>snmp-server community public RO</code> und <code>logging host ${esc(ip || '<IP dieses Servers>')}</code>.</p>`)
+      + card('Dieser Server', `<dl class="wg-dl"><dt>zabbix-server</dt><dd>${on ? chip('läuft', 'ok') : chip('gestoppt', 'bad')}</dd><dt>rsyslog (Syslog-Empfang)</dt><dd>${d.lx.units.rsyslog && d.lx.units.rsyslog.active ? chip('läuft', 'ok') : chip('gestoppt', 'bad')}</dd><dt>IP-Adresse</dt><dd>${esc(ip || '–')}</dd></dl>`);
+  };
+
   // ---------- Dialoge ----------
   function dlgHtml(d, G) {
     const x = G.dlg, k = x.k, net = A.net(), wrap = (t, body, ok, okLbl) => `<div class="wg-ov" data-act="dlgbg"><form class="wg-dlg" role="dialog" aria-modal="true" aria-label="${esc(t)}" data-act="dlgok"><h2>${t}</h2>${body}<div class="wg-row end">${btn('Abbrechen', 'dlgx', null, 'ghost')}${ok === false ? '' : `<button type="submit" class="wg-b primary" data-act="dlgok">${okLbl || 'OK'}</button>`}</div></form></div>`;
@@ -4793,6 +4929,9 @@ const WEBGUI = (function () {
       case 'qcm': return wrap('Class-Map hinzufügen', field('n', 'Name', 'VOICE') + sel('m', 'Match', [['dscp ef', 'DSCP EF (Sprache)'], ['dscp af41', 'DSCP AF41 (Video)'], ['dscp af21', 'DSCP AF21 (Daten, wichtig)'], ['dscp cs1', 'DSCP CS1 (Scavenger)'], ['protocol http', 'Protokoll HTTP'], ['any', 'Alles']]), true, 'Anlegen');
       case 'qpm': { const cms = A.blocks(d, 'class-map'); return wrap('Policy-Map hinzufügen', field('n', 'Name', 'QOS-POLICY') + sel('c', 'Class-Map', cms.map(b => [b.head.split(' ')[2], b.head.split(' ')[2]])) + `<div class="wg-2">${sel('a', 'Behandlung', [['priority percent', 'Strikte Priorität (Sprache)'], ['bandwidth percent', 'Garantierte Bandbreite']])}${field('pc', 'Prozent der Leitung', 30, { type: 'number', min: 1, max: 100 })}</div>`, true, 'Anlegen'); }
       case 'qbind': return wrap('Policy an Schnittstelle binden', sel('p', 'Policy-Map', A.blocks(d, 'policy-map').map(b => [b.head.split(' ')[1], b.head.split(' ')[1]])) + sel('i', 'Schnittstelle', d.ports.map(p => [p, A.SH(p)])) + sel('dir', 'Richtung', [['output', 'ausgehend (output)'], ['input', 'eingehend (input)']]), true, 'Binden');
+      case 'vpnnew': { const ifs = Object.keys(d.cfg.ifs).filter(n => d.cfg.ifs[n].ip && !n.startsWith('Tunnel')); const used = new Set(Object.keys(d.cfg.ifs).filter(n => n.startsWith('Tunnel')).map(n => +n.slice(6))); let t = 0; while (used.has(t)) t++; return wrap('VPN-Assistent', `<div class="wg-2">${field('tn', 'Tunnel-Nummer', t, { type: 'number', min: 0 })}${sel('wan', 'WAN-Schnittstelle (Quelle)', ifs.map(n => [n, `${A.SH(n)} (${d.cfg.ifs[n].ip})`]))}</div>` + field('peer', 'WAN-Adresse der Gegenstelle', '', { ph: '198.51.100.1' }) + `<div class="wg-2">${field('tip', 'Tunnel-Adresse (eigene, /30)', '', { ph: '172.16.0.1' })}${field('psk', 'Pre-Shared Key', 'Vpn!Lab2026')}</div><div class="wg-2">${field('rnet', 'Netz der Gegenseite', '', { ph: '10.2.0.0' })}${field('rmask', 'Maske', '255.255.255.0')}</div><h4>Algorithmen (müssen auf beiden Seiten gleich sein)</h4><div class="wg-2">${sel('enc', 'Verschlüsselung', [['aes-cbc-256', 'AES-256'], ['aes-cbc-128', 'AES-128']])}${sel('int', 'Integrität', [['sha256', 'SHA-256'], ['sha1', 'SHA-1']])}</div>${sel('grp', 'DH-Gruppe', [['14', 'Gruppe 14 (2048 Bit)'], ['19', 'Gruppe 19 (ECP-256)'], ['5', 'Gruppe 5 (1536 Bit, veraltet)']])}`, ifs.length > 0, 'Einrichten'); }
+      case 'zhost': { const z = A.MON.zbx(d), cand = Object.values(net.devs).filter(y => y.id !== d.id && !y.vm && !(y.model && A.NL.MODELS[y.model] && A.NL.MODELS[y.model].cloud) && A.MON.devIp(y) && !z.hosts.some(h => h.dev === y.id)); return wrap('Host hinzufügen', cand.length ? sel('dev', 'Gerät', cand.map(y => [y.id, `${y.cfg.hostname} (${A.MON.devIp(y)})`])) + field('snmp', 'SNMP-Community (leer = nur Ping)', 'public') + `<label class="wg-ck2"><input type="checkbox" id="wf-agent" checked> Zabbix-Agent abfragen (nur Server)</label>` : '<p class="wg-empty">Alle Geräte mit IP-Adresse werden schon überwacht.</p>', cand.length > 0, 'Hinzufügen'); }
+      case 'zhedit': { const h = A.MON.zbx(d).hosts.find(y => y.dev === x.h); return wrap('Host bearbeiten', field('snmp', 'SNMP-Community (leer = nur Ping)', h.snmp) + `<label class="wg-ck2"><input type="checkbox" id="wf-agent" ${h.agent ? 'checked' : ''}> Zabbix-Agent abfragen</label>`, true, 'Speichern'); }
       case 'ifedit': {
         const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
         const vl = Object.keys(d.cfg.vlans || {}).map(Number).sort((a, b) => a - b).map(n => [n, `${n} – ${d.cfg.vlans[n]}`]);
@@ -4889,6 +5028,18 @@ const WEBGUI = (function () {
         case 'qcm': { const n = v(G, 'n').trim().replace(/\s+/g, '_'), m = v(G, 'm'); if (!n) { ok = false; break; } ok = ios(G, [`class-map match-any ${n}`, m === 'any' ? 'match any' : 'match ' + m, 'exit'], 'Class-Map angelegt.'); break; }
         case 'qpm': ok = ios(G, [`policy-map ${v(G, 'n').trim().replace(/\s+/g, '_')}`, `class ${v(G, 'c')}`, `${v(G, 'a')} ${v(G, 'pc')}`, 'exit'], 'Policy-Map angelegt. Binde sie jetzt an eine Schnittstelle.'); break;
         case 'qbind': ok = ios(G, [`interface ${v(G, 'i')}`, `service-policy ${v(G, 'dir')} ${v(G, 'p')}`, 'exit'], 'Policy gebunden.'); break;
+        case 'vpnnew': {
+          const tn = +v(G, 'tn'), peer = v(G, 'peer').trim(), tip = v(G, 'tip').trim(), psk = v(G, 'psk').trim(), enc = v(G, 'enc'), integ = v(G, 'int'), grp = v(G, 'grp'), wan = v(G, 'wan'), sfx = 'T' + tn;
+          if (!peer || !tip || !psk) { G.msg = { err: true, t: 'Peer-Adresse, Tunnel-Adresse und Schlüssel werden gebraucht.' }; ok = false; break; }
+          const esp = enc === 'aes-cbc-128' ? 'esp-aes 128' : 'esp-aes 256', hm = integ === 'sha1' ? 'esp-sha-hmac' : 'esp-sha256-hmac';
+          const L = [`crypto ikev2 proposal PROP-${sfx}`, `encryption ${enc}`, `integrity ${integ}`, `group ${grp}`, 'exit', `crypto ikev2 policy POL-${sfx}`, `proposal PROP-${sfx}`, 'exit', `crypto ikev2 keyring KR-${sfx}`, 'peer SITE', `address ${peer}`, `pre-shared-key ${psk}`, 'exit', 'exit', `crypto ikev2 profile IKE-${sfx}`, `match identity remote address ${peer} 255.255.255.255`, 'authentication remote pre-share', 'authentication local pre-share', `keyring local KR-${sfx}`, 'exit',
+            `crypto ipsec transform-set TS-${sfx} ${esp} ${hm}`, 'mode tunnel', 'exit', `crypto ipsec profile IPS-${sfx}`, `set transform-set TS-${sfx}`, `set ikev2-profile IKE-${sfx}`, 'exit',
+            `interface Tunnel${tn}`, `ip address ${tip} 255.255.255.252`, `tunnel source ${wan}`, `tunnel destination ${peer}`, 'tunnel mode ipsec ipv4', `tunnel protection ipsec profile IPS-${sfx}`, 'exit'];
+          if (v(G, 'rnet').trim()) L.push(`ip route ${v(G, 'rnet').trim()} ${v(G, 'rmask').trim()} Tunnel${tn}`);
+          ok = ios(G, L, 'VPN eingerichtet. Die Gegenstelle braucht passende Einstellungen (Quelle und Ziel gespiegelt, gleicher Schlüssel).'); break;
+        }
+        case 'zhost': A.act(() => { ok = res(G, A.MON.addHost(net, dv, v(G, 'dev'), { snmp: v(G, 'snmp').trim(), agent: v(G, 'agent') }), 'Host hinzugefügt. Der erste Messwert kommt in wenigen Sekunden.'); }); break;
+        case 'zhedit': A.act(() => { const h = A.MON.zbx(dv).hosts.find(y => y.dev === x.h); if (h) { h.snmp = v(G, 'snmp').trim(); h.agent = !!v(G, 'agent'); } }); G.msg = { t: 'Gespeichert.' }; break;
         case 'ifedit': {
           const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
           const allow = v(G, 'allow').trim().toLowerCase();
@@ -4954,6 +5105,8 @@ const WEBGUI = (function () {
     root.addEventListener('change', e => {
       const t = e.target, a = t.dataset && t.dataset.act; if (!a) return; const dv = d(), net = A.net();
       if (a === 'stpv') { G.tab.stpv = t.value; done(); }
+      else if (a === 'zhsel') { G.tab.zh = t.value; done(); }
+      else if (a === 'zsh') { G.tab.zsh = t.value; done(); }
       else if (a === 'isel') { G.isel = G.isel || []; G.isel = t.checked ? G.isel.concat(t.dataset.p) : G.isel.filter(x => x !== t.dataset.p); G._keep = 1; done(); }
       else if (a === 'enable') { if (exec(G, `sudo systemctl ${t.checked ? 'enable' : 'disable'} ${t.dataset.u}`, 'Autostart geändert.')) { } done(); }
       else if (a === 'uplink') { A.act(() => { A.VIRT.setUplink(dv, t.dataset.p, t.checked); }); G.msg = { t: 'Uplinks gespeichert.' }; done(); }
@@ -4991,6 +5144,9 @@ const WEBGUI = (function () {
         case 'qoson': ios(G, D.on === '1' ? 'mls qos' : 'no mls qos', D.on === '1' ? 'QoS ist aktiv.' : 'QoS ausgeschaltet.'); break;
         case 'qcmdel': ios(G, 'no class-map ' + D.n, 'Class-Map gelöscht.'); break;
         case 'qpmdel': ios(G, 'no policy-map ' + D.n, 'Policy-Map gelöscht.'); break;
+        case 'vpndel': { const sfx = 'T' + D.n.slice(6); ios(G, [`no interface ${D.n}`, `no crypto ipsec profile IPS-${sfx}`, `no crypto ikev2 profile IKE-${sfx}`, `no crypto ikev2 keyring KR-${sfx}`, `no crypto ikev2 policy POL-${sfx}`, `no crypto ikev2 proposal PROP-${sfx}`, `no crypto ipsec transform-set TS-${sfx}`].slice(0, 1), 'Tunnel gelöscht.'); break; }
+        case 'zdisc': { let n = 0; A.act(() => { n = A.MON.discover(net, dv); }); G.msg = { t: n ? `${n} Gerät${n > 1 ? 'e' : ''} hinzugefügt.` : 'Keine neuen Geräte mit IP-Adresse gefunden.' }; A.monTickNow(); break; }
+        case 'zhdel': A.act(() => { const z = A.MON.zbx(dv); z.hosts = z.hosts.filter(y => y.dev !== D.h); }); G.msg = { t: 'Host entfernt.' }; break;
         case 'dpooldel': ios(G, 'no ip dhcp pool ' + D.n, 'Pool gelöscht.'); break;
         case 'dexcldel': { const a = excluded(dv)[+D.i]; if (a) ios(G, `no ip dhcp excluded-address ${a.join(' ')}`, 'Ausschluss entfernt.'); break; }
         case 'fwacldel': ios(G, 'no access-list ' + D.a, 'Regelliste gelöscht.'); break;
@@ -5042,6 +5198,7 @@ const WEBGUI = (function () {
   }
 
   // ---------- Öffentliche Schnittstelle ----------
+  const ALL = new Set(); const refreshAll = pg => { ALL.forEach(G => { try { if (!document.body.contains(G.root)) { ALL.delete(G); return; } if (!pg || (G.page && G.page.startsWith(pg))) G.draw(); } catch (e) { } }); };
   const OPEN = {}; let ZTOP = 40, CASCADE = 0;
   // Verschiebbares, in der Größe änderbares, maximierbares Fenster (auch vom PC-Desktop benutzt)
   function floatFrame(o) {
@@ -5072,7 +5229,7 @@ const WEBGUI = (function () {
   // Testhilfe: Seitenaufbau ohne DOM
   function renderPage(devId, page) { const fake = { innerHTML: '', querySelector: () => null, addEventListener() { } }, G = create(devId, fake, { auth: true }); G.page = page; const d = G.dev(), k = kindOf(d); return PAGES[k][page](d, G); }
   const pages = devId => { const d = A.net().devs[devId]; const k = kindOf(d); return k ? NAV[k](d).map(n => n[0]).filter(x => x[0] !== '-') : []; };
-  return { init, open, mount, hasGui, kindOf, PORT, NETPORT, portOf, renderPage, pages, floatFrame };
+  return { refreshAll, init, open, mount, hasGui, kindOf, PORT, NETPORT, portOf, renderPage, pages, floatFrame };
 })();
 if (typeof module !== 'undefined') module.exports = WEBGUI;
 
@@ -5313,6 +5470,7 @@ const Sandbox = (function () {
   const WINN = typeof WIN !== 'undefined' ? WIN : require('./windows.js');
   const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
   const GUIN = typeof WEBGUI !== 'undefined' ? WEBGUI : require('./webgui.js');
+  const MONN = typeof MON !== 'undefined' ? MON : require('./monitor.js');
   const RTGN = typeof RTG !== 'undefined' ? RTG : require('./routing.js');
   const DESKN = typeof DESKTOP !== 'undefined' ? DESKTOP : require('./desktop.js');
   const SH = NL.sh, MODELS = NL.MODELS, CARDS = NL.CARDS, XCVR = NL.XCVR, KIND = NL.KIND, hip = NL.hip;
@@ -5426,10 +5584,10 @@ const Sandbox = (function () {
   // ---------------- open / toolbar ----------------
   const GROUPS = [['Switches', M => M.type === 'switch'], ['WLAN', M => M.type === 'ap' || M.type === 'wlc'], ['Router', M => M.type === 'router' && !M.fw], ['Firewall', M => M.fw], ['FC-Switch (SAN)', M => M.type === 'fc'], ['Server', M => M.type === 'server' && !M.icon], ['Storage', M => M.type === 'storage'], ['Endgeräte', M => M.type === 'pc' || M.icon]];
   function open(root) {
-    app = root; document.title = 'Netzplaner – NetLab'; initDL(); document.removeEventListener('keydown', escKey);
+    if (S && S._monT) clearInterval(S._monT); app = root; document.title = 'Netzplaner – NetLab'; initDL(); document.removeEventListener('keydown', escKey);
     const sid = store.get('sbxscen', null), sc = sid && SC.find(x => x.id === sid), net = sc ? (store.get('scen.' + sid) || buildScen(sid)) : (store.get('sandbox') || example()); migrate(net);
     S = { net, scen: sc ? sid : null, undo: [], redo: [], sel: null, port: null, cable: 'cu', cabling: false, pend: null, view: store.get('sbxview', 'plan'), mode: store.get('sbxmode', 'rt'), tool: 'select', pcat: 0, flyout: null, dock: 'ports', dockOpen: true, itab: 'port', _sp: null, pdus: [], pduN: 0, pduSrc: null, sim: null, ptab: 'pdu', tf: 'all', out: {}, sess: {}, hist: [], hi: 0, drag: null, toast: '' };
-    S.dockOpen = false; S.inspOpen = false; S.snap = !!store.get('sbxsnap', false); S.multi = new Set(); S.selNote = null;
+    S.mon = {}; S._monT = setInterval(monTick, 5000); S.dockOpen = false; S.inspOpen = false; S.snap = !!store.get('sbxsnap', false); S.multi = new Set(); S.selNote = null;
     S.sel = Object.keys(net.devs).find(id => net.devs[id].type === 'switch') || Object.keys(net.devs)[0] || null;
     app.innerHTML = `<div class="sbx">
       <header class="sbar">
@@ -5974,6 +6132,17 @@ const Sandbox = (function () {
     for (const id in S.net.devs) { const d = S.net.devs[id]; if (!d.boot || S._bt[id]) continue; const rest = d.boot.t0 + d.boot.ms - Date.now(); if (rest <= 0) { d.boot = null; continue; } S._bt[id] = setTimeout(() => { delete S._bt[id]; finishBoot(id); }, rest + 40); }
   }
   const downMsg = d => d.off ? `${d.cfg.hostname} ist ausgeschaltet. Schalte das Gerät ein, dann startet es.` : NL.booting(d) ? `${d.cfg.hostname} startet noch (Bootvorgang läuft).` : '';
+  // Monitoring und Syslog
+  const monH = () => ({ diskPct: d => { const u = LXN.diskUse(d); return u && u.total ? Math.round(u.used / u.total * 100) : null; }, unitCount: d => LXN.unitList(d).filter(u => u.active).length, vmCount: d => VIRTN.vmsOf(S.net, d.id).length });
+  function collectSyslog(id, text) {
+    const d = S.net.devs[id]; if (!d || NL.isHost(d) || d.fw && false) return;
+    for (const srv of MONN.syslogRoute(S.net, d, text)) { const st = (S.mon[srv.id] = S.mon[srv.id] || { hist: {}, probs: [], syslog: [] }); st.syslog.push({ t: Date.now(), host: d.cfg.hostname, sev: MONN.sevOf(text), text }); if (st.syslog.length > 300) st.syslog.splice(0, 60); }
+  }
+  function monTick() {
+    if (!S || !S.net) return; S.mon._H = monH(); let any = false;
+    for (const d of Object.values(S.net.devs)) if (d.type === 'server') any = MONN.tick(S.net, d, S.mon, Date.now()) || any;
+    if (any) GUIN.refreshAll('mon');
+  }
   function togglePower(id) { const d = S.net.devs[id]; if (d) { if (d.off) powerOn(id); else powerOff(id); } }
   function toggleOff(id) { togglePower(id); }
   function toggleOffOld(id) { const d = S.net.devs[id]; act(() => { d.off = !d.off; toast(d.off ? `<b>${esc(d.cfg.hostname)}</b> ist ausgeschaltet – alle Links daran sind down.` : `${esc(d.cfg.hostname)} läuft wieder.`); }); }
@@ -6230,7 +6399,7 @@ const Sandbox = (function () {
   }
 
   // ---------------- console ----------------
-  function push(id, c, t) { (S.out[id] = S.out[id] || []).push({ c, t }); if (S.out[id].length > 800) S.out[id].splice(0, 150); }
+  function push(id, c, t) { (S.out[id] = S.out[id] || []).push({ c, t }); if (c === 'log' && S.mon) collectSyslog(id, t); if (S.out[id].length > 800) S.out[id].splice(0, 150); }
   function ensureOut(id) { const d = S.net.devs[id]; if (!S.sess[id]) S.sess[id] = NL.newSess(); if (!S.out[id]) push(id, 'sys', isWn(d) ? `${d.cfg.hostname} – ${d.type === 'pc' ? 'Windows 11' : 'Windows Server 2022'} (PowerShell). Beispiele: Get-NetIPAddress, ipconfig /all, Get-Service. Hilfe: Get-Command.` : isLx(d) ? `${d.cfg.hostname} – Ubuntu 22.04 LTS (Terminal). Hilfe mit help. Dienste: systemctl, Pakete: apt, Dateien: ls cat echo sed. Systemdateien brauchen sudo.` : NL.isHost(d) ? `${d.cfg.hostname} – Konsole. Befehle: ip [Port] <IP>/<Präfix> [Gateway], show ip, ping, nc <IP> <Port>, trace.` : d.type === 'fc' ? `${d.cfg.hostname} – FC-Switch: Konfiguration über die Oberfläche, Zoning im Export.` : d.fw ? `${d.cfg.hostname} – ASA-Konsole. Einrichten über die Port-Karte oder per CLI (nameif, security-level, access-list, nat, route).` : `${d.cfg.hostname} – Konsole. ? zeigt Befehle. Auch: show interfaces status, show cdp neighbors, show inventory.`); }
   function drawOut() {
     const id = S.sel, d = id && S.net.devs[id];
@@ -6667,6 +6836,26 @@ const Sandbox = (function () {
     rn(net, 'R3', ['interface g0/0/0', 'ip address 10.23.0.3 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.3.0.1 255.255.255.0', 'no shutdown']);
     rn(net, 'H1', ['ip 10.1.0.10/24 10.1.0.1']); rn(net, 'H3', ['ip 10.3.0.10/24 10.3.0.1']);
   }
+  // VPN-Lab: zwei Standorte (RHQ, RBR) über einen Internet-Router (R-NET)
+  const vpnSide = (peer, tip, lan, psk = 'Vpn!Lab2026', o = {}) => ['crypto ikev2 proposal PROP-T0', 'encryption ' + (o.enc || 'aes-cbc-256'), 'integrity sha256', 'group 14', 'exit', 'crypto ikev2 policy POL-T0', 'proposal PROP-T0', 'exit', 'crypto ikev2 keyring KR-T0', 'peer SITE', 'address ' + peer, 'pre-shared-key ' + psk, 'exit', 'exit', 'crypto ikev2 profile IKE-T0', `match identity remote address ${peer} 255.255.255.255`, 'authentication remote pre-share', 'authentication local pre-share', 'keyring local KR-T0', 'exit',
+    'crypto ipsec transform-set TS-T0 ' + (o.esp || 'esp-aes 256') + ' esp-sha256-hmac', 'mode tunnel', 'exit', 'crypto ipsec profile IPS-T0', 'set transform-set TS-T0', 'set ikev2-profile IKE-T0', 'exit', 'interface Tunnel0', 'ip address ' + tip + ' 255.255.255.252', 'tunnel source g0/0/0', 'tunnel destination ' + peer, 'tunnel mode ipsec ipv4', 'tunnel protection ipsec profile IPS-T0', 'exit', ...(o.noRoute ? [] : ['ip route ' + lan + ' 255.255.255.0 Tunnel0'])];
+  function vpnBase(net, o = {}) {
+    mk(net, 'ISR4321', 200, 240, 'RHQ'); mk(net, 'ISR4321', 460, 240, 'R-NET'); mk(net, 'ISR4321', 720, 240, 'RBR'); mk(net, 'PC', 200, 440, 'PC-HQ'); mk(net, 'PC', 720, 440, 'PC-BR');
+    lk(net, 'RHQ', RG + 0, 'R-NET', RG + 0); lk(net, 'R-NET', RG + 1, 'RBR', RG + 0); lk(net, 'PC-HQ', 'eth0', 'RHQ', RG + 1); lk(net, 'PC-BR', 'eth0', 'RBR', RG + 1);
+    rn(net, 'RHQ', ['interface g0/0/0', 'ip address 203.0.113.1 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.1.0.1 255.255.255.0', 'no shutdown', 'ip route 0.0.0.0 0.0.0.0 203.0.113.254']);
+    rn(net, 'R-NET', ['interface g0/0/0', 'ip address 203.0.113.254 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 198.51.100.254 255.255.255.0', 'no shutdown']);
+    rn(net, 'RBR', ['interface g0/0/0', 'ip address 198.51.100.1 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.2.0.1 255.255.255.0', 'no shutdown', 'ip route 0.0.0.0 0.0.0.0 198.51.100.254']);
+    rn(net, 'PC-HQ', ['ip 10.1.0.10/24 10.1.0.1']); rn(net, 'PC-BR', ['ip 10.2.0.10/24 10.2.0.1']);
+    if (o.configured) { rn(net, 'RHQ', vpnSide('198.51.100.1', '172.16.0.1', '10.2.0.0', 'Vpn!Lab2026', o.hq)); rn(net, 'RBR', vpnSide('203.0.113.1', '172.16.0.2', '10.1.0.0', o.pskBr || 'Vpn!Lab2026', o.br)); }
+  }
+  // Monitoring-Lab: Switch, Router, Server, PC; SRV-MON noch ohne Monitoring
+  function monBase(net, o = {}) {
+    mk(net, 'C9200L-24T-4G', 360, 120, 'SW'); mk(net, 'ISR4321', 700, 120, 'R-GW'); lk(net, 'R-GW', RG + 0, 'SW', G + 24);
+    mk(net, 'HW-1288H-V5', 160, 340, 'SRV-MON'); mk(net, 'HW-1288H-V5', 360, 340, 'SRV-WEB'); mk(net, 'PC', 560, 340, 'PC-1'); lk(net, 'SRV-MON', 'eth0', 'SW', G + 1); lk(net, 'SRV-WEB', 'eth0', 'SW', G + 2); lk(net, 'PC-1', 'eth0', 'SW', G + 3);
+    rn(net, 'R-GW', ['interface g0/0/0', 'ip address 10.0.0.1 255.255.255.0', 'no shutdown']); rn(net, 'SW', ['interface vlan 1', 'ip address 10.0.0.2 255.255.255.0', 'no shutdown']);
+    rn(net, 'SRV-MON', ['ip 10.0.0.5/24 10.0.0.1']); rn(net, 'SRV-WEB', ['ip 10.0.0.10/24 10.0.0.1']); rn(net, 'PC-1', ['ip 10.0.0.20/24 10.0.0.1']);
+    LXN.init(hd(net, 'SRV-MON')); LXN.init(hd(net, 'SRV-WEB'));
+  }
   // WLAN-Lab: PoE-Switch, Gateway, Webserver, Access Point(s), Clients
   function wlBase(net, o = {}) {
     mk(net, 'C9200L-24P-4X', 360, 80, 'SW'); mk(net, 'ISR4331', 700, 80, 'R-GW'); lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24);
@@ -6960,6 +7149,39 @@ const Sandbox = (function () {
         { t: 'Mindestens 8 der 12 Kameras laufen weiter', c: n => [...Array(12).keys()].filter(i => NL.poePower(n, hd(n, 'CAM-' + (i + 1))).ok).length >= 8 }],
       hints: ['Prüfe im Switch (Web-GUI → Dashboard → PoE-Budget oder <code>show power inline</code>), welche Ports <code>power-deny</code> haben.', 'Das Budget wird in Port-Reihenfolge vergeben, außer Ports haben eine höhere Priorität.', 'Setze an den Ports der Access Points und Telefone (Gi1/0/13 bis 22) <code>power inline port priority high</code>. Die Kameras bekommen dann das, was übrig bleibt.'],
       sol(net) { rn(net, 'SW-PoE', ['interface range g1/0/13 - 22', 'power inline port priority high']); } }
+    ,
+    { id: 'sc-vpn-new', kind: 'Aufbau', title: 'VPN: Zwei Standorte verbinden', est: '30 min',
+      intro: 'Die Zentrale <code>RHQ</code> (LAN 10.1.0.0/24, WAN 203.0.113.1) und die Filiale <code>RBR</code> (LAN 10.2.0.0/24, WAN 198.51.100.1) sind über das „Internet“ (<code>R-NET</code>) verbunden. Baue ein Site-to-Site-VPN mit IPsec (IKEv2, Schlüssel <code>Vpn!Lab2026</code>), sodass die PCs beider Standorte sich erreichen. Tunnel-Adressen: 172.16.0.1 (RHQ) und 172.16.0.2 (RBR).',
+      build(net) { vpnBase(net); },
+      goals: [
+        { t: 'Der Tunnel auf <code>RHQ</code> ist Up', c: n => !!hd(n, 'RHQ').cfg.ifs.Tunnel0 && NL.tunnel(n, hd(n, 'RHQ').id, 'Tunnel0').up },
+        { t: 'Der Tunnel auf <code>RBR</code> ist Up', c: n => !!hd(n, 'RBR').cfg.ifs.Tunnel0 && NL.tunnel(n, hd(n, 'RBR').id, 'Tunnel0').up },
+        { t: '<code>PC-HQ</code> erreicht <code>PC-BR</code>', c: n => pg(n, 'PC-HQ', '10.2.0.10') },
+        { t: '<code>PC-BR</code> erreicht <code>PC-HQ</code>', c: n => pg(n, 'PC-BR', '10.1.0.10') }],
+      hints: ['Web-GUI von RHQ → „Site-to-Site-VPN“ → VPN-Assistent. Trage die WAN-Adresse der Filiale als Peer ein.', 'Auf RBR machst du dasselbe gespiegelt: Peer ist 203.0.113.1, Tunnel-Adresse 172.16.0.2, Netz der Gegenseite 10.1.0.0. Schlüssel und Algorithmen müssen übereinstimmen.', 'Im Tunnel-Status steht bei Down der Grund. Ohne Route zum Netz der Gegenseite (der Assistent legt sie an) geht kein Verkehr durch den Tunnel.'],
+      sol(net) { rn(net, 'RHQ', vpnSide('198.51.100.1', '172.16.0.1', '10.2.0.0')); rn(net, 'RBR', vpnSide('203.0.113.1', '172.16.0.2', '10.1.0.0')); } }
+    ,
+    { id: 'sc-vpn-dev', kind: 'Fehlersuche', title: 'VPN: Tunnel bleibt unten', est: '25 min',
+      intro: 'Das VPN zwischen <code>RHQ</code> und <code>RBR</code> wurde eingerichtet, die PCs <code>PC-HQ</code> und <code>PC-BR</code> erreichen sich aber nicht. Die Gegenstellen sind zwar konfiguriert, doch der Tunnel kommt nicht hoch. Danach fehlt noch etwas für den Datenverkehr. Es gibt drei Fehler.',
+      build(net) { vpnBase(net, { configured: true, pskBr: 'Vpn!Lab2025', br: { esp: 'esp-aes 128', noRoute: true } }); },
+      goals: [
+        { t: 'Der Tunnel auf <code>RBR</code> ist Up', c: n => NL.tunnel(n, hd(n, 'RBR').id, 'Tunnel0').up },
+        { t: '<code>RBR</code> hat eine Route zum Netz 10.1.0.0/24 durch den Tunnel', c: n => hd(n, 'RBR').cfg.routes.some(r => r.net === '10.1.0.0' && r.ifn === 'Tunnel0') },
+        { t: '<code>PC-HQ</code> erreicht <code>PC-BR</code>', c: n => pg(n, 'PC-HQ', '10.2.0.10') },
+        { t: '<code>PC-BR</code> erreicht <code>PC-HQ</code>', c: n => pg(n, 'PC-BR', '10.1.0.10') }],
+      hints: ['Die Web-GUI von RBR (Site-to-Site-VPN) zeigt beim Tunnel den Grund für „Down“. Er ändert sich, wenn du einen Fehler behoben hast.', 'Der Pre-Shared Key stimmt nicht überein (…2025 gegen …2026), und das IPsec-Transform-Set nutzt auf einer Seite AES-128, auf der anderen AES-256.', 'Wenn der Tunnel steht, fehlt auf RBR noch die Route: <code>ip route 10.1.0.0 255.255.255.0 Tunnel0</code>.'],
+      sol(net) { rn(net, 'RBR', ['crypto ikev2 keyring KR-T0', 'peer SITE', 'pre-shared-key Vpn!Lab2026', 'exit', 'exit', 'crypto ipsec transform-set TS-T0 esp-aes 256 esp-sha256-hmac', 'mode tunnel', 'exit', 'ip route 10.1.0.0 255.255.255.0 Tunnel0']); } }
+    ,
+    { id: 'sc-mon-new', kind: 'Aufbau', title: 'Monitoring: Das Netz überwachen', est: '30 min',
+      intro: 'Im Netz gibt es noch keine Überwachung. Richte auf dem Server <code>SRV-MON</code> (10.0.0.5) ein Monitoring mit Zabbix ein. Es soll Switch, Router, Server und PC per Ping überwachen, den Switch und den Router per SNMP abfragen (Community <code>public</code>) und die Syslog-Meldungen der beiden Netzwerkgeräte sammeln.',
+      build(net) { monBase(net); },
+      goals: [
+        { t: 'Auf <code>SRV-MON</code> läuft der Dienst <code>zabbix-server</code>', c: n => MONN.isMonitor(n, hd(n, 'SRV-MON')) },
+        { t: 'Mindestens vier Hosts werden überwacht', c: n => MONN.zbx(hd(n, 'SRV-MON')).hosts.length >= 4 },
+        { t: '<code>SW</code> und <code>R-GW</code> haben eine SNMP-Community <code>public</code>', c: n => ['SW', 'R-GW'].every(h => MONN.communities(hd(n, h)).includes('public')) },
+        { t: '<code>SW</code> und <code>R-GW</code> senden Syslog an 10.0.0.5', c: n => ['SW', 'R-GW'].every(h => hd(n, h).cfg.lines.some(l => /^logging (host )?10\.0\.0\.5/i.test(l))) }],
+      hints: ['Installiere das Paket auf SRV-MON: Web-GUI → „Software“, oder <code>sudo apt install zabbix-server</code>, dann <code>sudo systemctl enable --now zabbix-server</code>.', 'Danach erscheint in der Web-GUI des Servers der Punkt „Monitoring“. Unter „Hosts“ findet „Netz durchsuchen“ alle Geräte mit IP-Adresse.', 'Auf Switch und Router: <code>snmp-server community public RO</code> und <code>logging host 10.0.0.5</code>. Unter „Einrichtung“ siehst du, was noch fehlt.'],
+      sol(net) { lxr(net, 'SRV-MON', ['sudo apt install zabbix-server', 'sudo systemctl enable --now zabbix-server']); MONN.discover(net, hd(net, 'SRV-MON')); rn(net, 'SW', ['snmp-server community public RO', 'logging host 10.0.0.5']); rn(net, 'R-GW', ['snmp-server community public RO', 'logging host 10.0.0.5']); } }
     ,
     { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
       intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',
@@ -7385,7 +7607,7 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, NL, RTG: RTGN, dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
@@ -7405,9 +7627,9 @@ const Sandbox = (function () {
     return { id: dev.id };
   }
 
-  function close() { document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
+  function close() { if (S) clearInterval(S._monT); document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;
