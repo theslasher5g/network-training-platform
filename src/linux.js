@@ -13,8 +13,11 @@ const LX = (function () {
     'quorum-server': { d: 'HyperMetro-Quorum-Server (Schiedsrichter für zwei Storage-Arrays)', units: ['quorum-server'], bins: ['quorumd'] },
     'zabbix-server': { d: 'Monitoring-Server (Zabbix): ICMP, SNMP, Trigger, Syslog-Auswertung', units: ['zabbix-server'], bins: ['zabbix_server'] },
     'zabbix-agent': { d: 'Monitoring-Agent für Server (CPU, RAM, Platte)', units: ['zabbix-agent'], bins: ['zabbix_agentd'] },
-    'backup-server': { d: 'Backup-Server: Jobs, Aufbewahrung und Restore für Geräte und Server', units: ['backup-server'], bins: ['bconsole'] }
+    'backup-server': { d: 'Backup-Server: Jobs, Aufbewahrung und Restore für Geräte und Server', units: ['backup-server'], bins: ['bconsole'] },
+    'docker.io': { d: 'Docker-Engine: Container starten und verwalten', units: ['docker'], bins: ['docker'] },
+    k3s: { d: 'Kubernetes (k3s): Deployments, Pods und Services mit kubectl', units: ['k3s'], bins: ['k3s', 'kubectl'] }
   };
+  const EXTRA = ['quorum-server', 'zabbix-server', 'zabbix-agent', 'backup-server', 'docker', 'k3s'];
   const PRE = ['curl', 'nano', 'ufw', 'openssh-server'];
   const UNITS = {
     nginx: { d: 'A high performance web server and a reverse proxy server', svc: 'http', port: '80', proto: 'tcp', proc: 'nginx' },
@@ -24,6 +27,7 @@ const LX = (function () {
     'zabbix-server': { d: 'Zabbix Server', port: '10051', proto: 'tcp', proc: 'zabbix_server' },
     'zabbix-agent': { d: 'Zabbix Agent', port: '10050', proto: 'tcp', proc: 'zabbix_agentd' },
     'backup-server': { d: 'Backup Server', port: '9101', proto: 'tcp', proc: 'bacula-dir' },
+    docker: { d: 'Docker Application Container Engine', proc: 'dockerd' }, k3s: { d: 'Lightweight Kubernetes', port: '6443', proto: 'tcp', proc: 'k3s' },
     ssh: { d: 'OpenBSD Secure Shell server', port: '22', proto: 'tcp', proc: 'sshd' }, cron: { d: 'Regular background program processing daemon', proc: 'cron' }, rsyslog: { d: 'System Logging Service', proc: 'rsyslogd' }
   };
   const ALIAS = { sshd: 'ssh', named: 'bind9', dhcpd: 'isc-dhcp-server', 'isc-dhcp': 'isc-dhcp-server' };
@@ -35,7 +39,7 @@ const LX = (function () {
 
   // ---------- Zustand ----------
   function init(d) {
-    if (d.lx) { ['quorum-server', 'zabbix-server', 'zabbix-agent', 'backup-server'].forEach(u => { if (!d.lx.units[u]) d.lx.units[u] = { enabled: false, active: false, seen: null }; }); return d.lx; }
+    if (d.lx) { EXTRA.forEach(u => { if (!d.lx.units[u]) d.lx.units[u] = { enabled: false, active: false, seen: null }; }); return d.lx; }
     const sv = d.svc || {}, name = d.cfg.hostname, fs = {};
     const dir = (p, o) => { fs[p] = { d: 1, o: o || 'root' }; }, file = (p, t, o, m) => { fs[p] = { t, o: o || 'root', m: m || '644' }; };
     ['/', '/bin', '/sys', '/sys/class', '/sys/class/scsi_host', '/sys/class/scsi_host/host0', '/sys/class/scsi_host/host1', '/etc', '/etc/nginx', '/etc/bind', '/etc/dhcp', '/home', '/root', '/tmp', '/usr', '/usr/bin', '/var', '/var/log', '/var/log/nginx', '/var/www', '/var/www/html', '/opt', '/srv', '/dev', '/proc'].forEach(p => dir(p));
@@ -50,7 +54,7 @@ const LX = (function () {
     if (pk.has('bind9')) file('/etc/bind/db.lab', DB_SAMPLE + (sv.dns && sv.dns.records || []).map(r => `${r.name}. IN A ${r.ip === '@' ? (d.cfg.ip || '0.0.0.0') : r.ip}`).join('\n') + '\n');
     if (pk.has('isc-dhcp-server')) { const p = sv.dhcp || {}; file('/etc/dhcp/dhcpd.conf', p.start && p.mask ? dhcpText(d, p) : DHCP_SAMPLE); }
     const units = {}; Object.keys(UNITS).forEach(u => { units[u] = { enabled: true, active: !UNITS[u].svc, seen: null }; });
-    ['quorum-server', 'zabbix-server', 'zabbix-agent', 'backup-server'].forEach(u => { units[u].active = false; units[u].enabled = false; });
+    EXTRA.forEach(u => { units[u].active = false; units[u].enabled = false; });
     Object.keys(UNITS).forEach(u => { const s = UNITS[u].svc; if (s) { units[u].active = !!(sv[s] && sv[s].on); units[u].seen = units[u].active; units[u].enabled = units[u].active; } });
     d.lx = { user: 'admin', root: false, cwd: '/home/admin', fs, pkgs: [...pk], units, users: ['root', 'admin'], fail: {}, log: [], ufw: { on: false, allow: [] }, pid: 600, scsi: null, fmt: {}, mounts: {} };
     return d.lx;
@@ -242,6 +246,7 @@ const LX = (function () {
       return out.join('\n');
     },
     cat: (a, st) => a.map(raw => { const p = resolvePath(st.L, raw); if (p === '/dev/null') return ''; const e = st.L.fs[p]; if (!e) return `cat: ${raw}: No such file or directory`; if (e.d) return `cat: ${raw}: Is a directory`; if (!canRead(st.L, st, p)) return `cat: ${raw}: Permission denied`; return (e.t || '').replace(/\n$/, ''); }).join('\n') || (st.stdin != null ? st.stdin : ''),
+    printf: a => a.length ? a[0].replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/%s/g, () => a.slice(1).shift() || '').replace(/\n$/, '') : 'printf: usage: printf FORMAT [ARG]',
     echo: a => { const e = a[0] === '-e', t = (e ? a.slice(1) : a).join(' '); return e ? t.replace(/\\n/g, '\n') : t; },
     touch: (a, st) => a.map(raw => { const p = resolvePath(st.L, raw); if (st.L.fs[p]) return ''; return writeFile(st.L, st, p, '', false); }).filter(Boolean).join('\n'),
     mkdir: (a, st) => { const { f, rest } = flagsOf(a); return rest.map(raw => { const p = resolvePath(st.L, raw); if (st.L.fs[p]) return f.has('p') ? '' : `mkdir: cannot create directory '${raw}': File exists`; if (!canWrite(st.L, st, p)) return `mkdir: cannot create directory '${raw}': Permission denied`; if (!st.L.fs[dirOf(p)]) { if (!f.has('p')) return `mkdir: cannot create directory '${raw}': No such file or directory`; let q = ''; p.split('/').filter(Boolean).forEach(s => { q += '/' + s; if (!st.L.fs[q]) st.L.fs[q] = { d: 1, o: st.root ? 'root' : st.L.user }; }); return ''; } st.L.fs[p] = { d: 1, o: st.root ? 'root' : st.L.user }; return ''; }).filter(Boolean).join('\n'); },
@@ -297,6 +302,9 @@ const LX = (function () {
     lsblk: (a, st) => lsblk(st), multipath: (a, st) => multipathLL(st), 'rescan-scsi-bus.sh': (a, st) => st.root ? rescan(st) : 'rescan-scsi-bus.sh: Permission denied (versuche: sudo rescan-scsi-bus.sh)',
     'mkfs.ext4': (a, st) => mkfs(a, st, 'ext4'), 'mkfs.xfs': (a, st) => mkfs(a, st, 'xfs'), mount: (a, st) => mount(a, st), umount: (a, st) => umount(a, st),
     fdisk: (a, st) => { if (!st.root) return 'fdisk: cannot open /dev/sda: Permission denied (versuche: sudo fdisk -l)'; return ['Disk /dev/sda: 20 GiB'].concat(devTable(st.L).flatMap(x => x.paths.map(q => `Disk /dev/${q.name}: ${x.e.gb} GiB`))).join('\n'); },
+    docker: (a, st) => hasBin(st.L, 'docker') ? (st.ctx.ctr ? st.ctx.ctr(st.d, st.L, 'docker', a, st.root, onlineErr(st.ctx, st.d)) : 'docker: nicht verfügbar') : "Command 'docker' not found, but can be installed with:\nsudo apt install docker.io",
+    kubectl: (a, st) => hasBin(st.L, 'kubectl') ? (st.ctx.ctr ? st.ctx.ctr(st.d, st.L, 'kubectl', a, st.root, onlineErr(st.ctx, st.d)) : 'kubectl: nicht verfügbar') : "Command 'kubectl' not found, but can be installed with:\nsudo apt install k3s",
+    k3s: (a, st) => a[0] === 'kubectl' ? C.kubectl(a.slice(1), st) : hasBin(st.L, 'k3s') ? 'k3s version v1.29.4+k3s1' : "Command 'k3s' not found, but can be installed with:\nsudo apt install k3s",
     virsh: (a, st) => st.ctx.virsh ? st.ctx.virsh(st.d, a, st.root) : 'Command \'virsh\' not found',
     ufw: (a, st) => ufw(a, st), journalctl: (a, st) => journal(a, st), systemctl: (a, st) => systemctl(a, st), apt: (a, st) => apt(a, st), 'apt-get': (a, st) => apt(a, st),
     ip: (a, st) => ipCmd(a, st), ifconfig: (a, st) => hasBin(st.L, 'ifconfig') ? ipCmd(['a'], st) : 'Command \'ifconfig\' not found, but can be installed with:\nsudo apt install net-tools',
@@ -361,7 +369,7 @@ const LX = (function () {
       if (!['start', 'stop', 'restart', 'reload', 'enable', 'disable'].includes(act)) return `Unknown command verb ${act}.`;
       if (!st.root) return '==== AUTHENTICATING FOR org.freedesktop.systemd1.manage-units ====\nAuthentication is required to manage system services or other units.\nFailed: Interactive authentication required (versuche: sudo systemctl ' + act + ' ' + u + ').';
       if (act === 'enable') { x.enabled = true; const sym = `Created symlink /etc/systemd/system/multi-user.target.wants/${u}.service → /lib/systemd/system/${u}.service.`; if (a.includes('--now')) { const r = systemctl(['start', raw], st); return sym + (r ? '\n' + r : ''); } return sym; }
-      if (act === 'disable') { x.enabled = false; return `Removed /etc/systemd/system/multi-user.target.wants/${u}.service.`; }
+      if (act === 'disable') { x.enabled = false; const sym = `Removed /etc/systemd/system/multi-user.target.wants/${u}.service.`; if (a.includes('--now')) { const r = systemctl(['stop', raw], st); return sym + (r ? '\n' + r : ''); } return sym; }
       if (act === 'stop') { if (x.active) jl(d, L, u, `Stopped ${UNITS[u].d}.`); x.active = false; setSvc(d, L, u, false); return ''; }
       if (act === 'reload' && !x.active) return `Failed to reload ${u}.service: Unit ${u}.service is not active, cannot reload.`;
       return startUnit(d, L, u, act);
@@ -433,6 +441,6 @@ const LX = (function () {
   const diskUse = d => { const L = init(d); return { used: used(L), total: TOTAL, full: diskFull(L) }; };
   const logLines = (d, u, n) => init(d).log.filter(l => !u || l.u === u).slice(-(n || 20)).map(l => l.t);
   const ufwState = d => init(d).ufw;
-  return { unitList, pkgList, saveFile, fileList, blockInfo, diskUse, logLines, ufwState, exec, prompt, init, isLinux, applyConf, startUnit, unitName, nginxCheck, readFile, writeFile, resolvePath, used, TOTAL, jl, diskFull };
+  return { online: onlineErr, unitList, pkgList, saveFile, fileList, blockInfo, diskUse, logLines, ufwState, exec, prompt, init, isLinux, applyConf, startUnit, unitName, nginxCheck, readFile, writeFile, resolvePath, used, TOTAL, jl, diskFull };
 })();
 if (typeof module !== 'undefined') module.exports = LX;

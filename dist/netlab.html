@@ -2931,8 +2931,11 @@ const LX = (function () {
     'quorum-server': { d: 'HyperMetro-Quorum-Server (Schiedsrichter für zwei Storage-Arrays)', units: ['quorum-server'], bins: ['quorumd'] },
     'zabbix-server': { d: 'Monitoring-Server (Zabbix): ICMP, SNMP, Trigger, Syslog-Auswertung', units: ['zabbix-server'], bins: ['zabbix_server'] },
     'zabbix-agent': { d: 'Monitoring-Agent für Server (CPU, RAM, Platte)', units: ['zabbix-agent'], bins: ['zabbix_agentd'] },
-    'backup-server': { d: 'Backup-Server: Jobs, Aufbewahrung und Restore für Geräte und Server', units: ['backup-server'], bins: ['bconsole'] }
+    'backup-server': { d: 'Backup-Server: Jobs, Aufbewahrung und Restore für Geräte und Server', units: ['backup-server'], bins: ['bconsole'] },
+    'docker.io': { d: 'Docker-Engine: Container starten und verwalten', units: ['docker'], bins: ['docker'] },
+    k3s: { d: 'Kubernetes (k3s): Deployments, Pods und Services mit kubectl', units: ['k3s'], bins: ['k3s', 'kubectl'] }
   };
+  const EXTRA = ['quorum-server', 'zabbix-server', 'zabbix-agent', 'backup-server', 'docker', 'k3s'];
   const PRE = ['curl', 'nano', 'ufw', 'openssh-server'];
   const UNITS = {
     nginx: { d: 'A high performance web server and a reverse proxy server', svc: 'http', port: '80', proto: 'tcp', proc: 'nginx' },
@@ -2942,6 +2945,7 @@ const LX = (function () {
     'zabbix-server': { d: 'Zabbix Server', port: '10051', proto: 'tcp', proc: 'zabbix_server' },
     'zabbix-agent': { d: 'Zabbix Agent', port: '10050', proto: 'tcp', proc: 'zabbix_agentd' },
     'backup-server': { d: 'Backup Server', port: '9101', proto: 'tcp', proc: 'bacula-dir' },
+    docker: { d: 'Docker Application Container Engine', proc: 'dockerd' }, k3s: { d: 'Lightweight Kubernetes', port: '6443', proto: 'tcp', proc: 'k3s' },
     ssh: { d: 'OpenBSD Secure Shell server', port: '22', proto: 'tcp', proc: 'sshd' }, cron: { d: 'Regular background program processing daemon', proc: 'cron' }, rsyslog: { d: 'System Logging Service', proc: 'rsyslogd' }
   };
   const ALIAS = { sshd: 'ssh', named: 'bind9', dhcpd: 'isc-dhcp-server', 'isc-dhcp': 'isc-dhcp-server' };
@@ -2953,7 +2957,7 @@ const LX = (function () {
 
   // ---------- Zustand ----------
   function init(d) {
-    if (d.lx) { ['quorum-server', 'zabbix-server', 'zabbix-agent', 'backup-server'].forEach(u => { if (!d.lx.units[u]) d.lx.units[u] = { enabled: false, active: false, seen: null }; }); return d.lx; }
+    if (d.lx) { EXTRA.forEach(u => { if (!d.lx.units[u]) d.lx.units[u] = { enabled: false, active: false, seen: null }; }); return d.lx; }
     const sv = d.svc || {}, name = d.cfg.hostname, fs = {};
     const dir = (p, o) => { fs[p] = { d: 1, o: o || 'root' }; }, file = (p, t, o, m) => { fs[p] = { t, o: o || 'root', m: m || '644' }; };
     ['/', '/bin', '/sys', '/sys/class', '/sys/class/scsi_host', '/sys/class/scsi_host/host0', '/sys/class/scsi_host/host1', '/etc', '/etc/nginx', '/etc/bind', '/etc/dhcp', '/home', '/root', '/tmp', '/usr', '/usr/bin', '/var', '/var/log', '/var/log/nginx', '/var/www', '/var/www/html', '/opt', '/srv', '/dev', '/proc'].forEach(p => dir(p));
@@ -2968,7 +2972,7 @@ const LX = (function () {
     if (pk.has('bind9')) file('/etc/bind/db.lab', DB_SAMPLE + (sv.dns && sv.dns.records || []).map(r => `${r.name}. IN A ${r.ip === '@' ? (d.cfg.ip || '0.0.0.0') : r.ip}`).join('\n') + '\n');
     if (pk.has('isc-dhcp-server')) { const p = sv.dhcp || {}; file('/etc/dhcp/dhcpd.conf', p.start && p.mask ? dhcpText(d, p) : DHCP_SAMPLE); }
     const units = {}; Object.keys(UNITS).forEach(u => { units[u] = { enabled: true, active: !UNITS[u].svc, seen: null }; });
-    ['quorum-server', 'zabbix-server', 'zabbix-agent', 'backup-server'].forEach(u => { units[u].active = false; units[u].enabled = false; });
+    EXTRA.forEach(u => { units[u].active = false; units[u].enabled = false; });
     Object.keys(UNITS).forEach(u => { const s = UNITS[u].svc; if (s) { units[u].active = !!(sv[s] && sv[s].on); units[u].seen = units[u].active; units[u].enabled = units[u].active; } });
     d.lx = { user: 'admin', root: false, cwd: '/home/admin', fs, pkgs: [...pk], units, users: ['root', 'admin'], fail: {}, log: [], ufw: { on: false, allow: [] }, pid: 600, scsi: null, fmt: {}, mounts: {} };
     return d.lx;
@@ -3160,6 +3164,7 @@ const LX = (function () {
       return out.join('\n');
     },
     cat: (a, st) => a.map(raw => { const p = resolvePath(st.L, raw); if (p === '/dev/null') return ''; const e = st.L.fs[p]; if (!e) return `cat: ${raw}: No such file or directory`; if (e.d) return `cat: ${raw}: Is a directory`; if (!canRead(st.L, st, p)) return `cat: ${raw}: Permission denied`; return (e.t || '').replace(/\n$/, ''); }).join('\n') || (st.stdin != null ? st.stdin : ''),
+    printf: a => a.length ? a[0].replace(/\\n/g, '\n').replace(/\\t/g, '\t').replace(/%s/g, () => a.slice(1).shift() || '').replace(/\n$/, '') : 'printf: usage: printf FORMAT [ARG]',
     echo: a => { const e = a[0] === '-e', t = (e ? a.slice(1) : a).join(' '); return e ? t.replace(/\\n/g, '\n') : t; },
     touch: (a, st) => a.map(raw => { const p = resolvePath(st.L, raw); if (st.L.fs[p]) return ''; return writeFile(st.L, st, p, '', false); }).filter(Boolean).join('\n'),
     mkdir: (a, st) => { const { f, rest } = flagsOf(a); return rest.map(raw => { const p = resolvePath(st.L, raw); if (st.L.fs[p]) return f.has('p') ? '' : `mkdir: cannot create directory '${raw}': File exists`; if (!canWrite(st.L, st, p)) return `mkdir: cannot create directory '${raw}': Permission denied`; if (!st.L.fs[dirOf(p)]) { if (!f.has('p')) return `mkdir: cannot create directory '${raw}': No such file or directory`; let q = ''; p.split('/').filter(Boolean).forEach(s => { q += '/' + s; if (!st.L.fs[q]) st.L.fs[q] = { d: 1, o: st.root ? 'root' : st.L.user }; }); return ''; } st.L.fs[p] = { d: 1, o: st.root ? 'root' : st.L.user }; return ''; }).filter(Boolean).join('\n'); },
@@ -3215,6 +3220,9 @@ const LX = (function () {
     lsblk: (a, st) => lsblk(st), multipath: (a, st) => multipathLL(st), 'rescan-scsi-bus.sh': (a, st) => st.root ? rescan(st) : 'rescan-scsi-bus.sh: Permission denied (versuche: sudo rescan-scsi-bus.sh)',
     'mkfs.ext4': (a, st) => mkfs(a, st, 'ext4'), 'mkfs.xfs': (a, st) => mkfs(a, st, 'xfs'), mount: (a, st) => mount(a, st), umount: (a, st) => umount(a, st),
     fdisk: (a, st) => { if (!st.root) return 'fdisk: cannot open /dev/sda: Permission denied (versuche: sudo fdisk -l)'; return ['Disk /dev/sda: 20 GiB'].concat(devTable(st.L).flatMap(x => x.paths.map(q => `Disk /dev/${q.name}: ${x.e.gb} GiB`))).join('\n'); },
+    docker: (a, st) => hasBin(st.L, 'docker') ? (st.ctx.ctr ? st.ctx.ctr(st.d, st.L, 'docker', a, st.root, onlineErr(st.ctx, st.d)) : 'docker: nicht verfügbar') : "Command 'docker' not found, but can be installed with:\nsudo apt install docker.io",
+    kubectl: (a, st) => hasBin(st.L, 'kubectl') ? (st.ctx.ctr ? st.ctx.ctr(st.d, st.L, 'kubectl', a, st.root, onlineErr(st.ctx, st.d)) : 'kubectl: nicht verfügbar') : "Command 'kubectl' not found, but can be installed with:\nsudo apt install k3s",
+    k3s: (a, st) => a[0] === 'kubectl' ? C.kubectl(a.slice(1), st) : hasBin(st.L, 'k3s') ? 'k3s version v1.29.4+k3s1' : "Command 'k3s' not found, but can be installed with:\nsudo apt install k3s",
     virsh: (a, st) => st.ctx.virsh ? st.ctx.virsh(st.d, a, st.root) : 'Command \'virsh\' not found',
     ufw: (a, st) => ufw(a, st), journalctl: (a, st) => journal(a, st), systemctl: (a, st) => systemctl(a, st), apt: (a, st) => apt(a, st), 'apt-get': (a, st) => apt(a, st),
     ip: (a, st) => ipCmd(a, st), ifconfig: (a, st) => hasBin(st.L, 'ifconfig') ? ipCmd(['a'], st) : 'Command \'ifconfig\' not found, but can be installed with:\nsudo apt install net-tools',
@@ -3279,7 +3287,7 @@ const LX = (function () {
       if (!['start', 'stop', 'restart', 'reload', 'enable', 'disable'].includes(act)) return `Unknown command verb ${act}.`;
       if (!st.root) return '==== AUTHENTICATING FOR org.freedesktop.systemd1.manage-units ====\nAuthentication is required to manage system services or other units.\nFailed: Interactive authentication required (versuche: sudo systemctl ' + act + ' ' + u + ').';
       if (act === 'enable') { x.enabled = true; const sym = `Created symlink /etc/systemd/system/multi-user.target.wants/${u}.service → /lib/systemd/system/${u}.service.`; if (a.includes('--now')) { const r = systemctl(['start', raw], st); return sym + (r ? '\n' + r : ''); } return sym; }
-      if (act === 'disable') { x.enabled = false; return `Removed /etc/systemd/system/multi-user.target.wants/${u}.service.`; }
+      if (act === 'disable') { x.enabled = false; const sym = `Removed /etc/systemd/system/multi-user.target.wants/${u}.service.`; if (a.includes('--now')) { const r = systemctl(['stop', raw], st); return sym + (r ? '\n' + r : ''); } return sym; }
       if (act === 'stop') { if (x.active) jl(d, L, u, `Stopped ${UNITS[u].d}.`); x.active = false; setSvc(d, L, u, false); return ''; }
       if (act === 'reload' && !x.active) return `Failed to reload ${u}.service: Unit ${u}.service is not active, cannot reload.`;
       return startUnit(d, L, u, act);
@@ -3351,7 +3359,7 @@ const LX = (function () {
   const diskUse = d => { const L = init(d); return { used: used(L), total: TOTAL, full: diskFull(L) }; };
   const logLines = (d, u, n) => init(d).log.filter(l => !u || l.u === u).slice(-(n || 20)).map(l => l.t);
   const ufwState = d => init(d).ufw;
-  return { unitList, pkgList, saveFile, fileList, blockInfo, diskUse, logLines, ufwState, exec, prompt, init, isLinux, applyConf, startUnit, unitName, nginxCheck, readFile, writeFile, resolvePath, used, TOTAL, jl, diskFull };
+  return { online: onlineErr, unitList, pkgList, saveFile, fileList, blockInfo, diskUse, logLines, ufwState, exec, prompt, init, isLinux, applyConf, startUnit, unitName, nginxCheck, readFile, writeFile, resolvePath, used, TOTAL, jl, diskFull };
 })();
 if (typeof module !== 'undefined') module.exports = LX;
 
@@ -3511,6 +3519,200 @@ const BKP = (function () {
   return { st, dateOf, isBackup, addJob, delJob, delBackup, runJob, restore, testRestore, advance, access, kindOf, KIND, usedMb, ipOf };
 })();
 if (typeof module !== 'undefined') module.exports = BKP;
+
+// ===================== NetLab Container (Docker und Kubernetes/k3s) =====================
+// Läuft auf Linux-Servern: Paket docker.io (docker-Befehle) und k3s (kubectl). Images stammen aus einer
+// simulierten Registry und brauchen beim ersten Mal eine Internetverbindung. Veröffentlichte Ports und NodePorts
+// sind von anderen Geräten per HTTP erreichbar (Anbindung an httpGet im Sandbox-Modul).
+const CTR = (function () {
+  const hash = s => { let h = 2166136261; for (const c of String(s)) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619) >>> 0; } return h; };
+  const hex = (s, n) => { let o = '', h = hash(s); while (o.length < n) { h = Math.imul(h ^ (h >>> 13), 0x5bd1e995) >>> 0; o += h.toString(16).padStart(8, '0'); } return o.slice(0, n); };
+  const al = (s, n) => { let o = '', h = hash(s); while (o.length < n) { h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0; o += 'bcdfghjklmnpqrstvwxz2456789'[h % 27]; } return o; };
+  const NAMES = ['brave_turing', 'calm_curie', 'eager_hopper', 'keen_lovelace', 'quirky_ritchie', 'happy_torvalds'];
+  // Simulierte Registry: web = liefert eine Webseite, env = Pflicht-Variable (sonst beendet sich der Container)
+  const REG = {
+    nginx: { mb: 192, port: 80, web: { title: 'Welcome to nginx!', body: 'Welcome to nginx! If you see this page, the nginx web server is successfully installed and working.', root: '/usr/share/nginx/html' } },
+    httpd: { mb: 148, port: 80, web: { title: 'It works!', body: 'It works!', root: '/usr/local/apache2/htdocs' } },
+    'grafana/grafana': { mb: 410, port: 3000, web: { title: 'Grafana', body: 'Grafana Welcome to Grafana. Anmeldung: admin / admin' } },
+    redis: { mb: 117, port: 6379 }, mysql: { mb: 586, port: 3306, env: 'MYSQL_ROOT_PASSWORD' }, postgres: { mb: 379, port: 5432, env: 'POSTGRES_PASSWORD' },
+    alpine: { mb: 8, sh: true }, busybox: { mb: 5, sh: true }, python: { mb: 1020, sh: true }, 'hello-world': { mb: 1, hello: true }
+  };
+  const WELL = { 22: 'ssh', 80: 'nginx', 443: 'nginx' };
+  const st = d => d.ctr || (d.ctr = { images: [], cts: [], seq: 1, k: { deps: [], svcs: [], cache: [], seq: 1 } });
+  const imgKey = s => { const m = String(s).match(/^([^:]+)(?::(.+))?$/); return m ? { name: m[1].replace(/^docker\.io\//, '').replace(/^library\//, ''), tag: m[2] || 'latest' } : null; };
+  const known = s => { const k = imgKey(s); return !!k && !!REG[k.name]; };
+  const unitOn = (d, u) => !!(d.lx && d.lx.units && d.lx.units[u] && d.lx.units[u].active && d.lx.pkgs.includes(u === 'docker' ? 'docker.io' : u));
+  const dockerOn = d => unitOn(d, 'docker'), k3sOn = d => unitOn(d, 'k3s');
+  const htmlTitle = t => { const m = /<title>([\s\S]*?)<\/title>/i.exec(t); return m ? m[1].trim() : null; };
+  const htmlBody = t => String(t).replace(/<title>[\s\S]*?<\/title>/i, '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const ago = n => n < 1 ? 'Less than a second ago' : n + ' minutes ago';
+
+  // ---------- Web-Auslieferung eines Containers ----------
+  // Inhalt: Bind-Mount auf das Web-Root des Images (Datei index.html auf dem Host) oder Standardseite
+  function pageOf(d, L, ct) {
+    const im = REG[imgKey(ct.image).name]; if (!im || !im.web) return null;
+    const m = (ct.mounts || []).find(x => im.web.root && x.c.replace(/\/$/, '') === im.web.root);
+    if (m) { const e = L.fs[m.h.replace(/\/$/, '') + '/index.html']; if (e && !e.d) return { title: htmlTitle(e.t) || ct.name, body: htmlBody(e.t) }; return { title: '403 Forbidden', body: '403 Forbidden nginx' }; }
+    return { title: im.web.title, body: im.web.body };
+  }
+  // Wird von httpGet gerufen: liefert die Antwort, wenn ein Container oder Kubernetes-Dienst den Port bedient
+  function web(srv, port, L, online) {
+    if (!srv || !srv.ctr) return null; L = L || srv.lx; const S = srv.ctr;
+    if (dockerOn(srv)) { const ct = S.cts.find(c => c.state === 'running' && (c.ports || []).some(p => p.h === port)); if (ct) { const p = pageOf(srv, L, ct); if (p) return Object.assign({ via: 'docker:' + ct.name }, p); return { via: 'docker:' + ct.name, empty: true }; } }
+    if (k3sOn(srv)) {
+      const sv = S.k.svcs.find(x => x.type !== 'ClusterIP' && (x.type === 'LoadBalancer' ? x.port === port : x.nodePort === port));
+      if (sv) { const pods = podsOf(srv, L, online).filter(p => p.dep === sv.dep && p.status === 'Running'); if (!pods.length) return { via: 'k8s:' + sv.name, empty: true, none: true }; const dep = S.k.deps.find(x => x.name === sv.dep), im = REG[imgKey(dep.image).name]; const pod = pods[(S.k.rr = ((S.k.rr || 0) + 1)) % pods.length]; return im && im.web ? { via: 'k8s:' + sv.name, title: im.web.title, body: im.web.body + ' (Pod ' + pod.name + ')' } : { via: 'k8s:' + sv.name, empty: true }; }
+    }
+    return null;
+  }
+  
+  // ---------- Docker ----------
+  function pull(d, name, online) {
+    const k = imgKey(name); if (!k || !REG[k.name]) return { err: `Error response from daemon: pull access denied for ${name}, repository does not exist or may require 'docker login'` };
+    if (online) return { err: `Error response from daemon: Get "https://registry-1.docker.io/v2/": dial tcp: lookup registry-1.docker.io: Temporary failure in name resolution (${online})` };
+    const S = st(d); if (!S.images.some(i => i.name === k.name && i.tag === k.tag)) S.images.push({ name: k.name, tag: k.tag, id: hex(k.name + k.tag, 12), mb: REG[k.name].mb });
+    return { ok: true, k };
+  }
+  const tbl = (head, rows) => { const all = [head].concat(rows), w = head.map((_, i) => Math.max(...all.map(r => String(r[i]).length)) + 3); return all.map(r => r.map((c, i) => i === r.length - 1 ? String(c) : String(c).padEnd(w[i])).join('')).join('\n'); };
+  const portsText = ct => (ct.ports || []).map(p => `0.0.0.0:${p.h}->${p.c}/tcp`).join(', ');
+  function usedPorts(d, L) { const m = {}; Object.keys(WELL).forEach(p => { const u = WELL[p]; if (L.units && L.units[u] && L.units[u].active) m[p] = u === 'ssh' ? 'sshd' : 'nginx'; }); st(d).cts.forEach(c => { if (c.state === 'running') (c.ports || []).forEach(p => { m[p.h] = 'docker:' + c.name; }); }); return m; }
+  function dockerRun(d, L, a, root, ctx) {
+    const S = st(d); let name = null, det = false, rm = false, ports = [], env = {}, mounts = [], restart = 'no', i = 0, img = null, cmd = [];
+    for (; i < a.length; i++) {
+      const t = a[i]; if (img) { cmd.push(t); continue; }
+      if (t === '-d' || t === '--detach') det = true; else if (t === '--rm') rm = true; else if (t === '-it' || t === '-i' || t === '-t') { /* interaktiv */ }
+      else if (t === '--name') name = a[++i]; else if (t.startsWith('--name=')) name = t.slice(7);
+      else if (t === '-p' || t === '--publish') { const m = String(a[++i]).match(/^(?:[\d.]+:)?(\d+):(\d+)(?:\/tcp)?$/); if (!m) return `docker: Error response from daemon: invalid publish opts format (should be name=value but got '${a[i]}').`; ports.push({ h: +m[1], c: +m[2] }); }
+      else if (t === '-e' || t === '--env') { const m = String(a[++i]).split('='); env[m[0]] = m.slice(1).join('='); }
+      else if (t === '-v' || t === '--volume') { const m = String(a[++i]).split(':'); if (m.length < 2) return 'docker: Error response from daemon: invalid volume specification'; mounts.push({ h: m[0], c: m[1] }); }
+      else if (t === '--restart') restart = a[++i]; else if (t.startsWith('-')) return `unknown flag: ${t}\nSee 'docker run --help'.`; else img = t;
+    }
+    if (!img) return '"docker run" requires at least 1 argument.\nUsage:  docker run [OPTIONS] IMAGE [COMMAND] [ARG...]';
+    const k = imgKey(img); let pulled = '';
+    if (!k || !REG[k.name]) return `Unable to find image '${img}' locally\ndocker: Error response from daemon: pull access denied for ${img}, repository does not exist or may require 'docker login'.`;
+    if (!S.images.some(x => x.name === k.name && x.tag === k.tag)) { const r = pull(d, img, ctx.online); if (r.err) return `Unable to find image '${img}' locally\ndocker: ${r.err}.`; pulled = `Unable to find image '${img}' locally\n${k.tag}: Pulling from library/${k.name}\nDigest: sha256:${hex(k.name, 64)}\nStatus: Downloaded newer image for ${k.name}:${k.tag}\n`; }
+    if (name && S.cts.some(c => c.name === name)) return `docker: Error response from daemon: Conflict. The container name "/${name}" is already in use by container "${S.cts.find(c => c.name === name).id}". You have to remove (or rename) that container to be able to reuse that name.`;
+    const used = usedPorts(d, L); for (const p of ports) if (used[p.h]) return `${pulled}docker: Error response from daemon: driver failed programming external connectivity on endpoint ${name || 'container'}: Bind for 0.0.0.0:${p.h} failed: port is already allocated (belegt durch ${used[p.h]}).`;
+    const R = REG[k.name], id = hex(k.name + (S.seq) + (name || ''), 64), nm = name || NAMES[S.seq % NAMES.length] + (S.seq > NAMES.length ? S.seq : '');
+    const ct = { id: id.slice(0, 12), full: id, name: nm, image: k.name + (k.tag === 'latest' ? '' : ':' + k.tag), ports, env, mounts, restart, state: 'running', code: 0, logs: [], created: ctx.day || 0 }; S.seq++;
+    if (R.hello) { ct.state = 'exited'; ct.logs.push('Hello from Docker!\nThis message shows that your installation appears to be working correctly.'); if (!rm) S.cts.push(ct); return pulled + ct.logs[0]; }
+    if (R.sh && !det) { const out = cmd.length ? shRun(cmd, ct, d, L) : ''; ct.state = 'exited'; ct.logs.push(out); if (!rm) S.cts.push(ct); return pulled + out + (cmd.length ? '' : '(Im Simulator gibt es keine interaktive Shell im Container. Nutze: docker run IMAGE echo hallo)'); }
+    if (R.env && !env[R.env]) { ct.state = 'exited'; ct.code = 1; ct.logs.push(`[Entrypoint] Database is uninitialized and password option is not specified.\n  You need to specify one of the following as an environment variable:\n  - ${R.env}`); S.cts.push(ct); return det ? pulled + ct.full : pulled + ct.logs[0]; }
+    ct.logs.push(R.web ? `/docker-entrypoint.sh: Configuration complete; ready for start up\n${ct.image}: listening on port ${R.port}` : `${ct.image}: Ready to accept connections on port ${R.port}`);
+    if (R.sh) { ct.logs.push(''); }
+    S.cts.push(ct); return det ? pulled + ct.full : pulled + ct.logs[0] + '\n(Im Simulator läuft der Container im Hintergrund. Nächstes Mal mit -d.)';
+  }
+  function shRun(cmd, ct, d) { const c = cmd[0]; if (c === 'echo') return cmd.slice(1).join(' '); if (c === 'hostname') return ct.id; if (c === 'cat' && cmd[1] === '/etc/os-release') return ct.image.startsWith('alpine') ? 'NAME="Alpine Linux"' : 'PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"'; if (c === 'ls') return 'bin  etc  home  lib  proc  root  tmp  usr  var'; if (c === 'whoami') return 'root'; if (c === 'uname') return 'Linux'; return `exec: "${c}": executable file not found in $PATH`; }
+  function docker(d, L, a, root, ctx) {
+    const S = st(d), sub = a[0]; if (!sub) return 'Usage:  docker [OPTIONS] COMMAND\n\nBefehle: run ps images pull stop start restart rm rmi logs exec inspect version info';
+    if (sub === '--version') return 'Docker version 24.0.7, build afdd53b';
+    if (!dockerOn(d)) return 'Cannot connect to the Docker daemon at unix:///var/run/docker.sock. Is the docker daemon running?\n(Starte ihn mit: sudo systemctl enable --now docker)';
+    if (!root) return 'permission denied while trying to connect to the Docker daemon socket at unix:///var/run/docker.sock: connect: permission denied\n(versuche: sudo docker …)';
+    const rest = a.slice(1), byName = n => S.cts.find(c => c.name === n || c.id.startsWith(n) || c.full.startsWith(n));
+    switch (sub) {
+      case 'version': return 'Client: Docker Engine - Community\n Version:           24.0.7\nServer: Docker Engine - Community\n Engine:\n  Version:          24.0.7';
+      case 'info': return `Containers: ${S.cts.length}\n Running: ${S.cts.filter(c => c.state === 'running').length}\n Stopped: ${S.cts.filter(c => c.state !== 'running').length}\nImages: ${S.images.length}\nServer Version: 24.0.7\nStorage Driver: overlay2`;
+      case 'pull': { if (!rest[0]) return '"docker pull" requires exactly 1 argument.'; const r = pull(d, rest[0], ctx.online); if (r.err) return r.err; return `${r.k.tag}: Pulling from library/${r.k.name}\nDigest: sha256:${hex(r.k.name, 64)}\nStatus: Downloaded newer image for ${r.k.name}:${r.k.tag}`; }
+      case 'images': return tbl(['REPOSITORY', 'TAG', 'IMAGE ID', 'SIZE'], S.images.map(i => [i.name, i.tag, i.id, i.mb + 'MB']));
+      case 'ps': { const all = rest.includes('-a') || rest.includes('--all'); return tbl(['CONTAINER ID', 'IMAGE', 'STATUS', 'PORTS', 'NAMES'], S.cts.filter(c => all || c.state === 'running').map(c => [c.id, c.image, c.state === 'running' ? 'Up 2 minutes' : `Exited (${c.code}) 1 minute ago`, c.state === 'running' ? portsText(c) : '', c.name])); }
+      case 'run': return dockerRun(d, L, rest, root, ctx);
+      case 'stop': case 'start': case 'restart': case 'kill': {
+        if (!rest.length) return `"docker ${sub}" requires at least 1 argument.`;
+        return rest.map(n => { const c = byName(n); if (!c) return `Error response from daemon: No such container: ${n}`; if (sub === 'stop' || sub === 'kill') { c.state = 'exited'; c.code = 0; return c.name; }
+          const used = usedPorts(d, L); const clash = (c.ports || []).find(p => used[p.h] && c.state !== 'running'); if (clash) return `Error response from daemon: driver failed programming external connectivity on endpoint ${c.name}: Bind for 0.0.0.0:${clash.h} failed: port is already allocated\nError: failed to start containers: ${c.name}`;
+          const R = REG[imgKey(c.image).name]; if (R.env && !(c.env || {})[R.env]) { c.state = 'exited'; c.code = 1; return `Error: ${c.name} beendet sich sofort (${R.env} fehlt).`; } c.state = 'running'; return c.name; }).join('\n'); }
+      case 'rm': { const f = rest.includes('-f'); return rest.filter(x => !x.startsWith('-')).map(n => { const c = byName(n); if (!c) return `Error response from daemon: No such container: ${n}`; if (c.state === 'running' && !f) return `Error response from daemon: cannot remove container "/${c.name}": container is running: stop the container before removing or force remove`; S.cts = S.cts.filter(x => x !== c); return n; }).join('\n'); }
+      case 'rmi': return rest.filter(x => !x.startsWith('-')).map(n => { const k = imgKey(n), i = S.images.find(x => x.name === k.name && x.tag === k.tag || x.id === n); if (!i) return `Error response from daemon: No such image: ${n}`; const u = S.cts.find(c => imgKey(c.image).name === i.name); if (u) return `Error response from daemon: conflict: unable to remove repository reference "${n}" (must force) - container ${u.id} is using its referenced image ${i.id}`; S.images = S.images.filter(x => x !== i); return `Untagged: ${i.name}:${i.tag}\nDeleted: sha256:${hex(i.id, 64)}`; }).join('\n');
+      case 'logs': { const c = byName(rest.filter(x => !x.startsWith('-')).pop()); return c ? c.logs.join('\n') : 'Error response from daemon: No such container'; }
+      case 'inspect': { const c = byName(rest[0]); return c ? JSON.stringify({ Id: c.full, Name: '/' + c.name, Image: c.image, State: { Status: c.state, ExitCode: c.code }, HostConfig: { PortBindings: c.ports, RestartPolicy: { Name: c.restart } }, Mounts: c.mounts }, null, 2) : 'Error: No such object: ' + rest[0]; }
+      case 'exec': { const ar = rest.filter(x => x !== '-it' && x !== '-i' && x !== '-t'), c = byName(ar[0]); if (!c) return `Error response from daemon: No such container: ${ar[0]}`; if (c.state !== 'running') return `Error response from daemon: container ${c.id} is not running`; const cmd = ar.slice(1); if (!cmd.length) return 'docker exec requires an Befehl'; if (['sh', 'bash'].includes(cmd[0])) return '(Interaktive Shells gibt es im Simulator nicht. Nutze: docker exec NAME ls / oder cat DATEI)';
+        if (cmd[0] === 'cat' && cmd[1]) { const im = REG[imgKey(c.image).name], pg = im && im.web ? pageOf(d, L, c) : null; if (pg && cmd[1].replace(/\/[^/]*$/, '') === im.web.root) return pg.body; } return shRun(cmd, c, d, L); }
+      default: return `docker: '${sub}' is not a docker command.\nSee 'docker --help'`;
+    }
+  }
+
+  // ---------- Kubernetes (k3s) ----------
+  function podsOf(d, L, online) {
+    const S = st(d), out = [];
+    for (const dep of S.k.deps) {
+      const k = imgKey(dep.image), ok = k && REG[k.name], key = ok && k.name + ':' + k.tag; let status = 'Running';
+      if (!ok) status = 'ImagePullBackOff'; else if (!S.k.cache.includes(key)) { if (online === undefined || online) status = 'ImagePullBackOff'; else S.k.cache.push(key); }
+      if (status === 'Running' && REG[k.name].env && !(dep.env || {})[REG[k.name].env]) status = 'CrashLoopBackOff';
+      for (let i = 0; i < dep.replicas; i++) out.push({ name: `${dep.name}-${al(dep.name + dep.rev, 9)}-${al(dep.name + dep.rev + i, 5)}`, dep: dep.name, image: dep.image, status, i, rev: dep.rev });
+    }
+    return out;
+  }
+  const age = () => '2m';
+  function readManifest(L, file) { const e = L.fs[file]; return e && !e.d ? e.t : null; }
+  function applyYaml(d, L, txt, ctx) {
+    const S = st(d), out = [];
+    for (const doc of txt.split(/^---\s*$/m)) {
+      const kind = (/^kind:\s*(\S+)/m.exec(doc) || [])[1]; if (!kind) continue;
+      const name = (/^\s{2}name:\s*(\S+)/m.exec(doc) || /^\s*name:\s*(\S+)/m.exec(doc) || [])[1]; if (!name) return { err: 'error: error validating data: metadata.name fehlt' };
+      if (kind === 'Deployment') {
+        const rep = +((/replicas:\s*(\d+)/.exec(doc) || [])[1] || 1), image = (/image:\s*(\S+)/.exec(doc) || [])[1], app = (/matchLabels:\s*\n\s*app:\s*(\S+)/.exec(doc) || [])[1] || name; if (!image) return { err: 'error: Deployment ohne Container-Image' };
+        const env = {}; for (const m of doc.matchAll(/-\s*name:\s*(\S+)\s*\n\s*value:\s*"?([^"\n]+)"?/g)) env[m[1]] = m[2];
+        const ex = S.k.deps.find(x => x.name === name); if (ex) { const ch = ex.image !== image; ex.replicas = rep; ex.image = image; ex.app = app; ex.env = env; if (ch) ex.rev++; out.push(`deployment.apps/${name} ${ch ? 'configured' : 'unchanged'}`); } else { S.k.deps.push({ name, image, replicas: rep, app, rev: 1, env }); out.push(`deployment.apps/${name} created`); }
+      } else if (kind === 'Service') {
+        const type = (/type:\s*(\S+)/.exec(doc) || [])[1] || 'ClusterIP', port = +((/^\s*-?\s*port:\s*(\d+)/m.exec(doc) || [])[1] || 80), np = (/nodePort:\s*(\d+)/.exec(doc) || [])[1], sel = (/selector:\s*\n\s*app:\s*(\S+)/.exec(doc) || [])[1];
+        if (!sel) return { err: `The Service "${name}" is invalid: spec.selector fehlt` };
+        if (np && (+np < 30000 || +np > 32767)) return { err: `The Service "${name}" is invalid: spec.ports[0].nodePort: Invalid value: ${np}: provided port is not in the valid range. The range of valid ports is 30000-32767` };
+        const dep = S.k.deps.find(x => x.app === sel); const ex = S.k.svcs.find(x => x.name === name), o = { name, type, port, nodePort: type === 'NodePort' ? (np ? +np : (ex && ex.nodePort) || nodePortFor(S, name)) : null, dep: dep ? dep.name : sel, sel };
+        if (ex) { Object.assign(ex, o); out.push(`service/${name} configured`); } else { S.k.svcs.push(o); out.push(`service/${name} created`); }
+      } else return { err: `error: no matches for kind "${kind}" in version "v1"` };
+    }
+    return out.length ? { out: out.join('\n') } : { err: 'error: no objects passed to apply' };
+  }
+  function nodePortFor(S, name) { let p = 30000 + hash(name) % 2767; while (S.k.svcs.some(x => x.nodePort === p)) p++; return p; }
+  function kubectl(d, L, a, root, ctx) {
+    const S = st(d), K = S.k; let sub = a[0];
+    if (!k3sOn(d)) return 'The connection to the server localhost:8080 was refused - did you specify the right host or port?\n(k3s ist nicht gestartet: sudo apt install k3s, dann sudo systemctl enable --now k3s)';
+    if (!root) return 'WARN[0000] Unable to read /etc/rancher/k3s/k3s.yaml, please start server with --write-kubeconfig-mode to modify kube config permissions\nerror: error loading config file "/etc/rancher/k3s/k3s.yaml": open /etc/rancher/k3s/k3s.yaml: permission denied\n(versuche: sudo kubectl …)';
+    const rest = a.slice(1), hn = d.cfg.hostname.toLowerCase();
+    const flag = n => { const i = rest.findIndex(x => x === '--' + n || x.startsWith('--' + n + '=')); if (i < 0) return null; return rest[i].includes('=') ? rest[i].split('=').slice(1).join('=') : rest[i + 1]; };
+    const pos = rest.filter(x => !x.startsWith('-')), nx = x => ({ deployments: 'deployment', deployment: 'deployment', deploy: 'deployment', pods: 'pod', pod: 'pod', po: 'pod', services: 'service', service: 'service', svc: 'service', nodes: 'node', node: 'node', no: 'node' }[x] || x);
+    const wide = rest.includes('-o') && rest[rest.indexOf('-o') + 1] === 'wide';
+    switch (sub) {
+      case 'version': return 'Client Version: v1.29.4+k3s1\nServer Version: v1.29.4+k3s1';
+      case 'get': {
+        const t = nx((pos[0] || '').split('/')[0]), pods = podsOf(d, L, ctx.online);
+        if (t === 'node') return tbl(['NAME', 'STATUS', 'ROLES', 'AGE', 'VERSION'], [[hn, 'Ready', 'control-plane,master', '10m', 'v1.29.4+k3s1']]);
+        if (t === 'pod') return pods.length ? tbl(wide ? ['NAME', 'READY', 'STATUS', 'RESTARTS', 'AGE', 'IMAGE'] : ['NAME', 'READY', 'STATUS', 'RESTARTS', 'AGE'], pods.map(p => [p.name, p.status === 'Running' ? '1/1' : '0/1', p.status, p.status === 'CrashLoopBackOff' ? '4' : '0', age()].concat(wide ? [p.image] : []))) : 'No resources found in default namespace.';
+        if (t === 'deployment') return K.deps.length ? tbl(['NAME', 'READY', 'UP-TO-DATE', 'AVAILABLE', 'AGE'], K.deps.map(x => { const r = podsOf(d, L, ctx.online).filter(p => p.dep === x.name && p.status === 'Running').length; return [x.name, `${r}/${x.replicas}`, x.replicas, r, age()]; })) : 'No resources found in default namespace.';
+        if (t === 'service') return tbl(['NAME', 'TYPE', 'CLUSTER-IP', 'EXTERNAL-IP', 'PORT(S)', 'AGE'], [['kubernetes', 'ClusterIP', '10.43.0.1', '<none>', '443/TCP', '10m']].concat(K.svcs.map((x, i) => [x.name, x.type, `10.43.${100 + i}.${10 + i * 7}`, x.type === 'LoadBalancer' ? (d.cfg.ip || '<pending>') : '<none>', x.nodePort ? `${x.port}:${x.nodePort}/TCP` : `${x.port}/TCP`, age()])));
+        if (t === 'all') return [kubectl(d, L, ['get', 'pods'], root, ctx), kubectl(d, L, ['get', 'svc'], root, ctx), kubectl(d, L, ['get', 'deploy'], root, ctx)].join('\n\n');
+        return `error: the server doesn't have a resource type "${pos[0] || ''}"`; }
+      case 'create': {
+        if (nx(pos[0]) !== 'deployment' || !pos[1]) return 'error: Verwende: kubectl create deployment NAME --image=IMAGE [--replicas=N]'; const image = flag('image'); if (!image) return 'error: required flag(s) "image" not set';
+        if (K.deps.some(x => x.name === pos[1])) return `Error from server (AlreadyExists): deployments.apps "${pos[1]}" already exists`;
+        const rep = flag('replicas') ? +flag('replicas') : 1; if (!(rep >= 0 && rep <= 20)) return 'error: replicas: 0 bis 20';
+        K.deps.push({ name: pos[1], image, replicas: rep, app: pos[1], rev: 1, env: {} }); return `deployment.apps/${pos[1]} created`; }
+      case 'scale': { const m = (pos[0] || '').split('/'), name = m[1] || pos[1], dep = K.deps.find(x => x.name === name), n = flag('replicas'); if (!dep) return `Error from server (NotFound): deployments.apps "${name}" not found`; if (n === null || !(+n >= 0 && +n <= 20)) return 'error: --replicas=0..20'; dep.replicas = +n; return `deployment.apps/${name} scaled`; }
+      case 'expose': { const m = (pos[0] || '').split('/'), name = m[1] || pos[1], dep = K.deps.find(x => x.name === name), port = +flag('port'); if (!dep) return `Error from server (NotFound): deployments.apps "${name}" not found`; if (!(port > 0)) return 'error: --port=PORT fehlt'; const type = flag('type') || 'ClusterIP'; if (!['ClusterIP', 'NodePort', 'LoadBalancer'].includes(type)) return `error: unknown service type "${type}"`;
+        if (K.svcs.some(x => x.name === name)) return `Error from server (AlreadyExists): services "${name}" already exists`; if (type === 'LoadBalancer') { const u = usedPorts(d, L); if (u[port]) return `service/${name} exposed\n(Hinweis: Port ${port} ist auf dem Node schon durch ${u[port]} belegt – der Dienst bleibt pending.)`; }
+        K.svcs.push({ name, type, port, nodePort: type === 'NodePort' ? nodePortFor(S, name) : null, dep: name, sel: dep.app }); return `service/${name} exposed`; }
+      case 'delete': { const t = nx((pos[0] || '').split('/')[0]), name = (pos[0] || '').split('/')[1] || pos[1];
+        if (t === 'deployment') { if (!K.deps.some(x => x.name === name)) return `Error from server (NotFound): deployments.apps "${name}" not found`; K.deps = K.deps.filter(x => x.name !== name); K.svcs.forEach(s => { }); return `deployment.apps "${name}" deleted`; }
+        if (t === 'service') { if (!K.svcs.some(x => x.name === name)) return `Error from server (NotFound): services "${name}" not found`; K.svcs = K.svcs.filter(x => x.name !== name); return `service "${name}" deleted`; }
+        if (t === 'pod') { const p = podsOf(d, L, ctx.online).find(x => x.name === name); if (!p) return `Error from server (NotFound): pods "${name}" not found`; const dep = K.deps.find(x => x.name === p.dep); dep.rev++; return `pod "${name}" deleted (der Deployment-Controller startet einen neuen Pod)`; }
+        return 'error: Verwende: kubectl delete deployment|service|pod NAME'; }
+      case 'set': { if (pos[0] !== 'image') return 'error: kubectl set image deployment/NAME CONTAINER=IMAGE'; const name = (pos[1] || '').split('/')[1] || pos[1], dep = K.deps.find(x => x.name === name), im = (pos[2] || '').split('=')[1]; if (!dep) return `Error from server (NotFound): deployments.apps "${name}" not found`; if (!im) return 'error: CONTAINER=IMAGE fehlt'; dep.image = im; dep.rev++; return `deployment.apps/${name} image updated`; }
+      case 'rollout': { const name = (pos[1] || '').split('/')[1] || pos[1], dep = K.deps.find(x => x.name === name); if (!dep) return `Error from server (NotFound): deployments.apps "${name}" not found`; const r = podsOf(d, L, ctx.online).filter(p => p.dep === name && p.status === 'Running').length; return r >= dep.replicas ? `deployment "${name}" successfully rolled out` : `Waiting for deployment "${name}" rollout to finish: ${r} of ${dep.replicas} updated replicas are available...`; }
+      case 'describe': { const t = nx((pos[0] || '').split('/')[0]), name = (pos[0] || '').split('/')[1] || pos[1]; if (t === 'pod') { const p = podsOf(d, L, ctx.online).find(x => x.name === name); if (!p) return `Error from server (NotFound): pods "${name}" not found`; const k = imgKey(p.image); const ev = p.status === 'ImagePullBackOff' ? `  Warning  Failed   Failed to pull image "${p.image}": ${k && REG[k.name] ? 'Temporary failure in name resolution (keine Internetverbindung)' : 'pull access denied, repository does not exist'}\n  Warning  Failed   Error: ImagePullBackOff` : p.status === 'CrashLoopBackOff' ? '  Warning  BackOff  Back-off restarting failed container (Umgebungsvariable fehlt?)' : '  Normal   Started  Started container'; return `Name:   ${p.name}\nNamespace: default\nNode:   ${hn}\nStatus: ${p.status === 'Running' ? 'Running' : 'Pending'}\nImage:  ${p.image}\nEvents:\n${ev}`; }
+        if (t === 'deployment') { const x = K.deps.find(y => y.name === name); return x ? `Name: ${x.name}\nReplicas: ${x.replicas} desired\nImage: ${x.image}` : `Error from server (NotFound): deployments.apps "${name}" not found`; }
+        if (t === 'service') { const x = K.svcs.find(y => y.name === name); return x ? `Name: ${x.name}\nType: ${x.type}\nPort: ${x.port}/TCP\nNodePort: ${x.nodePort || '<none>'}\nSelector: app=${x.sel}\nEndpoints: ${podsOf(d, L, ctx.online).filter(p => p.dep === x.dep && p.status === 'Running').length} Pods` : `Error from server (NotFound): services "${name}" not found`; } return 'error: Verwende: kubectl describe pod|deployment|service NAME'; }
+      case 'logs': { const p = podsOf(d, L, ctx.online).find(x => x.name === pos[0]); if (!p) return `Error from server (NotFound): pods "${pos[0]}" not found`; return p.status === 'Running' ? `${p.image}: listening on port ${(REG[imgKey(p.image).name] || {}).port}` : `Error from server (BadRequest): container is waiting to start: ${p.status}`; }
+      case 'apply': { const f = flag('filename') || (rest.indexOf('-f') >= 0 ? rest[rest.indexOf('-f') + 1] : null); if (!f) return 'error: must specify one of -f and -k'; const path = f.startsWith('/') ? f : (L.cwd + '/' + f).replace(/\/+/g, '/'), txt = readManifest(L, path); if (txt === null) return `error: the path "${f}" does not exist`; const r = applyYaml(d, L, txt, ctx); return r.err || r.out; }
+      case 'top': return 'error: Metrics API not available';
+      default: return `error: unknown command "${sub}" for "kubectl"`;
+    }
+  }
+  function run(d, L, tool, a, root, ctx) { ctx = ctx || {}; if (tool === 'docker') return docker(d, L, a, root, ctx); return kubectl(d, L, a, root, ctx); }
+  // Angaben für die Web-GUI
+  function view(d, L, ctx) { ctx = ctx || {}; const S = st(d); return { images: S.images, cts: S.cts, deps: S.k.deps, svcs: S.k.svcs, pods: k3sOn(d) ? podsOf(d, L, ctx.online) : [], docker: dockerOn(d), k3s: k3sOn(d) }; }
+  return { st, run, web, view, dockerOn, k3sOn, REG, known, imgKey, usedPorts, pull, applyYaml, podsOf };
+})();
+if (typeof module !== 'undefined') module.exports = CTR;
 
 </script>
 <script>
@@ -3699,6 +3901,8 @@ const WIKI = (function () {
   art('snmp-ntp', 'glossar', 'SNMP und NTP', 'Überwachung und Uhrzeit.', `<p><b>SNMP</b> fragt Zustände und Zähler von Geräten ab (Auslastung, Port-Status) und sendet Traps bei Ereignissen. <b>NTP</b> gleicht die Uhrzeit ab. Gleiche Zeit ist Pflicht, damit Logdateien mehrerer Geräte zusammenpassen und Zertifikate gültig bleiben.</p>`, ['syslog']);
   art('backup', 'server', 'Backup und Restore', 'Sichern, aufbewahren, wiederherstellen und testen.', `<p>Ein Backup ist nur so gut wie sein <b>Restore</b>. Ein Backup-Server holt per SSH die Konfigurationen der Netzwerkgeräte und die Dateien der Server ab. Wichtige Begriffe:</p><ul><li><b>Job</b>: welche Quelle, wie oft, wie viele Stände (<b>Retention</b>).</li><li><b>3-2-1-Regel</b>: drei Kopien, zwei Medien, eine außer Haus.</li><li><b>Restore-Test</b>: regelmäßig prüfen, dass sich eine Sicherung wirklich zurückspielen lässt.</li></ul><p>Typische Fehler: kein SSH-Zugang, Firewall blockt Port 22, Speicherplatz voll.</p>`, ['snapshots', 'snmp-ntp']);
   art('snapshots', 'storage', 'Snapshots', 'Schnelle Momentaufnahmen einer LUN.', `<p>Ein <b>Snapshot</b> hält den Stand einer LUN fest, ohne alle Daten zu kopieren. Er belegt nur Platz für die geänderten Blöcke (hier pauschal 5 % der LUN). Ein <b>Rollback</b> setzt die LUN zurück und verwirft neuere Snapshots. Snapshots liegen im selben Pool wie die Daten, sie ersetzen deshalb kein Backup. Ist der Pool voll, schlagen neue Snapshots fehl.</p>`, ['backup', 'lun']);
+  art('docker', 'server', 'Docker und Container', 'Anwendungen in isolierten Containern betreiben.', `<p>Ein <b>Container</b> bündelt eine Anwendung mit allem, was sie braucht, und teilt sich den Kernel des Hosts. Das <b>Image</b> ist die unveränderliche Vorlage, der Container ihre laufende Instanz.</p><ul><li><code>docker run -d --name web -p 8080:80 nginx</code>: Port 80 im Container erscheint als 8080 auf dem Server (<b>Port-Mapping</b>).</li><li><code>-v /srv/site:/usr/share/nginx/html</code>: ein Ordner des Hosts wird eingebunden (<b>Volume</b>), die Daten bleiben beim Löschen des Containers erhalten.</li><li><code>-e NAME=Wert</code>: Umgebungsvariable, z. B. das Passwort einer Datenbank.</li></ul><p>Typische Fehler: Port auf dem Host schon belegt, Firewall (ufw) blockt den veröffentlichten Port, Pflicht-Variable fehlt, Image nicht erreichbar (kein Internet).</p>`, ['kubernetes', 'snmp-ntp']);
+  art('kubernetes', 'server', 'Kubernetes', 'Container im Verbund betreiben und skalieren.', `<p><b>Kubernetes</b> startet Container als <b>Pods</b>, hält ihre Anzahl (<b>Deployment</b> mit Replikas) und macht sie über einen <b>Service</b> erreichbar. Der Typ <b>NodePort</b> öffnet einen Port zwischen 30000 und 32767 auf jedem Node, <b>ClusterIP</b> bleibt intern.</p><p>Wichtige Befehle: <code>kubectl get pods</code>, <code>create deployment</code>, <code>scale</code>, <code>expose</code>, <code>describe</code>, <code>apply -f datei.yaml</code>. Status <b>ImagePullBackOff</b> heißt: das Image lässt sich nicht laden (Tippfehler oder kein Internet), <b>CrashLoopBackOff</b>: die Anwendung stürzt immer wieder ab.</p>`, ['docker']);
   art('cli', 'glossar', 'CLI und GUI', 'Kommandozeile und grafische Oberfläche.', `<p>Die <b>CLI</b> (Command Line Interface) ist die Textkonsole eines Geräts. Sie ist schnell, skriptbar und überall gleich. Eine <b>GUI</b> ist die grafische Oberfläche. Netzwerkgeräte werden fast immer per CLI (über SSH) konfiguriert.</p>`, ['ios-grundlagen', 'linux-grundlagen']);
 
   // ---------------------------------------------------------------- Generierte Artikel
@@ -4495,9 +4699,10 @@ const WEBGUI = (function () {
 
   // ---------- Navigation ----------
   const monOn = d => { try { return A.LX.init(d).pkgs.includes('zabbix-server'); } catch (e) { return false; } };
+  const ctrOn = d => { try { const p = A.LX.init(d).pkgs; return p.includes('docker.io') || p.includes('k3s'); } catch (e) { return false; } };
   const bkpOn = d => { try { return A.LX.init(d).pkgs.includes('backup-server'); } catch (e) { return false; } };
   const NAV = {
-    linux: d => (monOn(d) ? [['mon', 'Monitoring']] : []).concat(bkpOn(d) ? [['bkp', 'Backup']] : []).concat([['overview', 'Übersicht'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['virt', 'Virtualisierung'], ['terminal', 'Terminal']]),
+    linux: d => (ctrOn(d) ? [['ctr', 'Container']] : []).concat(monOn(d) ? [['mon', 'Monitoring']] : []).concat(bkpOn(d) ? [['bkp', 'Backup']] : []).concat([['overview', 'Übersicht'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['virt', 'Virtualisierung'], ['terminal', 'Terminal']]),
     hypervisor: d => (monOn(d) ? [['mon', 'Monitoring']] : []).concat(bkpOn(d) ? [['bkp', 'Backup']] : []).concat([['overview', 'Übersicht'], ['vms', 'Virtuelle Maschinen'], ['vswitch', 'Virtueller Switch'], ['datastores', 'Datastores'], ['cluster', 'Cluster und HA'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['terminal', 'Terminal']]),
     windows: d => [['dashboard', 'Dashboard'], ['local', 'Lokaler Server'], ['roles', 'Rollen und Features'], ['ad', 'Active Directory'], ['dns', 'DNS'], ['dhcp', 'DHCP'], ['shares', 'Dateidienste'], ['services', 'Dienste'], ['firewall', 'Firewall'], ['terminal', 'PowerShell']],
     storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['snaps', 'Snapshots'], ['hosts', 'Hosts und Zugriff'], ['hypermetro', 'HyperMetro'], ['ports', 'Ports und Controller']],
@@ -5017,6 +5222,20 @@ const WEBGUI = (function () {
   };
 
   // ---------- Backup und Restore ----------
+  PAGES.linux.ctr = (d, G) => {
+    const C = A.CTR, L = A.LX.init(d), V = C.view(d, L, { online: A.ctrOnline(d) }), tab = G.tab.ct || (V.docker || !V.k3s ? 'docker' : 'k8s');
+    const head = `<div class="wg-tabs" role="tablist">${[['docker', 'Docker'], ['k8s', 'Kubernetes']].map(x => `<button type="button" role="tab" class="${x[0] === tab ? 'act' : ''}" aria-selected="${x[0] === tab}" data-act="tab" data-t="ct" data-v="${x[0]}">${x[1]}</button>`).join('')}</div>`;
+    const st = (s) => s === 'Running' ? chip(s, 'ok') : chip(s, 'bad');
+    if (tab === 'docker') {
+      if (!V.docker) return head + '<div class="wg-msg err">Docker läuft nicht. Paket <code>docker.io</code> installieren und den Dienst <code>docker</code> unter „Dienste“ starten.</div>';
+      return head + `<div class="wg-row">${btn('Container starten', 'dlg', { k: 'ctrrun' }, 'primary')}${btn('Image laden', 'dlg', { k: 'ctrpull' })}</div>` + tbl(['Name', 'Image', 'Ports', 'Status', ''], V.cts.map(c => [`<b>${esc(c.name)}</b>`, esc(c.image), c.ports.map(p => `${p.h}→${p.c}`).join(', ') || '–', c.state === 'running' ? chip('läuft', 'ok') : chip(`beendet (${c.code})`, c.code ? 'bad' : ''), `<div class="wg-row">${btn(c.state === 'running' ? 'Stoppen' : 'Starten', 'ctrop', { op: c.state === 'running' ? 'stop' : 'start', c: c.name }, 'sm')}${btn('Protokoll', 'ctrlog', { c: c.name }, 'sm')}${btn('Löschen', 'ctrop', { op: 'rm -f', c: c.name }, 'sm ghost bad')}</div>`]), 'Noch kein Container.') + card('Images', tbl(['Image', 'Tag', 'Größe'], V.images.map(i => [`<b>${esc(i.name)}</b>`, esc(i.tag), i.mb + ' MB']), 'Noch kein Image geladen (wird beim ersten Start geholt, dafür braucht der Server Internet).')) + (G.ctrlog ? card('Protokoll ' + esc(G.ctrlog.c), `<pre class="wg-pre">${esc(G.ctrlog.t)}</pre>`) : '');
+    }
+    if (!V.k3s) return head + '<div class="wg-msg err">Kubernetes läuft nicht. Paket <code>k3s</code> installieren und den Dienst <code>k3s</code> starten.</div>';
+    return head + `<div class="wg-row">${btn('Deployment erstellen', 'dlg', { k: 'k8sdep' }, 'primary')}${btn('Dienst veröffentlichen', 'dlg', { k: 'k8ssvc' })}${btn('YAML anwenden', 'dlg', { k: 'k8syaml' })}</div>` +
+      card('Deployments', tbl(['Name', 'Image', 'Bereit', 'Replikas', ''], V.deps.map(x => { const r = V.pods.filter(p => p.dep === x.name && p.status === 'Running').length; return [`<b>${esc(x.name)}</b>`, esc(x.image), `${r}/${x.replicas}`, `<div class="wg-row">${btn('−', 'k8sscale', { n: x.name, v: Math.max(0, x.replicas - 1) }, 'sm')}<b>${x.replicas}</b>${btn('+', 'k8sscale', { n: x.name, v: x.replicas + 1 }, 'sm')}</div>`, btn('Löschen', 'k8sdel', { t: 'deployment', n: x.name }, 'sm ghost bad')]; }), 'Noch kein Deployment.')) +
+      card('Pods', tbl(['Name', 'Status', 'Image'], V.pods.map(p => [`<code>${esc(p.name)}</code>`, st(p.status), esc(p.image)]), 'Keine Pods.')) +
+      card('Dienste', tbl(['Name', 'Typ', 'Port', 'NodePort', 'Ziel', ''], V.svcs.map(x => [`<b>${esc(x.name)}</b>`, x.type, x.port, x.nodePort || '–', esc(x.dep), btn('Löschen', 'k8sdel', { t: 'service', n: x.name }, 'sm ghost bad')]), 'Noch kein Dienst. NodePort macht ein Deployment von außen erreichbar.'));
+  };
   PAGES.linux.bkp = PAGES.hypervisor.bkp = (d, G) => {
     const net = A.net(), B = A.BKP, S = B.st(d), tab = G.tab.bk || 'jobs', on = B.isBackup(net, d), used = B.usedMb(d), nm = id => (net.devs[id] || { cfg: { hostname: '(gelöscht)' } }).cfg.hostname, jn = id => (S.jobs.find(j => j.id === id) || { name: '–' }).name, day = net.day || 0;
     const tabs = [['jobs', 'Jobs'], ['store', 'Sicherungen'], ['log', 'Protokoll']];
@@ -5058,6 +5277,11 @@ const WEBGUI = (function () {
       case 'vpnnew': { const ifs = Object.keys(d.cfg.ifs).filter(n => d.cfg.ifs[n].ip && !n.startsWith('Tunnel')); const used = new Set(Object.keys(d.cfg.ifs).filter(n => n.startsWith('Tunnel')).map(n => +n.slice(6))); let t = 0; while (used.has(t)) t++; return wrap('VPN-Assistent', `<div class="wg-2">${field('tn', 'Tunnel-Nummer', t, { type: 'number', min: 0 })}${sel('wan', 'WAN-Schnittstelle (Quelle)', ifs.map(n => [n, `${A.SH(n)} (${d.cfg.ifs[n].ip})`]))}</div>` + field('peer', 'WAN-Adresse der Gegenstelle', '', { ph: '198.51.100.1' }) + `<div class="wg-2">${field('tip', 'Tunnel-Adresse (eigene, /30)', '', { ph: '172.16.0.1' })}${field('psk', 'Pre-Shared Key', 'Vpn!Lab2026')}</div><div class="wg-2">${field('rnet', 'Netz der Gegenseite', '', { ph: '10.2.0.0' })}${field('rmask', 'Maske', '255.255.255.0')}</div><h4>Algorithmen (müssen auf beiden Seiten gleich sein)</h4><div class="wg-2">${sel('enc', 'Verschlüsselung', [['aes-cbc-256', 'AES-256'], ['aes-cbc-128', 'AES-128']])}${sel('int', 'Integrität', [['sha256', 'SHA-256'], ['sha1', 'SHA-1']])}</div>${sel('grp', 'DH-Gruppe', [['14', 'Gruppe 14 (2048 Bit)'], ['19', 'Gruppe 19 (ECP-256)'], ['5', 'Gruppe 5 (1536 Bit, veraltet)']])}`, ifs.length > 0, 'Einrichten'); }
       case 'zhost': { const z = A.MON.zbx(d), cand = Object.values(net.devs).filter(y => y.id !== d.id && !y.vm && !(y.model && A.NL.MODELS[y.model] && A.NL.MODELS[y.model].cloud) && A.MON.devIp(y) && !z.hosts.some(h => h.dev === y.id)); return wrap('Host hinzufügen', cand.length ? sel('dev', 'Gerät', cand.map(y => [y.id, `${y.cfg.hostname} (${A.MON.devIp(y)})`])) + field('snmp', 'SNMP-Community (leer = nur Ping)', 'public') + `<label class="wg-ck2"><input type="checkbox" id="wf-agent" checked> Zabbix-Agent abfragen (nur Server)</label>` : '<p class="wg-empty">Alle Geräte mit IP-Adresse werden schon überwacht.</p>', cand.length > 0, 'Hinzufügen'); }
       case 'zhedit': { const h = A.MON.zbx(d).hosts.find(y => y.dev === x.h); return wrap('Host bearbeiten', field('snmp', 'SNMP-Community (leer = nur Ping)', h.snmp) + `<label class="wg-ck2"><input type="checkbox" id="wf-agent" ${h.agent ? 'checked' : ''}> Zabbix-Agent abfragen</label>`, true, 'Speichern'); }
+      case 'ctrrun': return wrap('Container starten', field('img', 'Image', 'nginx', { hint: 'nginx, httpd, redis, mysql, postgres, alpine, grafana/grafana' }) + field('n', 'Name', '', { ph: 'web' }) + `<div class="wg-2">${field('hp', 'Port auf dem Server', 8080, { type: 'number' })}${field('cp', 'Port im Container', 80, { type: 'number' })}</div>` + field('vol', 'Ordner einbinden (optional)', '', { ph: '/srv/site:/usr/share/nginx/html' }) + field('env', 'Variable (optional)', '', { ph: 'MYSQL_ROOT_PASSWORD=geheim' }), true, 'Starten');
+      case 'ctrpull': return wrap('Image laden', field('img', 'Image', 'nginx'), true, 'Laden');
+      case 'k8sdep': return wrap('Deployment erstellen', field('n', 'Name', '', { ph: 'web' }) + field('img', 'Image', 'nginx') + field('r', 'Replikas', 2, { type: 'number', min: 0 }), true, 'Erstellen');
+      case 'k8ssvc': return wrap('Dienst veröffentlichen', sel('dep', 'Deployment', A.CTR.st(d).k.deps.map(x => [x.name, x.name])) + `<div class="wg-2">${field('port', 'Port', 80, { type: 'number' })}${sel('type', 'Typ', [['NodePort', 'NodePort (von außen)'], ['ClusterIP', 'ClusterIP (nur intern)'], ['LoadBalancer', 'LoadBalancer']])}</div>`, A.CTR.st(d).k.deps.length > 0, 'Veröffentlichen');
+      case 'k8syaml': return wrap('YAML anwenden', `<div class="wg-f"><label for="wf-yaml">Manifest (Deployment und/oder Service, mit --- getrennt)</label><textarea id="wf-yaml" rows="12" spellcheck="false">apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: shop\nspec:\n  replicas: 2\n  selector:\n    matchLabels:\n      app: shop\n  template:\n    spec:\n      containers:\n      - name: shop\n        image: httpd\n---\napiVersion: v1\nkind: Service\nmetadata:\n  name: shop\nspec:\n  type: NodePort\n  selector:\n    app: shop\n  ports:\n  - port: 80\n</textarea></div>`, true, 'Anwenden');
       case 'bkjob': { const cand = Object.values(net.devs).filter(y => y.id !== d.id && !y.vm && A.BKP.kindOf(y) !== 'other' && !(y.model && A.NL.MODELS[y.model] && A.NL.MODELS[y.model].cloud)); return wrap('Backup-Job hinzufügen', field('n', 'Name', '') + sel('src', 'Quelle', cand.map(y => [y.id, `${y.cfg.hostname} – ${A.BKP.KIND[A.BKP.kindOf(y)]}`])) + field('keep', 'Aufbewahrung (Anzahl Sicherungen)', 7, { type: 'number', min: 1, max: 60 }), cand.length > 0, 'Anlegen'); }
       case 'ifedit': {
         const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
@@ -5169,6 +5393,14 @@ const WEBGUI = (function () {
         }
         case 'zhost': A.act(() => { ok = res(G, A.MON.addHost(net, dv, v(G, 'dev'), { snmp: v(G, 'snmp').trim(), agent: v(G, 'agent') }), 'Host hinzugefügt. Der erste Messwert kommt in wenigen Sekunden.'); }); break;
         case 'zhedit': A.act(() => { const h = A.MON.zbx(dv).hosts.find(y => y.dev === x.h); if (h) { h.snmp = v(G, 'snmp').trim(); h.agent = !!v(G, 'agent'); } }); G.msg = { t: 'Gespeichert.' }; break;
+        case 'ctrrun': case 'ctrpull': case 'k8sdep': case 'k8ssvc': case 'k8syaml': {
+          const bad = (s) => !/^[\w./:@-]+$/.test(s || ''); let cmd, y;
+          if (x.k === 'ctrrun') { const img = v(G, 'img').trim(), n = v(G, 'n').trim(), hp = v(G, 'hp'), cp = v(G, 'cp'), vol = v(G, 'vol').trim(), env = v(G, 'env').trim(); if (bad(img) || (n && bad(n)) || (vol && !/^[\w./-]+:[\w./-]+$/.test(vol)) || (env && !/^\w+=\S+$/.test(env))) { G.msg = { err: true, t: 'Ungültige Eingabe (keine Leerzeichen oder Sonderzeichen).' }; ok = false; break; } cmd = `sudo docker run -d${n ? ' --name ' + n : ''}${hp && cp ? ` -p ${+hp}:${+cp}` : ''}${vol ? ' -v ' + vol : ''}${env ? ' -e ' + env : ''} ${img}`; }
+          else if (x.k === 'ctrpull') { const img = v(G, 'img').trim(); if (bad(img)) { G.msg = { err: true, t: 'Ungültiger Image-Name.' }; ok = false; break; } cmd = 'sudo docker pull ' + img; }
+          else if (x.k === 'k8sdep') { const n = v(G, 'n').trim(), img = v(G, 'img').trim(); if (bad(n) || bad(img)) { G.msg = { err: true, t: 'Name und Image dürfen keine Leerzeichen enthalten.' }; ok = false; break; } cmd = `sudo kubectl create deployment ${n} --image=${img} --replicas=${+v(G, 'r') || 1}`; }
+          else if (x.k === 'k8ssvc') cmd = `sudo kubectl expose deployment ${v(G, 'dep')} --port=${+v(G, 'port') || 80} --type=${v(G, 'type')}`;
+          else { const t = root.querySelector('#wf-yaml'); A.act(() => { A.LX.saveFile(dv, '/home/admin/manifest.yaml', t ? t.value : ''); }); cmd = 'sudo kubectl apply -f /home/admin/manifest.yaml'; }
+          A.act(() => { y = A.exec(dv, cmd); }); const bad2 = /^(Error|error|docker:|Unable|Cannot|Bind|permission)/m.test(y || '') && !/created|exposed|configured|Downloaded|^[0-9a-f]{64}$/m.test(y || ''); G.msg = bad2 ? { err: true, t: String(y).split('\n').slice(-2).join(' ') } : { t: String(y || 'Fertig.').split('\n').slice(-1)[0] }; ok = !bad2; break; }
         case 'bkjob': A.act(() => { ok = res(G, A.BKP.addJob(net, dv, { name: v(G, 'n'), src: v(G, 'src'), keep: v(G, 'keep') }), 'Job angelegt. Starte ihn mit „Jetzt sichern“.'); }); break;
         case 'ifedit': {
           const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
@@ -5279,6 +5511,10 @@ const WEBGUI = (function () {
         case 'vpndel': { const sfx = 'T' + D.n.slice(6); ios(G, [`no interface ${D.n}`, `no crypto ipsec profile IPS-${sfx}`, `no crypto ikev2 profile IKE-${sfx}`, `no crypto ikev2 keyring KR-${sfx}`, `no crypto ikev2 policy POL-${sfx}`, `no crypto ikev2 proposal PROP-${sfx}`, `no crypto ipsec transform-set TS-${sfx}`].slice(0, 1), 'Tunnel gelöscht.'); break; }
         case 'zdisc': { let n = 0; A.act(() => { n = A.MON.discover(net, dv); }); G.msg = { t: n ? `${n} Gerät${n > 1 ? 'e' : ''} hinzugefügt.` : 'Keine neuen Geräte mit IP-Adresse gefunden.' }; A.monTickNow(); break; }
         case 'zhdel': A.act(() => { const z = A.MON.zbx(dv); z.hosts = z.hosts.filter(y => y.dev !== D.h); }); G.msg = { t: 'Host entfernt.' }; break;
+        case 'ctrop': { let y; A.act(() => { y = A.exec(dv, `sudo docker ${D.op} ${D.c}`); }); G.msg = /^Error/m.test(y) ? { err: true, t: y.split('\n')[0] } : { t: 'Erledigt.' }; break; }
+        case 'ctrlog': G.ctrlog = { c: D.c, t: A.exec(dv, 'sudo docker logs ' + D.c) }; break;
+        case 'k8sscale': A.act(() => { A.exec(dv, `sudo kubectl scale deployment ${D.n} --replicas=${+D.v}`); }); break;
+        case 'k8sdel': A.act(() => { A.exec(dv, `sudo kubectl delete ${D.t} ${D.n}`); }); G.msg = { t: 'Gelöscht.' }; break;
         case 'bkday': A.advanceDays(+D.n); G.msg = { t: 'Datum: ' + A.BKP.dateOf(net.day || 0) }; break;
         case 'bkrun': { let r; A.act(() => { r = A.BKP.runJob(net, dv, A.BKP.st(dv).jobs.find(y => y.id === +D.j), A.bkH()); }); res(G, r, `Gesichert (${r && r.size} MB).`); break; }
         case 'bkjdel': A.act(() => { A.BKP.delJob(dv, +D.j); }); G.msg = { t: 'Job und seine Sicherungen gelöscht.' }; break;
@@ -5611,6 +5847,7 @@ const Sandbox = (function () {
   const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
   const GUIN = typeof WEBGUI !== 'undefined' ? WEBGUI : require('./webgui.js');
   const BKPN = typeof BKP !== 'undefined' ? BKP : require('./backup.js');
+  const CTRN = typeof CTR !== 'undefined' ? CTR : require('./container.js');
   const MONN = typeof MON !== 'undefined' ? MON : require('./monitor.js');
   const RTGN = typeof RTG !== 'undefined' ? RTG : require('./routing.js');
   const DESKN = typeof DESKTOP !== 'undefined' ? DESKTOP : require('./desktop.js');
@@ -6778,6 +7015,7 @@ const Sandbox = (function () {
     const srv = allIps()[ip], sv = srv && srv.svc;
     if (srv && srv.win && srv.win.fwOn && srv.win.feats['Web-Server'] && !srv.win.fw.some(r => r.on && r.port === port && r.proto === 'TCP')) return { err: `Zeitüberschreitung: ${ip}:${port} antwortet nicht.`, why: `Die Windows-Firewall auf ${srv.cfg.hostname} blockiert Port ${port}. Auf dem Server: New-NetFirewallRule oder Enable-NetFirewallRule` };
     if (srv && srv.lx && srv.lx.ufw && srv.lx.ufw.on && !srv.lx.ufw.allow.includes(String(port))) return { err: `Zeitüberschreitung: ${ip}:${port} antwortet nicht.`, why: `Die Firewall (ufw) auf ${srv.cfg.hostname} blockiert Port ${port}. Auf dem Server: sudo ufw allow ${port}` };
+    const cw = srv && srv.ctr && CTRN.web(srv, port, srv.lx, LXN.online(lxCtx(S.net), srv)); if (cw) { if (cw.empty) return { err: cw.none ? `HTTP 503 Service Unavailable: Für den Dienst ${cw.via} läuft kein bereiter Pod.` : `Verbindung steht, aber der Dienst (${cw.via}) liefert keine Webseite.` }; return { ok: true, ip, host, scheme, port, title: cw.title, body: cw.body }; }
     if (!sv || !((port === 80 && sv.http.on) || (port === 443 && sv.http.on && sv.http.https))) return { err: `Verbindung abgelehnt: Auf ${srv ? srv.cfg.hostname : ip} lauscht kein ${port === 443 ? 'HTTPS' : 'HTTP'}-Server auf Port ${port}.` };
     return { ok: true, ip, host, scheme, port, title: sv.http.title || srv.cfg.hostname, body: sv.http.body };
   }
@@ -6853,7 +7091,7 @@ const Sandbox = (function () {
     net = net || S.net;
     return {
       net, ifaces: d => d.ports.filter(p => !isMg(p)).map((p, i) => { const h = hip(d, p) || {}; return { lin: 'eth' + i, alias: 'Ethernet' + i, port: p, ip: h.ip || null, mask: h.mask || null, up: NL.portStatus(net, d.id, p).st === 'connected' }; }),
-      luns: d => STORN.hostLuns(net, d), setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => withNet(net, () => resolve(d, n)), virsh: (d, a, root) => VIRTN.virsh(net, d, a, root), reach: (d, ip) => NL.ping(net, d.id, ip).ok, ping: (d, ip, flow) => NL.ping(net, d.id, ip, flow), net,
+      luns: d => STORN.hostLuns(net, d), setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => withNet(net, () => resolve(d, n)), virsh: (d, a, root) => VIRTN.virsh(net, d, a, root), ctr: (d, L, tool, a, root, online) => CTRN.run(d, L, tool, a, root, { online, day: net.day || 0 }), reach: (d, ip) => NL.ping(net, d.id, ip).ok, ping: (d, ip, flow) => NL.ping(net, d.id, ip, flow), net,
       fallback: (d, line) => withNet(net, () => hostLine(d, (S && S.sess && S.sess[d.id]) || NL.newSess(), line))
     };
   }
@@ -7020,6 +7258,15 @@ const Sandbox = (function () {
       const srv = hd(net, 'SRV-BKP'), H = bkH(net); ['SW', 'R-GW', 'SRV-WEB'].forEach(h => BKPN.addJob(net, srv, { name: 'J-' + h, src: hd(net, h).id, keep: 5 }));
       if (!o.fresh) { net.day = 0; BKPN.advance(net, H); net.day = 1; }
     }
+  }
+  // Container-Lab: Switch, Router, Docker-Host SRV-CT (ufw an, nur SSH offen), PC
+  function ctrBase(net, o = {}) {
+    mk(net, 'C9200L-24T-4G', 360, 120, 'SW'); mk(net, 'ISR4321', 700, 120, 'R-GW'); lk(net, 'R-GW', RG + 0, 'SW', G + 24);
+    mk(net, 'HW-2288H-V5', 200, 340, 'SRV-CT'); mk(net, 'PC', 520, 340, 'PC-1'); lk(net, 'SRV-CT', 'eth0', 'SW', G + 1); lk(net, 'PC-1', 'eth0', 'SW', G + 2);
+    rn(net, 'R-GW', ['interface g0/0/0', 'ip address 10.0.0.1 255.255.255.0', 'no shutdown']); rn(net, 'SW', ['interface vlan 1', 'ip address 10.0.0.2 255.255.255.0', 'no shutdown']);
+    rn(net, 'SRV-CT', ['ip 10.0.0.10/24 10.0.0.1']); rn(net, 'PC-1', ['ip 10.0.0.20/24 10.0.0.1']); const L = LXN.init(hd(net, 'SRV-CT')); L.ufw = { on: true, allow: ['22'] };
+    if (o.docker) lxr(net, 'SRV-CT', ['sudo apt install docker.io', 'sudo systemctl enable --now docker']);
+    if (o.k3s) lxr(net, 'SRV-CT', ['sudo apt install k3s', 'sudo systemctl enable --now k3s']);
   }
   // WLAN-Lab: PoE-Switch, Gateway, Webserver, Access Point(s), Clients
   function wlBase(net, o = {}) {
@@ -7367,6 +7614,46 @@ const Sandbox = (function () {
         { t: 'Die Wiederherstellung steht im Protokoll des Backup-Servers', c: n => BKPN.st(hd(n, 'SRV-BKP')).log.some(l => /Wiederhergestellt/.test(l.msg)) }],
       hints: ['Öffne die Web-GUI von SRV-BKP → „Backup“ → „Sicherungen“. Dort siehst du, welche Stände es gibt.', 'Die Sicherung vom ersten Tag (13.10.2026) hat noch die gute Konfiguration, die vom letzten Tag schon die kaputte.', 'Wähle den älteren Stand und klicke „Wiederherstellen“.'],
       sol(net) { const srv = hd(net, 'SRV-BKP'), S = BKPN.st(srv), j = S.jobs.find(x => x.name === 'J-SRV-WEB'), b = S.store.filter(x => x.job === j.id).sort((a, c) => a.day - c.day)[0]; BKPN.restore(net, srv, b.id, bkH(net)); } }
+    ,
+    { id: 'sc-ctr-docker', kind: 'Aufbau', title: 'Docker: Intranet-Seite im Container', est: '20 min',
+      intro: 'Auf <code>SRV-CT</code> (10.0.0.10) liegt die Seite <code>/srv/site/index.html</code>. Sie soll ein nginx-Container ausliefern, erreichbar auf Port 8080. Installiere Docker, starte den Container mit dem Ordner als Volume und sorge dafür, dass <code>PC-1</code> die Seite unter <code>http://10.0.0.10:8080</code> sieht.',
+      build(net) { ctrBase(net); lxr(net, 'SRV-CT', ['sudo mkdir -p /srv/site', 'echo "<html><head><title>Intranet</title></head><body>Willkommen im Intranet</body></html>" | sudo tee /srv/site/index.html']); },
+      goals: [
+        { t: 'Docker läuft auf <code>SRV-CT</code>', c: n => CTRN.dockerOn(hd(n, 'SRV-CT')) },
+        { t: 'Ein Container nutzt das nginx-Image und veröffentlicht Port 8080', c: n => CTRN.st(hd(n, 'SRV-CT')).cts.some(c => c.state === 'running' && /^nginx/.test(c.image) && c.ports.some(p => p.h === 8080)) },
+        { t: 'Der Container liefert die Seite aus <code>/srv/site</code> aus', c: n => { const d = hd(n, 'PC-1'); const r = httpGet(d, 'http://10.0.0.10:8080'); return !!r.ok && r.title === 'Intranet'; } }],
+      hints: ['Installiere <code>docker.io</code> und starte den Dienst <code>docker</code>. Docker-Befehle brauchen <code>sudo</code>.', '<code>sudo docker run -d --name web -p 8080:80 -v /srv/site:/usr/share/nginx/html nginx</code> startet den Container. Das Image kommt beim ersten Mal aus dem Internet.', 'Die Firewall (ufw) des Servers lässt nur SSH durch: <code>sudo ufw allow 8080</code>.'],
+      sol(net) { lxr(net, 'SRV-CT', ['sudo apt install docker.io', 'sudo systemctl enable --now docker', 'sudo docker run -d --name web -p 8080:80 -v /srv/site:/usr/share/nginx/html nginx', 'sudo ufw allow 8080']); } }
+    ,
+    { id: 'sc-ctr-port', kind: 'Fehlersuche', title: 'Docker: Port ist schon belegt', est: '20 min',
+      intro: 'Ein Kollege wollte den Shop (<code>httpd</code>) im Container auf Port 80 betreiben und eine Datenbank (<code>mysql</code>) dazu. Der Shop ließ sich nicht starten, und die Datenbank beendet sich sofort. <code>PC-1</code> soll <code>http://10.0.0.10</code> öffnen und „It works!“ sehen, und der Container <code>db</code> soll laufen.',
+      build(net) { ctrBase(net, { docker: true }); lxr(net, 'SRV-CT', ['sudo apt install nginx', 'sudo systemctl enable --now nginx', 'sudo ufw allow 80', 'sudo docker run -d --name db mysql']); },
+      goals: [
+        { t: 'Ein Container <code>httpd</code> läuft und veröffentlicht Port 80', c: n => CTRN.st(hd(n, 'SRV-CT')).cts.some(c => c.state === 'running' && /^httpd/.test(c.image) && c.ports.some(p => p.h === 80)) },
+        { t: '<code>PC-1</code> sieht unter <code>http://10.0.0.10</code> die Seite „It works!“', c: n => { const r = httpGet(hd(n, 'PC-1'), 'http://10.0.0.10'); return !!r.ok && r.title === 'It works!'; } },
+        { t: 'Der Container <code>db</code> (mysql) läuft', c: n => CTRN.st(hd(n, 'SRV-CT')).cts.some(c => c.name === 'db' && c.state === 'running') }],
+      hints: ['Mit <code>sudo docker ps -a</code> und <code>sudo docker logs db</code> siehst du, was schiefging. Die Datenbank fehlt eine Pflicht-Variable.', 'Auf dem Server läuft schon ein nginx und hält Port 80. Entweder du stoppst ihn (<code>sudo systemctl disable --now nginx</code>), oder der Container nimmt einen anderen Port. Hier soll es Port 80 sein.', 'Ein beendeter Container mit demselben Namen muss erst weg: <code>sudo docker rm db</code>. Dann <code>-e MYSQL_ROOT_PASSWORD=geheim</code> mitgeben.'],
+      sol(net) { lxr(net, 'SRV-CT', ['sudo systemctl disable --now nginx', 'sudo docker run -d --name shop -p 80:80 httpd', 'sudo docker rm db', 'sudo docker run -d --name db -e MYSQL_ROOT_PASSWORD=geheim mysql']); } }
+    ,
+    { id: 'sc-k8s-new', kind: 'Aufbau', title: 'Kubernetes: Webanwendung mit drei Replikas', est: '25 min',
+      intro: 'Installiere auf <code>SRV-CT</code> (10.0.0.10) ein einfaches Kubernetes (k3s). Starte ein Deployment <code>web</code> mit dem Image nginx in drei Replikas, mache es per NodePort von außen erreichbar und öffne die Firewall für den Port. <code>PC-1</code> soll die Seite abrufen können.',
+      build(net) { ctrBase(net); },
+      goals: [
+        { t: 'k3s läuft auf <code>SRV-CT</code>', c: n => CTRN.k3sOn(hd(n, 'SRV-CT')) },
+        { t: 'Das Deployment <code>web</code> hat drei laufende Pods', c: n => { const d = hd(n, 'SRV-CT'); return CTRN.k3sOn(d) && CTRN.podsOf(d, d.lx, null).filter(p => p.dep === 'web' && p.status === 'Running').length >= 3; } },
+        { t: 'Es gibt einen Dienst vom Typ NodePort für <code>web</code>', c: n => CTRN.st(hd(n, 'SRV-CT')).k.svcs.some(s => s.dep === 'web' && s.type === 'NodePort') },
+        { t: '<code>PC-1</code> erreicht den Dienst über den NodePort', c: n => { const d = hd(n, 'SRV-CT'), s = CTRN.st(d).k.svcs.find(x => x.dep === 'web' && x.nodePort); return !!s && !!httpGet(hd(n, 'PC-1'), 'http://10.0.0.10:' + s.nodePort).ok; } }],
+      hints: ['<code>sudo apt install k3s</code>, dann <code>sudo systemctl enable --now k3s</code>. Danach funktioniert <code>sudo kubectl get nodes</code>.', '<code>sudo kubectl create deployment web --image=nginx --replicas=3</code> und <code>sudo kubectl expose deployment web --port=80 --type=NodePort</code>.', 'Den NodePort (30000–32767) zeigt <code>sudo kubectl get svc</code> hinter dem Doppelpunkt. Dieser Port muss in der Firewall offen sein: <code>sudo ufw allow &lt;Port&gt;</code>.'],
+      sol(net) { lxr(net, 'SRV-CT', ['sudo apt install k3s', 'sudo systemctl enable --now k3s', 'sudo kubectl create deployment web --image=nginx --replicas=3', 'sudo kubectl expose deployment web --port=80 --type=NodePort']); const s = CTRN.st(hd(net, 'SRV-CT')).k.svcs[0]; lxr(net, 'SRV-CT', ['sudo ufw allow ' + s.nodePort]); } }
+    ,
+    { id: 'sc-k8s-pull', kind: 'Fehlersuche', title: 'Kubernetes: Pods starten nicht', est: '20 min',
+      intro: 'Das Deployment <code>app</code> hat zwei Pods, die nicht starten. Der Dienst auf NodePort 30080 liefert deshalb nichts aus. <code>PC-1</code> soll <code>http://10.0.0.10:30080</code> laden können.',
+      build(net) { ctrBase(net, { k3s: true }); const d = hd(net, 'SRV-CT'); lxr(net, 'SRV-CT', ['sudo ufw allow 30080', 'sudo kubectl create deployment app --image=ngnix --replicas=2']); CTRN.st(d).k.svcs.push({ name: 'app', type: 'NodePort', port: 80, nodePort: 30080, dep: 'app', sel: 'app' }); },
+      goals: [
+        { t: 'Beide Pods von <code>app</code> laufen', c: n => { const d = hd(n, 'SRV-CT'); const p = CTRN.podsOf(d, d.lx, null).filter(x => x.dep === 'app'); return p.length === 2 && p.every(x => x.status === 'Running'); } },
+        { t: '<code>PC-1</code> lädt <code>http://10.0.0.10:30080</code>', c: n => !!httpGet(hd(n, 'PC-1'), 'http://10.0.0.10:30080').ok }],
+      hints: ['<code>sudo kubectl get pods</code> zeigt den Status „ImagePullBackOff“. <code>sudo kubectl describe pod &lt;Name&gt;</code> nennt den Grund.', 'Das Image heißt <code>ngnix</code>, ein Tippfehler. Es gibt kein Image mit diesem Namen.', 'Korrigiere das Image: <code>sudo kubectl set image deployment/app nginx=nginx</code>, oder lösche das Deployment und lege es neu an.'],
+      sol(net) { lxr(net, 'SRV-CT', ['sudo kubectl set image deployment/app nginx=nginx']); } }
     ,
     { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
       intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',
@@ -7792,7 +8079,7 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, BKP: BKPN, bkH: () => bkH(S.net), advanceDays, day: () => S.net.day || 0, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, BKP: BKPN, CTR: CTRN, ctrOnline: d => LXN.online(lxCtx(S.net), d), bkH: () => bkH(S.net), advanceDays, day: () => S.net.day || 0, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
@@ -7814,7 +8101,7 @@ const Sandbox = (function () {
 
   function close() { if (S) clearInterval(S._monT); document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, BKP: BKPN, bkH: () => bkH(net), advanceDays: n => { for (let i = 0; i < n; i++) { net.day = (net.day || 0) + 1; BKPN.advance(net, bkH(net)); STORN.snapAdvance(net, net.day); } }, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, BKP: BKPN, CTR: CTRN, bkH: () => bkH(net), advanceDays: n => { for (let i = 0; i < n; i++) { net.day = (net.day || 0) + 1; BKPN.advance(net, bkH(net)); STORN.snapAdvance(net, net.day); } }, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;

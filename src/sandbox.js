@@ -13,6 +13,7 @@ const Sandbox = (function () {
   const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
   const GUIN = typeof WEBGUI !== 'undefined' ? WEBGUI : require('./webgui.js');
   const BKPN = typeof BKP !== 'undefined' ? BKP : require('./backup.js');
+  const CTRN = typeof CTR !== 'undefined' ? CTR : require('./container.js');
   const MONN = typeof MON !== 'undefined' ? MON : require('./monitor.js');
   const RTGN = typeof RTG !== 'undefined' ? RTG : require('./routing.js');
   const DESKN = typeof DESKTOP !== 'undefined' ? DESKTOP : require('./desktop.js');
@@ -1180,6 +1181,7 @@ const Sandbox = (function () {
     const srv = allIps()[ip], sv = srv && srv.svc;
     if (srv && srv.win && srv.win.fwOn && srv.win.feats['Web-Server'] && !srv.win.fw.some(r => r.on && r.port === port && r.proto === 'TCP')) return { err: `Zeitüberschreitung: ${ip}:${port} antwortet nicht.`, why: `Die Windows-Firewall auf ${srv.cfg.hostname} blockiert Port ${port}. Auf dem Server: New-NetFirewallRule oder Enable-NetFirewallRule` };
     if (srv && srv.lx && srv.lx.ufw && srv.lx.ufw.on && !srv.lx.ufw.allow.includes(String(port))) return { err: `Zeitüberschreitung: ${ip}:${port} antwortet nicht.`, why: `Die Firewall (ufw) auf ${srv.cfg.hostname} blockiert Port ${port}. Auf dem Server: sudo ufw allow ${port}` };
+    const cw = srv && srv.ctr && CTRN.web(srv, port, srv.lx, LXN.online(lxCtx(S.net), srv)); if (cw) { if (cw.empty) return { err: cw.none ? `HTTP 503 Service Unavailable: Für den Dienst ${cw.via} läuft kein bereiter Pod.` : `Verbindung steht, aber der Dienst (${cw.via}) liefert keine Webseite.` }; return { ok: true, ip, host, scheme, port, title: cw.title, body: cw.body }; }
     if (!sv || !((port === 80 && sv.http.on) || (port === 443 && sv.http.on && sv.http.https))) return { err: `Verbindung abgelehnt: Auf ${srv ? srv.cfg.hostname : ip} lauscht kein ${port === 443 ? 'HTTPS' : 'HTTP'}-Server auf Port ${port}.` };
     return { ok: true, ip, host, scheme, port, title: sv.http.title || srv.cfg.hostname, body: sv.http.body };
   }
@@ -1255,7 +1257,7 @@ const Sandbox = (function () {
     net = net || S.net;
     return {
       net, ifaces: d => d.ports.filter(p => !isMg(p)).map((p, i) => { const h = hip(d, p) || {}; return { lin: 'eth' + i, alias: 'Ethernet' + i, port: p, ip: h.ip || null, mask: h.mask || null, up: NL.portStatus(net, d.id, p).st === 'connected' }; }),
-      luns: d => STORN.hostLuns(net, d), setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => withNet(net, () => resolve(d, n)), virsh: (d, a, root) => VIRTN.virsh(net, d, a, root), reach: (d, ip) => NL.ping(net, d.id, ip).ok, ping: (d, ip, flow) => NL.ping(net, d.id, ip, flow), net,
+      luns: d => STORN.hostLuns(net, d), setIp: (d, p, ip, mask) => setHostIp(d, p, ip, mask), resolve: (d, n) => withNet(net, () => resolve(d, n)), virsh: (d, a, root) => VIRTN.virsh(net, d, a, root), ctr: (d, L, tool, a, root, online) => CTRN.run(d, L, tool, a, root, { online, day: net.day || 0 }), reach: (d, ip) => NL.ping(net, d.id, ip).ok, ping: (d, ip, flow) => NL.ping(net, d.id, ip, flow), net,
       fallback: (d, line) => withNet(net, () => hostLine(d, (S && S.sess && S.sess[d.id]) || NL.newSess(), line))
     };
   }
@@ -1422,6 +1424,15 @@ const Sandbox = (function () {
       const srv = hd(net, 'SRV-BKP'), H = bkH(net); ['SW', 'R-GW', 'SRV-WEB'].forEach(h => BKPN.addJob(net, srv, { name: 'J-' + h, src: hd(net, h).id, keep: 5 }));
       if (!o.fresh) { net.day = 0; BKPN.advance(net, H); net.day = 1; }
     }
+  }
+  // Container-Lab: Switch, Router, Docker-Host SRV-CT (ufw an, nur SSH offen), PC
+  function ctrBase(net, o = {}) {
+    mk(net, 'C9200L-24T-4G', 360, 120, 'SW'); mk(net, 'ISR4321', 700, 120, 'R-GW'); lk(net, 'R-GW', RG + 0, 'SW', G + 24);
+    mk(net, 'HW-2288H-V5', 200, 340, 'SRV-CT'); mk(net, 'PC', 520, 340, 'PC-1'); lk(net, 'SRV-CT', 'eth0', 'SW', G + 1); lk(net, 'PC-1', 'eth0', 'SW', G + 2);
+    rn(net, 'R-GW', ['interface g0/0/0', 'ip address 10.0.0.1 255.255.255.0', 'no shutdown']); rn(net, 'SW', ['interface vlan 1', 'ip address 10.0.0.2 255.255.255.0', 'no shutdown']);
+    rn(net, 'SRV-CT', ['ip 10.0.0.10/24 10.0.0.1']); rn(net, 'PC-1', ['ip 10.0.0.20/24 10.0.0.1']); const L = LXN.init(hd(net, 'SRV-CT')); L.ufw = { on: true, allow: ['22'] };
+    if (o.docker) lxr(net, 'SRV-CT', ['sudo apt install docker.io', 'sudo systemctl enable --now docker']);
+    if (o.k3s) lxr(net, 'SRV-CT', ['sudo apt install k3s', 'sudo systemctl enable --now k3s']);
   }
   // WLAN-Lab: PoE-Switch, Gateway, Webserver, Access Point(s), Clients
   function wlBase(net, o = {}) {
@@ -1769,6 +1780,46 @@ const Sandbox = (function () {
         { t: 'Die Wiederherstellung steht im Protokoll des Backup-Servers', c: n => BKPN.st(hd(n, 'SRV-BKP')).log.some(l => /Wiederhergestellt/.test(l.msg)) }],
       hints: ['Öffne die Web-GUI von SRV-BKP → „Backup“ → „Sicherungen“. Dort siehst du, welche Stände es gibt.', 'Die Sicherung vom ersten Tag (13.10.2026) hat noch die gute Konfiguration, die vom letzten Tag schon die kaputte.', 'Wähle den älteren Stand und klicke „Wiederherstellen“.'],
       sol(net) { const srv = hd(net, 'SRV-BKP'), S = BKPN.st(srv), j = S.jobs.find(x => x.name === 'J-SRV-WEB'), b = S.store.filter(x => x.job === j.id).sort((a, c) => a.day - c.day)[0]; BKPN.restore(net, srv, b.id, bkH(net)); } }
+    ,
+    { id: 'sc-ctr-docker', kind: 'Aufbau', title: 'Docker: Intranet-Seite im Container', est: '20 min',
+      intro: 'Auf <code>SRV-CT</code> (10.0.0.10) liegt die Seite <code>/srv/site/index.html</code>. Sie soll ein nginx-Container ausliefern, erreichbar auf Port 8080. Installiere Docker, starte den Container mit dem Ordner als Volume und sorge dafür, dass <code>PC-1</code> die Seite unter <code>http://10.0.0.10:8080</code> sieht.',
+      build(net) { ctrBase(net); lxr(net, 'SRV-CT', ['sudo mkdir -p /srv/site', 'echo "<html><head><title>Intranet</title></head><body>Willkommen im Intranet</body></html>" | sudo tee /srv/site/index.html']); },
+      goals: [
+        { t: 'Docker läuft auf <code>SRV-CT</code>', c: n => CTRN.dockerOn(hd(n, 'SRV-CT')) },
+        { t: 'Ein Container nutzt das nginx-Image und veröffentlicht Port 8080', c: n => CTRN.st(hd(n, 'SRV-CT')).cts.some(c => c.state === 'running' && /^nginx/.test(c.image) && c.ports.some(p => p.h === 8080)) },
+        { t: 'Der Container liefert die Seite aus <code>/srv/site</code> aus', c: n => { const d = hd(n, 'PC-1'); const r = httpGet(d, 'http://10.0.0.10:8080'); return !!r.ok && r.title === 'Intranet'; } }],
+      hints: ['Installiere <code>docker.io</code> und starte den Dienst <code>docker</code>. Docker-Befehle brauchen <code>sudo</code>.', '<code>sudo docker run -d --name web -p 8080:80 -v /srv/site:/usr/share/nginx/html nginx</code> startet den Container. Das Image kommt beim ersten Mal aus dem Internet.', 'Die Firewall (ufw) des Servers lässt nur SSH durch: <code>sudo ufw allow 8080</code>.'],
+      sol(net) { lxr(net, 'SRV-CT', ['sudo apt install docker.io', 'sudo systemctl enable --now docker', 'sudo docker run -d --name web -p 8080:80 -v /srv/site:/usr/share/nginx/html nginx', 'sudo ufw allow 8080']); } }
+    ,
+    { id: 'sc-ctr-port', kind: 'Fehlersuche', title: 'Docker: Port ist schon belegt', est: '20 min',
+      intro: 'Ein Kollege wollte den Shop (<code>httpd</code>) im Container auf Port 80 betreiben und eine Datenbank (<code>mysql</code>) dazu. Der Shop ließ sich nicht starten, und die Datenbank beendet sich sofort. <code>PC-1</code> soll <code>http://10.0.0.10</code> öffnen und „It works!“ sehen, und der Container <code>db</code> soll laufen.',
+      build(net) { ctrBase(net, { docker: true }); lxr(net, 'SRV-CT', ['sudo apt install nginx', 'sudo systemctl enable --now nginx', 'sudo ufw allow 80', 'sudo docker run -d --name db mysql']); },
+      goals: [
+        { t: 'Ein Container <code>httpd</code> läuft und veröffentlicht Port 80', c: n => CTRN.st(hd(n, 'SRV-CT')).cts.some(c => c.state === 'running' && /^httpd/.test(c.image) && c.ports.some(p => p.h === 80)) },
+        { t: '<code>PC-1</code> sieht unter <code>http://10.0.0.10</code> die Seite „It works!“', c: n => { const r = httpGet(hd(n, 'PC-1'), 'http://10.0.0.10'); return !!r.ok && r.title === 'It works!'; } },
+        { t: 'Der Container <code>db</code> (mysql) läuft', c: n => CTRN.st(hd(n, 'SRV-CT')).cts.some(c => c.name === 'db' && c.state === 'running') }],
+      hints: ['Mit <code>sudo docker ps -a</code> und <code>sudo docker logs db</code> siehst du, was schiefging. Die Datenbank fehlt eine Pflicht-Variable.', 'Auf dem Server läuft schon ein nginx und hält Port 80. Entweder du stoppst ihn (<code>sudo systemctl disable --now nginx</code>), oder der Container nimmt einen anderen Port. Hier soll es Port 80 sein.', 'Ein beendeter Container mit demselben Namen muss erst weg: <code>sudo docker rm db</code>. Dann <code>-e MYSQL_ROOT_PASSWORD=geheim</code> mitgeben.'],
+      sol(net) { lxr(net, 'SRV-CT', ['sudo systemctl disable --now nginx', 'sudo docker run -d --name shop -p 80:80 httpd', 'sudo docker rm db', 'sudo docker run -d --name db -e MYSQL_ROOT_PASSWORD=geheim mysql']); } }
+    ,
+    { id: 'sc-k8s-new', kind: 'Aufbau', title: 'Kubernetes: Webanwendung mit drei Replikas', est: '25 min',
+      intro: 'Installiere auf <code>SRV-CT</code> (10.0.0.10) ein einfaches Kubernetes (k3s). Starte ein Deployment <code>web</code> mit dem Image nginx in drei Replikas, mache es per NodePort von außen erreichbar und öffne die Firewall für den Port. <code>PC-1</code> soll die Seite abrufen können.',
+      build(net) { ctrBase(net); },
+      goals: [
+        { t: 'k3s läuft auf <code>SRV-CT</code>', c: n => CTRN.k3sOn(hd(n, 'SRV-CT')) },
+        { t: 'Das Deployment <code>web</code> hat drei laufende Pods', c: n => { const d = hd(n, 'SRV-CT'); return CTRN.k3sOn(d) && CTRN.podsOf(d, d.lx, null).filter(p => p.dep === 'web' && p.status === 'Running').length >= 3; } },
+        { t: 'Es gibt einen Dienst vom Typ NodePort für <code>web</code>', c: n => CTRN.st(hd(n, 'SRV-CT')).k.svcs.some(s => s.dep === 'web' && s.type === 'NodePort') },
+        { t: '<code>PC-1</code> erreicht den Dienst über den NodePort', c: n => { const d = hd(n, 'SRV-CT'), s = CTRN.st(d).k.svcs.find(x => x.dep === 'web' && x.nodePort); return !!s && !!httpGet(hd(n, 'PC-1'), 'http://10.0.0.10:' + s.nodePort).ok; } }],
+      hints: ['<code>sudo apt install k3s</code>, dann <code>sudo systemctl enable --now k3s</code>. Danach funktioniert <code>sudo kubectl get nodes</code>.', '<code>sudo kubectl create deployment web --image=nginx --replicas=3</code> und <code>sudo kubectl expose deployment web --port=80 --type=NodePort</code>.', 'Den NodePort (30000–32767) zeigt <code>sudo kubectl get svc</code> hinter dem Doppelpunkt. Dieser Port muss in der Firewall offen sein: <code>sudo ufw allow &lt;Port&gt;</code>.'],
+      sol(net) { lxr(net, 'SRV-CT', ['sudo apt install k3s', 'sudo systemctl enable --now k3s', 'sudo kubectl create deployment web --image=nginx --replicas=3', 'sudo kubectl expose deployment web --port=80 --type=NodePort']); const s = CTRN.st(hd(net, 'SRV-CT')).k.svcs[0]; lxr(net, 'SRV-CT', ['sudo ufw allow ' + s.nodePort]); } }
+    ,
+    { id: 'sc-k8s-pull', kind: 'Fehlersuche', title: 'Kubernetes: Pods starten nicht', est: '20 min',
+      intro: 'Das Deployment <code>app</code> hat zwei Pods, die nicht starten. Der Dienst auf NodePort 30080 liefert deshalb nichts aus. <code>PC-1</code> soll <code>http://10.0.0.10:30080</code> laden können.',
+      build(net) { ctrBase(net, { k3s: true }); const d = hd(net, 'SRV-CT'); lxr(net, 'SRV-CT', ['sudo ufw allow 30080', 'sudo kubectl create deployment app --image=ngnix --replicas=2']); CTRN.st(d).k.svcs.push({ name: 'app', type: 'NodePort', port: 80, nodePort: 30080, dep: 'app', sel: 'app' }); },
+      goals: [
+        { t: 'Beide Pods von <code>app</code> laufen', c: n => { const d = hd(n, 'SRV-CT'); const p = CTRN.podsOf(d, d.lx, null).filter(x => x.dep === 'app'); return p.length === 2 && p.every(x => x.status === 'Running'); } },
+        { t: '<code>PC-1</code> lädt <code>http://10.0.0.10:30080</code>', c: n => !!httpGet(hd(n, 'PC-1'), 'http://10.0.0.10:30080').ok }],
+      hints: ['<code>sudo kubectl get pods</code> zeigt den Status „ImagePullBackOff“. <code>sudo kubectl describe pod &lt;Name&gt;</code> nennt den Grund.', 'Das Image heißt <code>ngnix</code>, ein Tippfehler. Es gibt kein Image mit diesem Namen.', 'Korrigiere das Image: <code>sudo kubectl set image deployment/app nginx=nginx</code>, oder lösche das Deployment und lege es neu an.'],
+      sol(net) { lxr(net, 'SRV-CT', ['sudo kubectl set image deployment/app nginx=nginx']); } }
     ,
     { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
       intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',
@@ -2194,7 +2245,7 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, BKP: BKPN, bkH: () => bkH(S.net), advanceDays, day: () => S.net.day || 0, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, BKP: BKPN, CTR: CTRN, ctrOnline: d => LXN.online(lxCtx(S.net), d), bkH: () => bkH(S.net), advanceDays, day: () => S.net.day || 0, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
@@ -2216,7 +2267,7 @@ const Sandbox = (function () {
 
   function close() { if (S) clearInterval(S._monT); document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, BKP: BKPN, bkH: () => bkH(net), advanceDays: n => { for (let i = 0; i < n; i++) { net.day = (net.day || 0) + 1; BKPN.advance(net, bkH(net)); STORN.snapAdvance(net, net.day); } }, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, BKP: BKPN, CTR: CTRN, bkH: () => bkH(net), advanceDays: n => { for (let i = 0; i < n; i++) { net.day = (net.day || 0) + 1; BKPN.advance(net, bkH(net)); STORN.snapAdvance(net, net.day); } }, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;
