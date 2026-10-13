@@ -799,6 +799,7 @@ const Sandbox = (function () {
     let h = `<section class="card"><h3 class="hid">${esc(d.cfg.hostname)}</h3><div class="f"><label for="dhost">Hostname</label><div class="irow"><input id="dhost" value="${esc(d.cfg.hostname)}"><button class="btn small" id="dhostGo">Setzen</button></div></div>`;
     if (!d.vm && !(MODELS[d.model] && MODELS[d.model].cloud)) { const ps = powerState(d), left = d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0; h += `<div class="pwr ${ps}"><span class="pdot" aria-hidden="true"></span><div class="ptx"><b>${ps === 'off' ? 'Ausgeschaltet' : ps === 'boot' ? 'Startet …' : 'Eingeschaltet'}</b><small>${ps === 'off' ? 'Alle Links daran sind down.' : ps === 'boot' ? 'Noch nicht erreichbar.' : (isNetOs(d) ? (d.saved ? 'Konfiguration gespeichert' : 'Änderungen nicht gespeichert') : 'Läuft')}</small></div><button class="btn small ${ps === 'on' ? '' : 'primary'}" id="pwrBtn" ${ps === 'boot' ? 'disabled' : ''}>${ps === 'on' ? 'Ausschalten' : ps === 'off' ? 'Einschalten' : 'Bootet'}</button>${ps === 'boot' ? `<i class="pbar" style="animation-duration:${left}ms"></i>` : ''}</div>`; }
     if (M.wifi) h += wifiBox(d);
+    if (d.type !== 'ap' && NL.needPoe(d)) { const pw = NL.poePower(S.net, d); h += `<div class="webbox"><b>Stromversorgung (PoE)</b><span class="muted small">${pw.ok ? 'Strom: ' + esc(pw.via) : '<span class="neg">Kein Strom: ' + esc(pw.reason) + '</span>'}</span><label class="chk"><input type="checkbox" id="poeInj" ${d.injector ? 'checked' : ''}> PoE-Injector verwenden</label></div>`; }
     if (d.type === 'ap') { const pw = NL.apPower(S.net, d), j = NL.apJoined(S.net, d), st = NL.apState(d); h += `<div class="webbox"><b>Access Point</b><span class="muted small">${pw.ok ? 'Strom: ' + esc(pw.via) : '<span class="neg">Kein Strom: ' + esc(pw.reason) + '</span>'}</span><label class="chk"><input type="checkbox" id="apInj" ${st.injector ? 'checked' : ''}> PoE-Injector verwenden</label><span class="muted small">${j === null ? 'Autonom: SSIDs stehen auf dem AP.' : j.ok ? 'Am Controller ' + esc(j.wlc.cfg.hostname) + ' angemeldet.' : 'Controller-Modus, nicht angemeldet: ' + esc(j.why)}</span><span class="muted small">${NL.apClients(S.net, d).length} Client(s) verbunden</span></div>`; }
     if (d.type === 'server' && !(MODELS[d.model] && MODELS[d.model].cloud)) h += `<div class="f"><label for="dos">Betriebssystem (installiert)</label><select id="dos"><option value="linux" ${d.os === 'windows' ? '' : 'selected'}>Ubuntu Linux 22.04</option><option value="windows" ${d.os === 'windows' ? 'selected' : ''}>Windows Server 2022</option></select></div>`;
     if (GUIN.hasGui(d)) h += `<div class="webbox"><b>Web-Verwaltung</b><span class="muted small">https://${esc(guiHost(d))}${GUIN.portOf(d) === 443 ? '' : ':' + GUIN.portOf(d)}</span><button class="btn primary small block" id="guiOpen">${d.vm ? 'Web-GUI der VM öffnen' : 'Web-GUI öffnen'}</button>${d.vm ? '<button class="btn small block" id="hvOpen">Im Virtualisierungs-Manager verwalten</button>' : ''}</div>`;
@@ -875,6 +876,7 @@ const Sandbox = (function () {
     };
     if (g('dos')) g('dos').onchange = () => act(() => { d.os = g('dos').value; delete S.out[d.id]; delete S.sess[d.id]; toast(`Betriebssystem: ${d.os === 'windows' ? 'Windows Server 2022' : 'Ubuntu Linux'}. Konsole und Web-GUI wechseln mit.`); });
     if (g('pwrBtn')) g('pwrBtn').onclick = () => togglePower(d.id);
+    if (g('poeInj')) g('poeInj').onchange = e => act(() => { d.injector = e.target.checked; toast(e.target.checked ? 'PoE-Injector angeschlossen.' : 'PoE-Injector entfernt.'); });
     if (g('apInj')) g('apInj').onchange = e => act(() => { NL.apState(d).injector = e.target.checked; toast(e.target.checked ? 'PoE-Injector angeschlossen.' : 'PoE-Injector entfernt.'); });
     if (g('wfGo')) g('wfGo').onclick = () => { let r; act(() => { r = NL.wifiConnect(S.net, d, g('wfs').value, g('wfp').value); toast(r.err ? `<span class="neg">${esc(r.err)}</span>` : `Verbunden mit „${esc(g('wfs').value)}“ über ${esc(r.ap)}.${(d.cfg.dhcp || (hip(d, d.ports[0]) || {}).ip) ? '' : ' Gib dem Gerät jetzt eine IP-Adresse (oder nutze DHCP).'}`); }); };
     if (g('wfX')) g('wfX').onclick = () => act(() => { NL.wifiDisconnect(S.net, d); toast('WLAN getrennt.'); });
@@ -975,6 +977,7 @@ const Sandbox = (function () {
     for (const d of devs) {
       const id = d.id;
       if (d.type === 'ap') { const pw = NL.apPower(net, d); if (!pw.ok) add('Fehler', id, 'Access Point ohne Strom: ' + pw.reason); else { if (!(hip(d, d.ports[0]) || {}).ip) add('Hinweis', id, 'AP hat keine Management-IP'); const j = NL.apJoined(net, d); if (j && !j.ok) add('Fehler', id, 'AP im Controller-Modus ohne Join: ' + j.why); else if (!NL.apSsids(net, d).length) add('Hinweis', id, 'Keine SSID konfiguriert'); } continue; }
+      if (NL.needPoe(d) && d.type !== 'ap') { const pw = NL.poePower(net, d); if (!pw.ok) add('Fehler', id, 'Kein Strom (PoE): ' + pw.reason); }
       if (d.wifi && !(d.wifi.ssid)) { add('Hinweis', id, 'WLAN-Gerät ist mit keinem WLAN verbunden'); continue; }
       if (isIcon(d)) { const p = d.ports[0], h = hip(d, p); if (d.vm && d.vm.state !== 'running') add('Hinweis', id, 'VM ist ausgeschaltet'); else if (d.vm && net.devs[d.vm.host].off) add('Hinweis', id, `Der Host ${net.devs[d.vm.host].cfg.hostname} ist ausgeschaltet`); else if (!d.vm && !NL.linkOf(net, id, p)) add('Hinweis', id, 'Endgerät ist nicht verkabelt'); else if (!d.vm && NL.portStatus(net, id, p).st !== 'connected') add('Fehler', id, 'kein Link – ' + NL.portStatus(net, id, p).reason); else if (!h || !h.ip) add('Hinweis', id, 'keine IP-Adresse'); else if (!d.cfg.gw) add('Hinweis', id, 'kein Default-Gateway gesetzt'); continue; }
       if (d.type === 'server' || d.type === 'storage') lintHost(net, d, add); else if (d.type === 'fc') lintFc(net, d, add); else if (d.fw) lintFw(net, d, add); else lintIos(net, d, add);
@@ -1641,6 +1644,21 @@ const Sandbox = (function () {
         { t: '<code>INET-WEB</code> erreicht <code>PC-C</code>', c: n => pg(n, 'INET-WEB', '203.0.113.10') }],
       hints: ['Auf R-EDGE: <code>router bgp 65001</code>, dann <code>neighbor 192.0.2.1 remote-as 65000</code>. Die AS-Nummern müssen auf beiden Seiten zusammenpassen.', 'Damit der Provider dein Netz kennt, kündigst du es an: <code>network 203.0.113.0 mask 255.255.255.0</code>. Es muss exakt in der Routing-Tabelle stehen (hier verbunden).', 'Prüfe mit <code>show ip bgp summary</code> den Zustand und mit <code>show ip route</code> die Default-Route (B*).'],
       sol(net) { rn(net, 'R-EDGE', ['router bgp 65001', 'neighbor 192.0.2.1 remote-as 65000', 'network 203.0.113.0 mask 255.255.255.0']); } }
+    ,
+    { id: 'sc-poe-budget', kind: 'Fehlersuche', title: 'PoE: Telefone und Access Points ohne Strom', est: '20 min',
+      intro: 'Am PoE-Switch <code>SW-PoE</code> (Budget 370 W) hängen 12 Kameras, 6 Access Points und 4 IP-Telefone. Nach dem Einbau der letzten Kameras bekommen die Telefone und ein Teil der Geräte keinen Strom mehr. Der Switch vergibt sein Budget der Reihe nach, und die Kameras stehen an den ersten Ports. Telefone und Access Points sind aber wichtiger.',
+      build(net) {
+        mk(net, 'C9200L-24P-4X', 420, 70, 'SW-PoE'); let p = 1;
+        for (let i = 1; i <= 12; i++) { mk(net, 'IP-Camera', 40 + i * 70, 300, 'CAM-' + i); lk(net, 'CAM-' + i, 'eth0', 'SW-PoE', G + p++); }
+        for (let i = 1; i <= 6; i++) { mk(net, 'C9120AXI', 80 + i * 110, 470, 'AP-' + i); lk(net, 'AP-' + i, 'GigabitEthernet0', 'SW-PoE', G + p++); }
+        for (let i = 1; i <= 4; i++) { mk(net, 'IP-Phone', 150 + i * 120, 620, 'TEL-' + i); lk(net, 'TEL-' + i, 'eth0', 'SW-PoE', G + p++); }
+      },
+      goals: [
+        { t: 'Alle vier IP-Telefone haben Strom', c: n => [1, 2, 3, 4].every(i => NL.poePower(n, hd(n, 'TEL-' + i)).ok) },
+        { t: 'Alle sechs Access Points haben Strom', c: n => [1, 2, 3, 4, 5, 6].every(i => NL.poePower(n, hd(n, 'AP-' + i)).ok) },
+        { t: 'Mindestens 8 der 12 Kameras laufen weiter', c: n => [...Array(12).keys()].filter(i => NL.poePower(n, hd(n, 'CAM-' + (i + 1))).ok).length >= 8 }],
+      hints: ['Prüfe im Switch (Web-GUI → Dashboard → PoE-Budget oder <code>show power inline</code>), welche Ports <code>power-deny</code> haben.', 'Das Budget wird in Port-Reihenfolge vergeben, außer Ports haben eine höhere Priorität.', 'Setze an den Ports der Access Points und Telefone (Gi1/0/13 bis 22) <code>power inline port priority high</code>. Die Kameras bekommen dann das, was übrig bleibt.'],
+      sol(net) { rn(net, 'SW-PoE', ['interface range g1/0/13 - 22', 'power inline port priority high']); } }
     ,
     { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
       intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',

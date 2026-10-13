@@ -94,11 +94,11 @@ const WEBGUI = (function () {
     windows: d => [['dashboard', 'Dashboard'], ['local', 'Lokaler Server'], ['roles', 'Rollen und Features'], ['ad', 'Active Directory'], ['dns', 'DNS'], ['dhcp', 'DHCP'], ['shares', 'Dateidienste'], ['services', 'Dienste'], ['firewall', 'Firewall'], ['terminal', 'PowerShell']],
     storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['hypermetro', 'HyperMetro'], ['ports', 'Ports und Controller']],
     fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']],
-    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['rproto', 'Dynamisches Routing'], ['stp', 'Spanning Tree'], ['ec', 'EtherChannel'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
+    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['rproto', 'Dynamisches Routing'], ['stp', 'Spanning Tree'], ['ec', 'EtherChannel'], ['qos', 'QoS'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
     firewall: d => [].concat(...Object.values(FW)),
     ap: d => [['dashboard', 'Übersicht'], ['wlan', 'Funknetzwerke (SSID)'], ['clients', 'Clients'], ['network', 'Netzwerk'], ['controller', 'Controller'], ['cli', 'Konsole']],
     wlc: d => [['dashboard', 'Dashboard'], ['-c', 'Konfiguration'], ['wlan', 'WLANs'], ['aps', 'Access Points'], ['clients', 'Clients'], ['-a', 'Verwaltung'], ['network', 'Netzwerk'], ['cli', 'Konsole']],
-    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['rproto', 'Dynamisches Routing'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
+    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['rproto', 'Dynamisches Routing'], ['qos', 'QoS'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
   };
 
   // ---------- Aktionen ausführen ----------
@@ -315,7 +315,7 @@ const WEBGUI = (function () {
       ${card('Gerät', `<dl class="wg-dl"><dt>Hostname</dt><dd>${esc(d.cfg.hostname)}</dd><dt>Modell</dt><dd>${esc(d.model || (sw ? 'Switch' : 'Router'))}</dd><dt>Software</dt><dd>Cisco IOS XE (NetLab)</dd><dt>Management-IP</dt><dd>${m ? esc(m.ip + '/' + maskLen(m.mask) + ' (' + A.SH(m.n) + ')') : '<span class="wg-mut">keine – ' + (sw ? 'SVI anlegen' : 'Schnittstelle konfigurieren') + '</span>'}</dd><dt>Konfiguration</dt><dd>${d.saved ? chip('gespeichert', 'ok') : chip('nicht gespeichert', 'bad')}</dd></dl>`)}
       ${card('Schnittstellen', `<p class="wg-big">${up}<small> von ${d.ports.length} up</small></p>${bar(up, d.ports.length, 101)}<p class="wg-note">${d.ports.filter(p => d.cfg.ifs[p].shutdown).length} administrativ abgeschaltet</p>${btn('Zu den Schnittstellen', 'nav', { p: 'interfaces' }, 'sm')}`)}
       ${sw ? card('VLANs', `<p class="wg-big">${nv}<small> angelegt</small></p><p class="wg-note">Layer 3: ${d.cfg.ipRouting ? chip('ip routing an', 'ok') : chip('reiner Layer-2-Switch')}</p>${btn('Zu den VLANs', 'nav', { p: 'vlans' }, 'sm')}`) : card('Routing', `<p class="wg-big">${d.cfg.routes.length}<small> statische Routen</small></p>${btn('Zum Routing', 'nav', { p: 'l3' }, 'sm')}`)}
-    </div>${card('Portansicht', faceplate(d))}
+    </div>${A.NL.MODELS[d.model] && A.NL.MODELS[d.model].poe ? poeCard(d) : ''}${card('Portansicht', faceplate(d))}
     ${card('Nachbarn (CDP)', nb.length ? `<pre class="wg-pre">${esc(['Gerät          Lokal         Plattform        Port', ...nb].join('\n'))}</pre>` : '<p class="wg-empty">Keine CDP-Nachbarn. Verbinde den Port mit einem Switch oder Router.</p>')}`;
   };
   PAGES.switch.monitor = PAGES.router.monitor = (d, G) => {
@@ -537,6 +537,19 @@ const WEBGUI = (function () {
       + card('BGP-Tabelle', showBox(d, 'show ip bgp'));
   };
 
+  // ---------- PoE und QoS ----------
+  const poeCard = d => { const al = A.NL.poeAlloc(A.net(), d), rows = d.ports.filter(p => al.map[p]).map(p => { const a = al.map[p]; return [`<b>${esc(A.SH(p))}</b>`, esc(a.dev), a.state === 'on' ? chip('versorgt', 'ok') : a.state === 'deny' ? chip('Budget erschöpft', 'bad') : chip(a.state === 'never' ? 'PoE aus' : 'Port aus', 'bad'), a.state === 'on' ? a.w.toFixed(1) + ' W' : a.need ? 'braucht ' + a.need + ' W' : '–']; }); return card('PoE-Budget', `<p class="wg-big">${al.used.toFixed(1)}<small> von ${al.budget} W vergeben</small></p>${bar(al.used, al.budget, 90)}` + (rows.length ? tbl(['Port', 'Gerät', 'Status', 'Leistung'], rows) : '<p class="wg-note">Kein PoE-Gerät angeschlossen.</p>') + '<p class="wg-note">Der Switch vergibt sein Budget in Port-Reihenfolge, Ports mit <code>power inline port priority high</code> zuerst. Ist es leer, bleibt der nächste Port ohne Strom (power-deny).</p>'); };
+  const qosLines = (d, pre) => A.blocks(d, pre);
+  PAGES.switch.qos = PAGES.router.qos = (d, G) => {
+    const on = d.cfg.lines.some(l => l.toLowerCase() === 'mls qos'), cms = qosLines(d, 'class-map'), pms = qosLines(d, 'policy-map'), sw = d.type === 'switch';
+    const bound = d.ports.flatMap(p => (d.cfg.ifs[p].extra || []).filter(x => x.startsWith('service-policy ')).map(x => [p, x.split(' ')[1], x.split(' ')[2]]));
+    return `<p class="wg-note">QoS bevorzugt wichtigen Verkehr (z. B. Sprache), wenn eine Leitung voll ist. Ablauf: Verkehr in einer <b>Class-Map</b> erkennen, in einer <b>Policy-Map</b> eine Behandlung festlegen und die Policy an eine Schnittstelle binden. Der Simulator prüft die Konfiguration, simuliert aber keinen Datenstau.</p>`
+      + (sw ? card('QoS global', `<p>${on ? chip('aktiv (mls qos)', 'ok') : chip('aus')}</p><div class="wg-row">${btn(on ? 'QoS ausschalten' : 'QoS einschalten', 'qoson', { on: on ? 0 : 1 }, on ? '' : 'primary')}</div>`) : '')
+      + card('Class-Maps (Verkehr erkennen)', `<div class="wg-row">${btn('Class-Map hinzufügen', 'dlg', { k: 'qcm' }, 'primary')}</div>` + tbl(['Name', 'Regel', 'Match', ''], cms.map(b => [`<b>${esc(b.head.split(' ')[2])}</b>`, esc(b.head.split(' ')[1]), `<code>${esc(b.lines.join('; ') || '–')}</code>`, btn('Löschen', 'qcmdel', { n: b.head.split(' ')[2] }, 'sm ghost bad')]), 'Noch keine Class-Map.'))
+      + card('Policy-Maps (Behandlung festlegen)', `<div class="wg-row">${btn('Policy-Map hinzufügen', 'dlg', { k: 'qpm' }, 'primary' + (cms.length ? '' : ' disabled'))}${btn('Policy an Schnittstelle binden', 'dlg', { k: 'qbind' }, 'sm' + (pms.length ? '' : ' disabled'))}</div>` + tbl(['Name', 'Inhalt', ''], pms.map(b => [`<b>${esc(b.head.split(' ')[1])}</b>`, `<code>${esc(b.lines.join('; ') || '–')}</code>`, btn('Löschen', 'qpmdel', { n: b.head.split(' ')[1] }, 'sm ghost bad')]), cms.length ? 'Noch keine Policy-Map.' : 'Lege zuerst eine Class-Map an.'))
+      + card('Gebundene Policies', tbl(['Schnittstelle', 'Richtung', 'Policy'], bound.map(([p, dir, nm]) => [`<b>${esc(A.SH(p))}</b>`, dir, esc(nm)]), 'Keine Policy gebunden. Eine Policy wirkt erst an einer Schnittstelle.'));
+  };
+
   // ---------- Dialoge ----------
   function dlgHtml(d, G) {
     const x = G.dlg, k = x.k, net = A.net(), wrap = (t, body, ok, okLbl) => `<div class="wg-ov" data-act="dlgbg"><form class="wg-dlg" role="dialog" aria-modal="true" aria-label="${esc(t)}" data-act="dlgok"><h2>${t}</h2>${body}<div class="wg-row end">${btn('Abbrechen', 'dlgx', null, 'ghost')}${ok === false ? '' : `<button type="submit" class="wg-b primary" data-act="dlgok">${okLbl || 'OK'}</button>`}</div></form></div>`;
@@ -562,6 +575,9 @@ const WEBGUI = (function () {
       case 'eigrpnet': return wrap('EIGRP-Netz hinzufügen', `<div class="wg-2">${field('net', 'Netz', '', { ph: '10.0.0.0' })}${field('wc', 'Wildcard-Maske', '0.0.0.255')}</div>`, true, 'Hinzufügen');
       case 'bgpnbr': return wrap('BGP-Nachbar hinzufügen', `<div class="wg-2">${field('ip', 'IP-Adresse des Nachbarn', '', { ph: '10.12.0.2' })}${field('as', 'AS des Nachbarn', '', { type: 'number', min: 1 })}</div><label class="wg-ck2"><input type="checkbox" id="wf-nhs"> next-hop-self (für iBGP-Nachbarn)</label><label class="wg-ck2"><input type="checkbox" id="wf-defo"> Default-Route an den Nachbarn senden</label>`, true, 'Hinzufügen');
       case 'bgpnet': return wrap('Netz ankündigen', `<div class="wg-2">${field('net', 'Netz', '', { ph: '10.1.0.0' })}${field('mask', 'Subnetzmaske', '255.255.255.0')}</div>`, true, 'Ankündigen');
+      case 'qcm': return wrap('Class-Map hinzufügen', field('n', 'Name', 'VOICE') + sel('m', 'Match', [['dscp ef', 'DSCP EF (Sprache)'], ['dscp af41', 'DSCP AF41 (Video)'], ['dscp af21', 'DSCP AF21 (Daten, wichtig)'], ['dscp cs1', 'DSCP CS1 (Scavenger)'], ['protocol http', 'Protokoll HTTP'], ['any', 'Alles']]), true, 'Anlegen');
+      case 'qpm': { const cms = A.blocks(d, 'class-map'); return wrap('Policy-Map hinzufügen', field('n', 'Name', 'QOS-POLICY') + sel('c', 'Class-Map', cms.map(b => [b.head.split(' ')[2], b.head.split(' ')[2]])) + `<div class="wg-2">${sel('a', 'Behandlung', [['priority percent', 'Strikte Priorität (Sprache)'], ['bandwidth percent', 'Garantierte Bandbreite']])}${field('pc', 'Prozent der Leitung', 30, { type: 'number', min: 1, max: 100 })}</div>`, true, 'Anlegen'); }
+      case 'qbind': return wrap('Policy an Schnittstelle binden', sel('p', 'Policy-Map', A.blocks(d, 'policy-map').map(b => [b.head.split(' ')[1], b.head.split(' ')[1]])) + sel('i', 'Schnittstelle', d.ports.map(p => [p, A.SH(p)])) + sel('dir', 'Richtung', [['output', 'ausgehend (output)'], ['input', 'eingehend (input)']]), true, 'Binden');
       case 'ifedit': {
         const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
         const vl = Object.keys(d.cfg.vlans || {}).map(Number).sort((a, b) => a - b).map(n => [n, `${n} – ${d.cfg.vlans[n]}`]);
@@ -569,7 +585,7 @@ const WEBGUI = (function () {
         return wrap(one ? `Schnittstelle ${esc(A.SH(ps[0]))}` : `${ps.length} Schnittstellen bearbeiten`,
           (one ? field('desc', 'Beschreibung', one.desc || '', { ph: 'z. B. Uplink zu SW2' }) : '')
           + sel('st', 'Status', (one ? [] : [['', '– unverändert –']]).concat([['up', 'aktiv (no shutdown)'], ['down', 'abgeschaltet (shutdown)']]), one ? (one.shutdown ? 'down' : 'up') : '')
-          + (sw ? sel('mode', 'Modus', (one ? [] : [['', '– unverändert –']]).concat([['access', 'Access'], ['trunk', 'Trunk']]), one ? one.mode : '') + sel('vlan', 'Access-VLAN', (one ? [] : [['', '– unverändert –']]).concat(vl), one ? one.vlan : '', 'Gilt im Modus Access.') + `<div class="wg-2">${field('nat', 'Native VLAN (Trunk)', one ? one.native : '', { type: 'number', min: 1, max: 4094 })}${field('allow', 'Erlaubte VLANs (Trunk)', one ? (one.allowed === null ? 'all' : vlStr(one.allowed)) : '', { ph: 'all oder 10,20,30', hint: 'all, none oder Liste' })}</div>`
+          + (sw && A.NL.MODELS[d.model] && A.NL.MODELS[d.model].poe ? sel('poe', 'PoE', (one ? [] : [['', '– unverändert –']]).concat([['auto', 'automatisch (Standard)'], ['never', 'aus (power inline never)'], ['high', 'automatisch, hohe Priorität']]), one ? ((one.extra || []).includes('power inline never') ? 'never' : (one.extra || []).includes('power inline port priority high') ? 'high' : 'auto') : '') : '') + (sw ? sel('mode', 'Modus', (one ? [] : [['', '– unverändert –']]).concat([['access', 'Access'], ['trunk', 'Trunk']]), one ? one.mode : '') + sel('vlan', 'Access-VLAN', (one ? [] : [['', '– unverändert –']]).concat(vl), one ? one.vlan : '', 'Gilt im Modus Access.') + `<div class="wg-2">${field('nat', 'Native VLAN (Trunk)', one ? one.native : '', { type: 'number', min: 1, max: 4094 })}${field('allow', 'Erlaubte VLANs (Trunk)', one ? (one.allowed === null ? 'all' : vlStr(one.allowed)) : '', { ph: 'all oder 10,20,30', hint: 'all, none oder Liste' })}</div>`
             : (one ? `<div class="wg-2">${field('ip', 'IP-Adresse', one.ip || '', { ph: '10.0.0.1' })}${field('mask', 'Subnetzmaske', one.mask || '', { ph: '255.255.255.0' })}</div>` : '')), true, 'Übernehmen');
       }
       case 'newvlan': return wrap('VLAN hinzufügen', `<div class="wg-2">${field('id', 'VLAN-ID', '', { type: 'number', min: 2, max: 4094, ph: '10' })}${field('n', 'Name', '', { ph: 'Verkauf' })}</div>`, true, 'Hinzufügen');
@@ -655,6 +671,9 @@ const WEBGUI = (function () {
         case 'eigrpnet': ok = ios(G, [`router eigrp ${x.as}`, `network ${v(G, 'net').trim()} ${v(G, 'wc').trim()}`, 'exit'], 'Netz hinzugefügt.'); break;
         case 'bgpnbr': { const ip = v(G, 'ip').trim(), L = ['router bgp ' + x.as, `neighbor ${ip} remote-as ${v(G, 'as')}`]; if (v(G, 'nhs')) L.push(`neighbor ${ip} next-hop-self`); if (v(G, 'defo')) L.push(`neighbor ${ip} default-originate`); L.push('exit'); ok = ios(G, L, 'Nachbar hinzugefügt. Die Gegenseite braucht einen passenden neighbor-Eintrag.'); break; }
         case 'bgpnet': ok = ios(G, [`router bgp ${x.as}`, `network ${v(G, 'net').trim()} mask ${v(G, 'mask').trim()}`, 'exit'], 'Netz wird angekündigt, sobald es in der Routing-Tabelle steht.'); break;
+        case 'qcm': { const n = v(G, 'n').trim().replace(/\s+/g, '_'), m = v(G, 'm'); if (!n) { ok = false; break; } ok = ios(G, [`class-map match-any ${n}`, m === 'any' ? 'match any' : 'match ' + m, 'exit'], 'Class-Map angelegt.'); break; }
+        case 'qpm': ok = ios(G, [`policy-map ${v(G, 'n').trim().replace(/\s+/g, '_')}`, `class ${v(G, 'c')}`, `${v(G, 'a')} ${v(G, 'pc')}`, 'exit'], 'Policy-Map angelegt. Binde sie jetzt an eine Schnittstelle.'); break;
+        case 'qbind': ok = ios(G, [`interface ${v(G, 'i')}`, `service-policy ${v(G, 'dir')} ${v(G, 'p')}`, 'exit'], 'Policy gebunden.'); break;
         case 'ifedit': {
           const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
           const allow = v(G, 'allow').trim().toLowerCase();
@@ -668,6 +687,7 @@ const WEBGUI = (function () {
               const av = v(G, 'vlan'); if (av && (md || dv.cfg.ifs[p].mode) !== 'trunk') L.push('switchport access vlan ' + av);
               if ((md || dv.cfg.ifs[p].mode) === 'trunk') { const nv = v(G, 'nat'); if (nv) L.push('switchport trunk native vlan ' + nv); if (allow) L.push('switchport trunk allowed vlan ' + allow); }
             } else if (one) { const ip = v(G, 'ip').trim(), mk = v(G, 'mask').trim(); L.push(ip ? `ip address ${ip} ${mk}` : 'no ip address'); }
+            { const pv = v(G, 'poe'); if (pv === 'never') L.push('no power inline port priority high', 'power inline never'); else if (pv === 'auto') L.push('no power inline never', 'no power inline port priority high'); else if (pv === 'high') L.push('no power inline never', 'power inline port priority high'); }
             L.push('exit');
           });
           ok = ios(G, L, ps.length > 1 ? `${ps.length} Schnittstellen geändert.` : 'Schnittstelle gespeichert.'); break;
@@ -753,6 +773,9 @@ const WEBGUI = (function () {
         case 'rppass': { const hd0 = A.blocks(dv, 'router ' + D.k)[0]; if (hd0) ios(G, [hd0.head, (D.on === '1' ? '' : 'no ') + 'passive-interface ' + D.i, 'exit'], D.on === '1' ? 'Schnittstelle ist passiv: sie sendet keine Hellos mehr.' : 'Schnittstelle ist aktiv.'); break; }
         case 'ospfdef': ios(G, [`router ospf ${D.pid}`, (D.on === '1' ? '' : 'no ') + 'default-information originate', 'exit'], D.on === '1' ? 'Default-Route wird verteilt, sofern der Router selbst eine hat.' : 'Nicht mehr verteilt.'); break;
         case 'bgpnbrdel': ios(G, [`router bgp ${D.as}`, `no neighbor ${D.ip} remote-as ${((A.RTG.bgpCfg(dv) || { nbrs: {} }).nbrs[D.ip] || {}).as}`, 'exit'], 'Nachbar entfernt.'); break;
+        case 'qoson': ios(G, D.on === '1' ? 'mls qos' : 'no mls qos', D.on === '1' ? 'QoS ist aktiv.' : 'QoS ausgeschaltet.'); break;
+        case 'qcmdel': ios(G, 'no class-map ' + D.n, 'Class-Map gelöscht.'); break;
+        case 'qpmdel': ios(G, 'no policy-map ' + D.n, 'Policy-Map gelöscht.'); break;
         case 'dpooldel': ios(G, 'no ip dhcp pool ' + D.n, 'Pool gelöscht.'); break;
         case 'dexcldel': { const a = excluded(dv)[+D.i]; if (a) ios(G, `no ip dhcp excluded-address ${a.join(' ')}`, 'Ausschluss entfernt.'); break; }
         case 'fwacldel': ios(G, 'no access-list ' + D.a, 'Regelliste gelöscht.'); break;

@@ -940,15 +940,15 @@ const NL = (function () {
   const OB10 = [['eth0', 'sfp+'], ['eth1', 'sfp+'], ['ibmc', 'rj45']];
   const MODELS = {
     // ---- Switches
-    'C9200L-24P-4X': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9200L-24P-4X', info: '24× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
-    'C9200L-48P-4X': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9200L-48P-4X', info: '48× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9200L-24P-4X': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, poeBudget: 370, label: 'Catalyst 9200L-24P-4X', info: '24× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9200L-48P-4X': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, poeBudget: 740, label: 'Catalyst 9200L-48P-4X', info: '48× 1G RJ45 PoE+, 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
     'C9200L-24T-4G': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9200L-24T-4G', info: '24× 1G RJ45, 4× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('GigabitEthernet1/1/', 1, 4, 'sfp')] },
-    'C9300-24P': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9300-24P', info: '24× 1G RJ45 PoE+, Uplink-Modul 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
-    'C9300-48P': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 9300-48P', info: '48× 1G RJ45 PoE+, Uplink-Modul 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9300-24P': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, poeBudget: 715, label: 'Catalyst 9300-24P', info: '24× 1G RJ45 PoE+, Uplink-Modul 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
+    'C9300-48P': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, poeBudget: 715, label: 'Catalyst 9300-48P', info: '48× 1G RJ45 PoE+, Uplink-Modul 4× 10G SFP+', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('TenGigabitEthernet1/1/', 1, 4, 'sfp+')] },
     'C9300X-24Y': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9300X-24Y', info: '24× 10/25G SFP28, Uplink-Modul 2× 100G QSFP28', ports: [...gp('TwentyFiveGigE1/0/', 1, 24, 'sfp28'), ...gp('HundredGigE1/1/', 1, 2, 'qsfp28')] },
     'C9500-32C': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9500-32C (100G Core)', info: '32× 100G QSFP28', ports: gp('HundredGigE1/0/', 1, 32, 'qsfp28') },
     'C2960X-24TS-L': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 2960-X 24TS-L', info: '24× 1G RJ45, 4× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 24, 'rj45'), ...gp('GigabitEthernet1/0/', 25, 28, 'sfp')] },
-    'C2960X-48FPS-L': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, label: 'Catalyst 2960-X 48FPS-L', info: '48× 1G RJ45 PoE+, 4× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('GigabitEthernet1/0/', 49, 52, 'sfp')] },
+    'C2960X-48FPS-L': { type: 'switch', vendor: 'Cisco', u: 1, poe: true, poeBudget: 740, label: 'Catalyst 2960-X 48FPS-L', info: '48× 1G RJ45 PoE+, 4× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 48, 'rj45'), ...gp('GigabitEthernet1/0/', 49, 52, 'sfp')] },
     'C9500-16X': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9500-16X (Core)', info: '16× 10G SFP+', ports: gp('TenGigabitEthernet1/0/', 1, 16, 'sfp+') },
     'C9500-24Y4C': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 9500-24Y4C (25G/100G Core)', info: '24× 10/25G SFP28, 4× 100G QSFP28', ports: [...gp('TwentyFiveGigE1/0/', 1, 24, 'sfp28'), ...gp('HundredGigE1/0/', 25, 28, 'qsfp28')] },
     'C1000-8T-2G-L': { type: 'switch', vendor: 'Cisco', u: 1, label: 'Catalyst 1000-8T-2G-L', info: '8× 1G RJ45, 2× 1G SFP', ports: [...gp('GigabitEthernet1/0/', 1, 8, 'rj45'), ...gp('GigabitEthernet1/0/', 9, 10, 'sfp')] },
@@ -986,23 +986,23 @@ const NL = (function () {
     'HW-Dorado-18000V6': { type: 'storage', vendor: 'Huawei', u: 4, slots: 8, label: 'Huawei OceanStor Dorado 18000 V6', info: '4U-Controller-Gehäuse, 2 Controller, 8 Interface-Slots je Controller (vereinfachtes Planungsmodell)', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
     'STO-GEN': { type: 'storage', vendor: 'Generisch', u: 2, slots: 4, label: 'Storage (generisch, 2 Controller)', info: '2U, 2 Controller, 4 Interface-Slots je Controller', onboard: [['A-mgmt', 'rj45'], ['B-mgmt', 'rj45']] },
     // ---- WLAN
-    'C9105AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Catalyst 9105AX Access Point', info: 'Wi-Fi 6, 2×2, 1× 1G RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
-    'C9120AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Catalyst 9120AX Access Point', info: 'Wi-Fi 6, 4×4, 1× 2.5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
-    'C9130AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Catalyst 9130AX Access Point', info: 'Wi-Fi 6, 8×8, 1× 5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
-    'AIR-AP2802I': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, label: 'Aironet 2802I Access Point', info: 'Wi-Fi 5, 4×4, 1× 2.5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'C9105AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, poeW: 15.4, label: 'Catalyst 9105AX Access Point', info: 'Wi-Fi 6, 2×2, 1× 1G RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'C9120AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, poeW: 30, label: 'Catalyst 9120AX Access Point', info: 'Wi-Fi 6, 4×4, 1× 2.5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'C9130AXI': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, poeW: 30, label: 'Catalyst 9130AX Access Point', info: 'Wi-Fi 6, 8×8, 1× 5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
+    'AIR-AP2802I': { type: 'ap', vendor: 'Cisco', icon: 'ap', poe: true, poeW: 30, label: 'Aironet 2802I Access Point', info: 'Wi-Fi 5, 4×4, 1× 2.5G mGig RJ45 (PoE)', ports: [['GigabitEthernet0', 'rj45']] },
     'C9800-L': { type: 'wlc', vendor: 'Cisco', icon: 'wlc', label: 'Catalyst 9800-L WLAN-Controller', info: 'Controller für bis zu 250 Access Points (vereinfacht: ein 1G-Kupfer-Uplink)', ports: [['GigabitEthernet0/0/0', 'rj45']] },
     // ---- Endgeräte
     'Server': { type: 'server', label: 'Server (einfach, 1 Port)', icon: 'server' },
     'ISP-Cloud': { type: 'server', cloud: true, label: 'Internet / ISP (Cloud)', info: 'Simuliertes Internet: DNS und Webserver, 1 Uplink', icon: 'cloud' },
     'PC': { type: 'pc', label: 'PC / Notebook', icon: 'pc' },
-    'IP-Phone': { type: 'pc', label: 'IP-Telefon', icon: 'phone' },
+    'IP-Phone': { type: 'pc', label: 'IP-Telefon', icon: 'phone', poeW: 7, info: 'Voice-over-IP-Telefon, 7 W per PoE (802.3af), 1 Netzwerkport' },
     'Printer': { type: 'pc', label: 'Drucker', icon: 'printer' },
     'Laptop': { type: 'pc', info: 'Funk-Client (Wi-Fi 6): verbindet sich mit einer SSID, bekommt per DHCP oder statisch eine IP', label: 'Notebook (WLAN)', icon: 'laptop', wifi: true, ports: [['wlan0', 'wifi']] },
     'Smartphone': { type: 'pc', info: 'Funk-Client: verbindet sich mit einer SSID, Browser und IP-Einstellungen', label: 'Smartphone (WLAN)', icon: 'smartphone', wifi: true, ports: [['wlan0', 'wifi']] },
     'Tablet': { type: 'pc', info: 'Funk-Client: verbindet sich mit einer SSID, Browser und IP-Einstellungen', label: 'Tablet (WLAN)', icon: 'tablet', wifi: true, ports: [['wlan0', 'wifi']] },
-    'IP-Camera': { type: 'pc', info: 'PoE-Kamera am Switchport, Videostrom per RTSP (vereinfacht: ein Netzwerkport)', label: 'IP-Kamera', icon: 'camera' },
+    'IP-Camera': { type: 'pc', poeW: 15, info: 'PoE-Kamera am Switchport, Videostrom per RTSP (vereinfacht: ein Netzwerkport)', label: 'IP-Kamera', icon: 'camera' },
     'Smart-TV': { type: 'pc', info: 'Netzwerkgerät mit einem LAN-Port, braucht IP, Gateway und DNS', label: 'Smart-TV', icon: 'tv' },
-    'Access-Control': { type: 'pc', info: 'Badge-Leser an einem Switchport (Beispiel für IoT-Geräte im eigenen VLAN)', label: 'Zutrittsleser (Badge)', icon: 'reader' }
+    'Access-Control': { type: 'pc', poeW: 7, info: 'Badge-Leser an einem Switchport (Beispiel für IoT-Geräte im eigenen VLAN)', label: 'Zutrittsleser (Badge)', icon: 'reader' }
   };
   const CARDS = {
     'NIC-4x1G': { for: 'server', kind: 'rj45', n: 4, short: '4×1G', label: '4× 1G RJ45 (z. B. Intel I350-T4)' },
@@ -1095,18 +1095,37 @@ const NL = (function () {
   // ---------- WLAN: Access Points, Controller, Clients ----------
   const apState = d => d.ap || (d.ap = { ssids: [], wlc: '', injector: false });
   const wlcState = d => d.wlc || (d.wlc = { ssids: [] });
-  // Stromversorgung des AP: PoE-Port eines PoE-Switches oder PoE-Injector
-  function apPower(net, ap) {
-    if (apState(ap).injector) return { ok: true, via: 'PoE-Injector' };
-    const pe = peerOf(net, ap.id, ap.ports[0]); if (!pe) return { ok: false, reason: 'Kein Kabel: ohne PoE-Switch oder Injector hat der AP keinen Strom' };
+  // PoE: Budget eines Switches wird in Port-Reihenfolge vergeben (Priorität high zuerst)
+  const needPoe = d => !!(d && d.model && MODELS[d.model] && MODELS[d.model].poeW);
+  const injOf = d => d.type === 'ap' ? apState(d).injector : !!d.injector;
+  function poeAlloc(net, sw) {
+    const M = MODELS[sw.model] || {}, budget = M.poeBudget || 370, map = {}; let used = 0; const cand = [];
+    for (const p of sw.ports) {
+      const pe = peerOf(net, sw.id, p); if (!pe) continue; const d = net.devs[pe.dev]; if (!needPoe(d) || injOf(d)) continue; const i = sw.cfg.ifs[p], ex = (i && i.extra) || [];
+      if (ex.includes('power inline never')) { map[p] = { state: 'never', w: 0, dev: d.cfg.hostname }; continue; }
+      if (i && i.shutdown) { map[p] = { state: 'off', w: 0, dev: d.cfg.hostname }; continue; }
+      cand.push({ p, d, w: MODELS[d.model].poeW, hi: ex.includes('power inline port priority high') });
+    }
+    cand.sort((a, b) => (b.hi ? 1 : 0) - (a.hi ? 1 : 0) || sw.ports.indexOf(a.p) - sw.ports.indexOf(b.p));
+    for (const c of cand) { if (used + c.w <= budget + 1e-9) { used += c.w; map[c.p] = { state: 'on', w: c.w, dev: c.d.cfg.hostname, hi: c.hi }; } else map[c.p] = { state: 'deny', w: 0, need: c.w, dev: c.d.cfg.hostname }; }
+    return { map, budget, used };
+  }
+  function poePower(net, d) {
+    if (!needPoe(d)) return { ok: true, via: 'eigene Stromversorgung' };
+    if (injOf(d)) return { ok: true, via: 'PoE-Injector' };
+    const pe = peerOf(net, d.id, d.ports[0]); if (!pe) return { ok: false, reason: 'Kein Kabel: ohne PoE-Switch oder Injector hat das Gerät keinen Strom' };
     const sw = net.devs[pe.dev];
     if (sw.type === 'switch' && MODELS[sw.model] && MODELS[sw.model].poe) {
       if (isDown(sw)) return { ok: false, reason: `${sw.cfg.hostname} ${downWhy(sw)}` };
-      const i = sw.cfg.ifs[pe.port]; if (i && i.shutdown) return { ok: false, reason: `${sw.cfg.hostname} ${sh(pe.port)} ist shutdown, damit auch kein PoE` };
+      const al = poeAlloc(net, sw), a = al.map[pe.port];
+      if (a && a.state === 'never') return { ok: false, reason: `${sw.cfg.hostname} ${sh(pe.port)}: PoE ist abgeschaltet (power inline never)` };
+      if (a && a.state === 'off') return { ok: false, reason: `${sw.cfg.hostname} ${sh(pe.port)} ist shutdown, damit auch kein PoE` };
+      if (a && a.state === 'deny') return { ok: false, reason: `PoE-Budget von ${sw.cfg.hostname} erschöpft (${al.used.toFixed(1)} von ${al.budget} W vergeben, ${sh(pe.port)} bräuchte ${a.need} W)` };
       return { ok: true, via: `PoE von ${sw.cfg.hostname} ${sh(pe.port)}` };
     }
     return { ok: false, reason: `${sw.cfg.hostname} liefert kein PoE (kein PoE-Switch). Nutze einen PoE-Port oder aktiviere den PoE-Injector.` };
   }
+  const apPower = poePower;
   // Lightweight-Modus: Ist ein Controller eingetragen, gehören die SSIDs dem Controller
   const JOINING = new Set();
   function apJoined(net, ap) {
@@ -1167,7 +1186,7 @@ const NL = (function () {
     const bad = r => ({ ok: false, reason: r });
     if (l.cut) return bad('Kabel ist gezogen (Ausfall-Simulation)');
     const offs = S.filter(s => isDown(s.d)); if (offs.length) return bad(`${offs[0].h} ${downWhy(offs[0].d)}`);
-    const np = S.find(s => s.d.type === 'ap' && !apPower(net, s.d).ok); if (np) return bad(`${np.h} hat keinen Strom: ${apPower(net, np.d).reason}`);
+    const np = S.find(s => needPoe(s.d) && !poePower(net, s.d).ok); if (np) return bad(`${np.h} hat keinen Strom: ${poePower(net, np.d).reason}`);
     const fcA = S[0].k === 'fc', fcB = S[1].k === 'fc';
     if (fcA !== fcB) { const f = S[fcA ? 0 : 1], e = S[fcA ? 1 : 0]; return bad(`Fibre-Channel-Port (${f.h} ${sh(f.p)}) und Ethernet-Port (${e.h} ${sh(e.p)}) lassen sich nicht verbinden`); }
     const sp = [];
@@ -1770,6 +1789,22 @@ const NL = (function () {
     }
     return out.join('\n').trim();
   }
+  function poeShow(net, d) {
+    const M = MODELS[d.model] || {}; if (!M.poe) return 'Dieser Switch hat keine PoE-Ports (kein PoE-Modell).';
+    const al = poeAlloc(net, d), o = [`Available:${al.budget.toFixed(1)}(w)  Used:${al.used.toFixed(1)}(w)  Remaining:${(al.budget - al.used).toFixed(1)}(w)`, '', pad('Interface', 11) + pad('Admin', 7) + pad('Oper', 11) + pad('Power(W)', 10) + 'Device'];
+    d.ports.forEach(p => { const a = al.map[p], i = d.cfg.ifs[p]; if (!a && !(i.extra || []).includes('power inline never')) { o.push(pad(sh(p), 11) + pad('auto', 7) + pad('off', 11) + pad('0.0', 10) + 'n/a'); return; } const never = (i.extra || []).includes('power inline never'); o.push(pad(sh(p), 11) + pad(never ? 'off' : 'auto', 7) + pad(a ? (a.state === 'on' ? 'on' : a.state === 'deny' ? 'power-deny' : 'off') : 'off', 11) + pad(a && a.state === 'on' ? a.w.toFixed(1) : '0.0', 10) + (a ? a.dev : 'n/a')); });
+    return o.join('\n');
+  }
+  function qosShow(net, d, u) {
+    const k = (u[0] || '').toLowerCase(), cm = blocks(d, 'class-map'), pm = blocks(d, 'policy-map');
+    if (M(u, 'class-map')) return cm.length ? cm.map(b => `Class Map ${b.head.split(' ')[1]} ${b.head.split(' ')[2]}\n${b.lines.map(l => '   ' + l).join('\n') || '   (leer)'}`).join('\n\n') : 'Es gibt keine Class-Map (class-map <Name>).';
+    if (M(u, 'policy-map') && u[1] && !M(u.slice(1), 'interface')) { const b = pm.find(x => x.head === 'policy-map ' + u[1]); return b ? `Policy Map ${u[1]}\n${b.lines.map(l => (/^class /.test(l) ? '  ' : '    ') + l).join('\n')}` : `% policy-map ${u[1]} existiert nicht`; }
+    if (M(u, 'policy-map') && !u[1]) return pm.length ? pm.map(b => `Policy Map ${b.head.split(' ')[1]}\n${b.lines.map(l => (/^class /.test(l) ? '  ' : '    ') + l).join('\n')}`).join('\n\n') : 'Es gibt keine Policy-Map (policy-map <Name>).';
+    if (M(u, 'policy-map') && M(u.slice(1), 'interface') && u[2]) { const n = normIf(u.slice(2).join('')); const i = n && d.cfg.ifs[n]; if (!i) return '% Interface gibt es nicht'; const sp = (i.extra || []).filter(x => x.startsWith('service-policy ')); return sp.length ? sp.map(x => { const nm = x.split(' ')[2], b = pm.find(y => y.head === 'policy-map ' + nm); return `${sh(n)}\n  Service-policy ${x.split(' ')[1]}: ${nm}\n${b ? b.lines.map(l => '    ' + l).join('\n') : '    (Policy fehlt)'}`; }).join('\n') : `${sh(n)}: keine Service-Policy gebunden.`; }
+    if (M(u, 'mls') && M(u.slice(1), 'qos')) { const on = d.cfg.lines.some(l => l.toLowerCase() === 'mls qos'); return `QoS is ${on ? 'enabled' : 'disabled'}${on ? '' : '\n(mls qos im globalen Konfigurationsmodus einschalten)'}`; }
+    if (M(u, 'auto') && M(u.slice(1), 'qos')) { const o = d.ports.filter(p => (d.cfg.ifs[p].extra || []).some(x => x.startsWith('auto qos'))).map(p => `${sh(p)}\n  ${d.cfg.ifs[p].extra.filter(x => x.startsWith('auto qos')).join('\n  ')}`); return o.length ? o.join('\n') : 'AutoQoS ist auf keiner Schnittstelle aktiv.'; }
+    return undefined;
+  }
   function ecShow(net, d) {
     const groups = {}; d.ports.forEach(p => { const i = d.cfg.ifs[p]; if (i.cg) (groups[i.cg.n] = groups[i.cg.n] || []).push(p); });
     const ns = Object.keys(groups).map(Number).sort((a, b) => a - b); if (!ns.length) return 'Es ist kein Port-Channel konfiguriert (channel-group am Port).';
@@ -1824,6 +1859,8 @@ const NL = (function () {
     rospf: { network: [], 'router-id': [], 'passive-interface': [], 'default-information': [['originate']], redistribute: [['connected', 'static', 'eigrp', 'bgp']], 'auto-cost': [['reference-bandwidth']], 'log-adjacency-changes': [], 'maximum-paths': [] },
     reigrp: { network: [], 'passive-interface': [], 'auto-summary': [], eigrp: [['router-id']], redistribute: [['connected', 'static', 'ospf', 'bgp']], 'variance': [], 'maximum-paths': [] },
     rbgp: { neighbor: [], network: [], bgp: [['router-id', 'log-neighbor-changes']], redistribute: [['connected', 'static', 'ospf', 'eigrp']], 'maximum-paths': [], synchronization: [], 'auto-summary': [] },
+    cmap: { match: [['dscp', 'access-group', 'ip', 'cos', 'protocol', 'any', 'input-interface']] },
+    pmap: { class: [], priority: [['percent', 'level']], bandwidth: [['percent', 'remaining']], police: [], set: [['dscp', 'cos', 'precedence']], shape: [['average']], 'queue-limit': [], 'random-detect': [] },
     dhcppool: { network: [], 'default-router': [], 'dns-server': [], lease: [], 'domain-name': [] }
   };
   const REPL = { transport: 2, login: 1, password: 1, address: 1, key: 1, encryption: 1, integrity: 1, group: 1, set: 2, keyring: 2, 'pre-shared-key': 1, mode: 1, 'exec-timeout': 1, network: 1, 'default-router': 1, 'dns-server': 1, lease: 1, 'domain-name': 1 };
@@ -1834,8 +1871,8 @@ const NL = (function () {
     (vocab[f] || []).forEach((lst, k) => { if (t[k + 1]) { const x = pick(t[k + 1], lst); if (x) t[k + 1] = x; } });
     return t;
   }
-  const IFX = { authentication: [['port-control', 'host-mode', 'order', 'priority', 'periodic'], ['auto', 'force-authorized', 'force-unauthorized', 'multi-auth', 'multi-domain', 'single-host']], dot1x: [['pae', 'timeout'], ['authenticator']], mab: [], 'spanning-tree': [['portfast', 'bpduguard', 'guard', 'cost', 'port-priority', 'vlan', 'link-type'], ['enable', 'disable', 'root']], 'storm-control': [], speed: [], mtu: [], 'priority-flow-control': [['mode'], ['on', 'off', 'auto']], duplex: [], cdp: [['enable']], lldp: [['transmit', 'receive']] };
-  const GL = ['no spanning-tree vlan ', 'ip dhcp excluded-address ', 'aaa ', 'dot1x system-auth-control', 'enable secret ', 'enable password ', 'service ', 'username ', 'ip domain-name ', 'ip domain name ', 'banner ', 'snmp-server ', 'ntp server ', 'logging ', 'ip ssh ', 'spanning-tree ', 'no cdp run', 'cdp run', 'lldp run', 'no ip http server', 'no ip http secure-server', 'ip dhcp snooping', 'device-tracking', 'radius-server ', 'authentication ', 'no service '];
+  const IFX = { 'auto': [['qos'], ['voip', 'trust'], ['cisco-phone', 'cisco-softphone', 'trust']], 'trust': [['device']], 'priority-queue': [['out']], mls: [['qos'], ['trust'], ['dscp', 'cos', 'ip-precedence']], power: [['inline'], ['never', 'auto', 'port'], ['priority'], ['high', 'low']], authentication: [['port-control', 'host-mode', 'order', 'priority', 'periodic'], ['auto', 'force-authorized', 'force-unauthorized', 'multi-auth', 'multi-domain', 'single-host']], dot1x: [['pae', 'timeout'], ['authenticator']], mab: [], 'spanning-tree': [['portfast', 'bpduguard', 'guard', 'cost', 'port-priority', 'vlan', 'link-type'], ['enable', 'disable', 'root']], 'storm-control': [], speed: [], mtu: [], 'priority-flow-control': [['mode'], ['on', 'off', 'auto']], duplex: [], cdp: [['enable']], lldp: [['transmit', 'receive']] };
+  const GL = ['mls qos', 'no mls qos', 'no spanning-tree vlan ', 'ip dhcp excluded-address ', 'aaa ', 'dot1x system-auth-control', 'enable secret ', 'enable password ', 'service ', 'username ', 'ip domain-name ', 'ip domain name ', 'banner ', 'snmp-server ', 'ntp server ', 'logging ', 'ip ssh ', 'spanning-tree ', 'no cdp run', 'cdp run', 'lldp run', 'no ip http server', 'no ip http secure-server', 'ip dhcp snooping', 'device-tracking', 'radius-server ', 'authentication ', 'no service '];
   const GREPL = ['enable secret', 'enable password', 'ip domain-name', 'ip domain name', 'banner motd', 'ip ssh version', 'aaa authentication dot1x', 'aaa authorization network', 'aaa accounting dot1x', 'spanning-tree mode'];
 
   function exec(net, dId, s, raw) {
@@ -1876,7 +1913,9 @@ const NL = (function () {
       if (d.fw && M(u, 'route')) return routeShow(net, d);
       if (M(u, 'ip', 'interface')) return ipBrief(net, d);
       if (d.type === 'switch' && M(u, 'spanning-tree')) return stpShow(net, d, u.map(x => x.toLowerCase()));
+      if (!d.fw && (d.type === 'switch' || d.type === 'router')) { const qr = qosShow(net, d, u); if (qr !== undefined) return qr; }
       if (d.type === 'switch' && M(u, 'etherchannel')) return ecShow(net, d);
+      if (d.type === 'switch' && M(u, 'power') && (u[1] || '').toLowerCase().startsWith('inl')) return poeShow(net, d);
       if (M(u, 'ip', 'route')) return routeShow(net, d);
       if (!d.fw && M(u, 'ip', 'dhcp', 'binding')) { const rows = []; for (const pn in (d.leases || {})) for (const cid in d.leases[pn]) rows.push(pad(d.leases[pn][cid], 16) + pad(net.devs[cid] ? net.devs[cid].cfg.hostname : cid, 18) + 'Automatic (Pool ' + pn + ')'); return ['Bindings from all pools not associated with VRF:', pad('IP address', 16) + pad('Client', 18) + 'Type', ...rows].join('\n'); }
       if (!d.fw && M(u, 'ip', 'dhcp', 'pool')) { const ps = blocks(d, 'ip dhcp pool'); if (!ps.length) return 'Kein DHCP-Pool konfiguriert (ip dhcp pool <Name>).'; return ps.map(b => { const nm = b.head.split(' ')[3], n = bval(b, 'network'), lc = d.leases && d.leases[nm] ? Object.keys(d.leases[nm]).length : 0; return `Pool ${nm} :\n Network               : ${n || '–'}\n Default router        : ${bval(b, 'default-router') || '–'}\n DNS server            : ${bval(b, 'dns-server') || '–'}\n Aktive Leases         : ${lc}`; }).join('\n\n'); }
@@ -1910,6 +1949,14 @@ const NL = (function () {
       return enterBlk(c, s, `router ${kind} ${n}`, 'r' + kind, 'config-router');
     }
     if (!d.fw && M(t, 'no', 'router') && t[2] && t[3]) { const kind = 'ospf'.startsWith(t[2].toLowerCase()) ? 'ospf' : 'eigrp'.startsWith(t[2].toLowerCase()) ? 'eigrp' : 'bgp'; c.blocks = c.blocks.filter(b => b.head !== `router ${kind} ${t[3]}`); return ''; }
+    if (!d.fw && (d.type === 'router' || d.type === 'switch') && M(t, 'class-map') && t[1]) {
+      let mode = 'match-all', nm = t[1]; if (/^match-(any|all)$/i.test(t[1])) { mode = t[1].toLowerCase(); nm = t[2]; } if (!nm) return '% Syntax: class-map [match-any|match-all] <Name>';
+      c.blocks = c.blocks.filter(b => !(b.head.startsWith('class-map ') && b.head.split(' ')[2] === nm));
+      return enterBlk(c, s, `class-map ${mode} ${nm}`, 'cmap', 'config-cmap');
+    }
+    if (!d.fw && (d.type === 'router' || d.type === 'switch') && M(t, 'policy-map') && t[1]) return enterBlk(c, s, `policy-map ${t[1]}`, 'pmap', 'config-pmap');
+    if (!d.fw && M(t, 'no', 'class-map') && t[2]) { c.blocks = c.blocks.filter(b => !(b.head.startsWith('class-map ') && b.head.split(' ')[2] === t[t.length - 1])); return ''; }
+    if (!d.fw && M(t, 'no', 'policy-map') && t[2]) { c.blocks = c.blocks.filter(b => b.head !== 'policy-map ' + t[2]); return ''; }
     if (!d.fw && M(t, 'ip', 'dhcp', 'pool') && t[3]) { if (d.type === 'switch' && !d.cfg.ipRouting && false) return null; return enterBlk(c, s, `ip dhcp pool ${t[3]}`, 'dhcppool', 'dhcp-config'); }
     if (!d.fw && M(t, 'no', 'ip', 'dhcp', 'pool') && t[4]) { c.blocks = c.blocks.filter(b => b.head !== `ip dhcp pool ${t[4]}`); return ''; }
     if (M(t, 'no', 'interface') && t[2]) {
@@ -2010,6 +2057,8 @@ const NL = (function () {
     if (s.bk === 'radius' && e[0] === 'address' && (!validIp(e[2] || '') || e[1] !== 'ipv4')) return '% Syntax: address ipv4 <IP> auth-port 1812 acct-port 1813';
     if (s.bk === 'policy' && e[0] === 'proposal' && !e[1]) return null;
     const RR = { 'router-id': 1, 'default-information': 1, 'auto-cost': 1, bgp: 2, eigrp: 2, neighbor: 3, 'maximum-paths': 1, variance: 1 }, isR = ['rospf', 'reigrp', 'rbgp'].includes(s.bk);
+    if (s.bk === 'pmap' && !neg && e[0] === 'class' && e[1] && e[1] !== 'class-default' && !blocks(d, 'class-map').some(x => x.head.split(' ')[2] === e[1])) return `% class-map ${e[1]} existiert nicht – zuerst mit „class-map“ anlegen`;
+    if (s.bk === 'pmap' && !neg && ['priority', 'bandwidth'].includes(e[0]) && e[1] === 'percent' && !(+e[2] >= 1 && +e[2] <= 100)) return `% ${e[0]} percent <1-100>`;
     if (isR && !neg && e[0] === 'network' && s.bk === 'rospf' && !(validIp(e[1] || '') && validIp(e[2] || '') && e[3] === 'area' && /^\d+$/.test(e[4] || ''))) return '% Syntax: network <Netz> <Wildcard-Maske> area <Nr>, z. B. network 10.0.0.0 0.0.0.255 area 0';
     if (isR && !neg && e[0] === 'network' && s.bk !== 'rospf' && !validIp(e[1] || '')) return '% Syntax: network <Netz> [<Wildcard-Maske>]';
     if (isR && !neg && s.bk === 'rbgp' && e[0] === 'network' && !(validIp(e[1] || '') && (e.length === 2 || (e[2] === 'mask' && maskLen(e[3] || '') !== null)))) return '% Syntax: network <Netz> mask <Subnetzmaske>';
@@ -2075,6 +2124,12 @@ const NL = (function () {
       return each(i => { i.extra = i.extra.filter(x => !x.startsWith(k + ' ')); if (!neg) i.extra.push(`${k} ${u[1]}`); });
     }
     if (rt && M(u, 'ip', 'hello-interval') && (u[2] || '').toLowerCase() === 'eigrp' && +u[3] >= 1 && +u[4] >= 1) return each(i => { i.extra = i.extra.filter(x => !x.startsWith('ip hello-interval eigrp ' + u[3] + ' ')); if (!neg) i.extra.push(`ip hello-interval eigrp ${u[3]} ${u[4]}`); });
+    if (!d.fw && M(u, 'service-policy') && u[1] && u[2]) {
+      const dir = u[1].toLowerCase(); if (!['input', 'output'].includes(dir)) return '% Syntax: service-policy input|output <Name>';
+      if (neg) return each(i => { i.extra = i.extra.filter(x => !x.startsWith('service-policy ' + dir + ' ')); });
+      if (!blocks(d, 'policy-map').some(b => b.head === 'policy-map ' + u[2])) return `% policy-map ${u[2]} existiert nicht`;
+      return each(i => { i.extra = i.extra.filter(x => !x.startsWith('service-policy ' + dir + ' ')); i.extra.push(`service-policy ${dir} ${u[2]}`); });
+    }
     if (sw && M(u, 'channel-group')) {
       if (neg) return each((i, n) => { i.cg = null; });
       const n = +u[1], md = (u[3] || '').toLowerCase(); if (!(n >= 1 && n <= 64) || !u[2] || !'mode'.startsWith(u[2].toLowerCase()) || !['on', 'active', 'passive', 'desirable', 'auto'].includes(md)) return '% Syntax: channel-group <1-64> mode <on|active|passive|desirable|auto>';
@@ -2221,7 +2276,7 @@ const NL = (function () {
   function snapshot(net) { const o = {}; for (const id in net.devs) o[id] = { cfg: net.devs[id].cfg, saved: net.devs[id].saved }; return o; }
   function restore(net, snap) { for (const id in snap) if (net.devs[id]) { net.devs[id].cfg = snap[id].cfg; net.devs[id].saved = snap[id].saved; } }
 
-  return { setHooks, topLevel, rtick, isRouter, peerOfPort: (net, d, p) => peerOf(net, d, p), stp: (net, v) => { STPTICK++; return stp(net, v); }, bundleOf, bridgeMac, stpCfg, effIf, apState, wlcState, apPower, apJoined, apSsids, apClients, wifiScan, wifiConnect, wifiDisconnect, wifiLinkOf, isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup: topLevel(lookup), ping: topLevel(ping), tunnel, exec: topLevel(exec), newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
+  return { poePower, poeAlloc, needPoe, setHooks, topLevel, rtick, isRouter, peerOfPort: (net, d, p) => peerOf(net, d, p), stp: (net, v) => { STPTICK++; return stp(net, v); }, bundleOf, bridgeMac, stpCfg, effIf, apState, wlcState, apPower, apJoined, apSsids, apClients, wifiScan, wifiConnect, wifiDisconnect, wifiLinkOf, isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup: topLevel(lookup), ping: topLevel(ping), tunnel, exec: topLevel(exec), newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
 })();
 if (typeof module !== 'undefined') module.exports = NL;
 
@@ -3450,6 +3505,7 @@ const WIKI = (function () {
   art('vm-datastore', 'server', 'Datastore: wo die VM-Platte liegt', 'Lokal oder gemeinsam auf einer SAN-LUN.', `<p>Die Dateien einer VM liegen auf einem <b>Datastore</b>. Auf einer <b>lokalen Platte</b> sieht nur der eine Host sie. Auf einer <b>gemeinsamen LUN</b> (Fibre Channel, iSCSI, NFS) sehen sie <b>alle Hosts des Clusters</b>. Das ist die Voraussetzung für Live-Migration und HA. Dafür muss die LUN allen Hosts freigegeben sein ([[lun-masking]]) und die Zonen müssen stimmen ([[zoning]]).</p><p>Kapazität: Summe der VM-Platten auf einer LUN darf deren Größe nicht überschreiten.</p>`, ['vm-migration-ha', 'lun', 'zoning']);
   art('vm-migration-ha', 'server', 'Migration, Cluster und HA', 'VMs verschieben und Ausfälle überstehen.', tbl(['Verfahren', 'Voraussetzung', 'Wirkung'], [['Kalte Migration', 'VM aus; Hosts im selben Cluster', 'VM zieht um, Platte bleibt, wenn sie auf dem Ziel erreichbar ist'], ['Live-Migration (vMotion)', 'VM auf gemeinsamem Datastore; Ziel sieht ihn; Ziel hat freien RAM', 'VM läuft ohne Unterbrechung auf anderem Host weiter'], ['HA (High Availability)', 'Cluster, gemeinsamer Datastore, Reserve-Kapazität', 'Fällt ein Host aus, starten seine VMs auf anderen Hosts neu (kurze Unterbrechung)']]) + `<p>Ein <b>Cluster</b> ist eine Gruppe von Hosts mit gleicher Netz- und Storage-Anbindung. Typische Fehler: Datastore nur für einen Host freigegeben, Hosts mit unterschiedlichen VLANs am vSwitch, kein RAM für den Ausfall eines Hosts (<b>N+1</b>-Kapazität fehlt).</p>` + plan('Szenarien: „VMs auf zwei Hosts verteilen“, „Live-Migration über SAN-Datastore“, „Host-Ausfall und HA“.'), ['vm-datastore', 'virt-grundlagen', 'spof']);
   art('virsh-kvm', 'server', 'virsh: VMs auf einem KVM-Host', 'Befehle im Terminal des Hypervisors.', tbl(['Befehl', 'Wirkung'], [['<code>virsh list --all</code>', 'Alle VMs mit Zustand'], ['<code>sudo virsh start WEB-VM</code>', 'VM starten'], ['<code>sudo virsh shutdown WEB-VM</code>', 'VM herunterfahren'], ['<code>virsh dominfo WEB-VM</code>', 'vCPU, RAM, VLAN, Datastore'], ['<code>virsh nodeinfo</code>', 'Kerne und RAM des Hosts'], ['<code>sudo virsh migrate --live WEB-VM HV2</code>', 'Live auf einen Cluster-Host verschieben']]) + `<p>Auf einem Server ohne Hypervisor-Rolle meldet <code>virsh</code>, dass es nicht zum Hypervisor verbinden kann.</p>`, ['virt-grundlagen', 'linux-grundlagen']);
+  art('qos', 'l3', 'QoS: Sprache bevorzugen', 'Class-Map, Policy-Map und Service-Policy.', `<p><b>Quality of Service</b> sorgt dafür, dass wichtiger Verkehr (Sprache, Video) auch bei voller Leitung durchkommt. Ohne QoS werden Pakete in der Reihenfolge ihres Eintreffens bearbeitet, bei Stau gehen sie verloren oder verzögern sich. Sprache verträgt kaum Verzögerung.</p><ol><li><b>Klassifizieren:</b> Eine <code>class-map</code> erkennt Verkehr, z. B. <code>match dscp ef</code> für Sprache</li><li><b>Behandeln:</b> Eine <code>policy-map</code> legt fest, was mit der Klasse geschieht: <code>priority percent 30</code> (strikte Priorität) oder <code>bandwidth percent 20</code></li><li><b>Binden:</b> <code>service-policy output NAME</code> an der Schnittstelle</li></ol>` + tbl(['DSCP', 'Name', 'Typischer Verkehr'], [['46', 'EF', 'Sprache (RTP)'], ['34', 'AF41', 'Videokonferenz'], ['18', 'AF21', 'wichtige Daten'], ['8', 'CS1', 'Scavenger (Backup, Updates)'], ['0', 'Default', 'alles andere']]) + ul(['QoS wirkt nur dort, wo ein Engpass ist: meist an der WAN-Schnittstelle', 'Die Markierung (DSCP) sollte so früh wie möglich gesetzt werden und dem Netz vertraut werden (Trust-Grenze am Telefon)', 'Auf Catalyst-Switches schaltet <code>mls qos</code> QoS ein, <code>auto qos voip cisco-phone</code> richtet es für Telefone automatisch ein', 'Prüfen: <code>show policy-map interface</code>, <code>show class-map</code>']) + `<p class="wk-plan"><b>Hinweis:</b> Der Simulator prüft QoS-Konfigurationen auf Gültigkeit, simuliert aber keinen Datenstau.</p>` + plan('Switch oder Router → Web-GUI → „QoS“.'), ['poe', 'vlan']);
   art('wlan-grundlagen', 'l2', 'WLAN: Access Point, SSID, Controller und PoE', 'Wie Funk-Clients ins Netz kommen.', `<p>Ein <b>Access Point</b> (AP) verbindet Funk-Clients mit dem kabelgebundenen Netz. Er sendet eine oder mehrere <b>SSIDs</b> (Funknetzwerke). Jede SSID hat einen Namen, eine Sicherheitsart (WPA2-PSK, WPA3-SAE oder offen) und ein <b>VLAN</b>: Die Frames der Clients werden wie bei einer Brücke in dieses VLAN gelegt.</p><p>Der AP hängt mit <b>einem</b> Kabel am Switch. Sein Strom kommt per <b>PoE</b> (Power over Ethernet) vom Switchport oder von einem PoE-Injector. Ein Nicht-PoE-Switch liefert keinen Strom: Der AP bleibt dunkel. Der Uplink-Port verhält sich so:</p>` + tbl(['SSID-VLAN', 'Switchport zum AP'], [['nativ (0)', 'Access-Port im VLAN der Clients oder Trunk mit passendem Native-VLAN'], ['z. B. 20', 'Trunk, der VLAN 20 erlaubt (<code>switchport mode trunk</code>, <code>allowed vlan 1,20</code>). Ein Access-Port nimmt keine getaggten Frames an.']]) + `<p><b>Autonom oder Controller:</b> Ein autonomer AP trägt seine SSIDs selbst. Mit einem <b>WLAN-Controller</b> (z. B. Catalyst 9800) pflegst du die SSIDs einmal zentral. Die APs melden sich per CAPWAP an (<b>Join</b>), dafür brauchen sie die Controller-IP und Erreichbarkeit. Ohne Join sendet ein Lightweight-AP kein WLAN.</p>` + ul(['Client verbindet sich nicht: SSID-Name, Schlüssel und Sicherheitsart prüfen', 'Verbunden, aber kein Netz: VLAN der SSID, Trunk und IP/Gateway prüfen', 'AP leuchtet nicht: PoE-Switch, Port nicht shutdown, Kabel', 'AP erscheint nicht am Controller: Controller-IP, Gateway, VLAN des Management-Netzes']) + plan('Access Point oder Controller im Katalog unter „Netzwerk“, Notebooks, Smartphones und Tablets unter „Endgeräte“. Die Web-GUI von AP und Controller verwaltet die SSIDs; Clients verbindest du im Detailfeld. Zwei Szenarien unter „Aufgaben“.'), ['vlan', 'trunk', 'dhcp-cisco']);
   art('hypermetro', 'storage', 'HyperMetro und Quorum-Server', 'Zwei Storage-Arrays als aktiv-aktiv-Cluster und wer bei Ausfall entscheidet.', `<p><b>HyperMetro</b> (bei Huawei OceanStor) spiegelt eine LUN synchron auf ein zweites Array an einem anderen Standort. Beide Arrays bedienen die Hosts gleichzeitig (<b>aktiv-aktiv</b>): Der Server sieht <b>ein</b> Gerät mit Pfaden zu beiden Arrays und schaltet bei einem Ausfall per Multipath um, ohne neue Platte und ohne Unterbrechung. Zusammengehörige Arrays bilden eine <b>HyperMetro-Domäne</b>, gespiegelte LUNs heißen <b>HyperMetro-Paare</b>.</p><p>Das Risiko ist <b>Split-Brain</b>: Fällt nur die Verbindung zwischen den Arrays aus, denkt jede Seite, die andere sei tot, und beide nehmen weiter Schreibzugriffe an. Die Daten laufen auseinander. Deshalb gibt es einen <b>Quorum-Server</b> an einem dritten Standort als Schiedsrichter. Wer ihn erreicht, darf weiterarbeiten.</p>` + tbl(['Situation', 'Ergebnis'], [['Alles verbunden', 'Beide Arrays aktiv'], ['Verbindung zwischen den Arrays weg, beide erreichen den Quorum-Server', 'Der bevorzugte Standort gewinnt, die andere Seite geht in Standby'], ['Nur ein Array erreicht den Quorum-Server', 'Dieses Array gewinnt'], ['Ein Array fällt aus', 'Das andere übernimmt (Failover), sofern es den Quorum-Server erreicht'], ['Verbindung und Quorum-Server weg', 'Mit <b>statischer Priorität</b> arbeitet der bevorzugte Standort weiter, ohne sie stoppen beide']]) + ul(['Die Arrays brauchen eine <b>Replikationsverbindung</b>: FC-Kabel direkt oder über den FC-Switch mit einer Zone zwischen den Array-Ports', 'Der Quorum-Server wird über das Management-Netz erreicht, nicht über FC', 'Hosts müssen auf beiden Arrays maskiert und gezont sein']) + plan('Storage anklicken → Web-GUI → „HyperMetro“: Domäne erstellen, Replikationszonen anlegen, Paar erstellen. Auf dem Quorum-Server <code>sudo apt install quorum-server</code> und <code>sudo systemctl enable --now quorum-server</code>. Zwei Szenarien unter „Aufgaben“.'), ['lun', 'lun-masking', 'multipath', 'zoning']);
   art('dhcp-cisco', 'l3', 'DHCP auf Switch, Router und Firewall, DHCP-Relay', 'Adressvergabe ohne eigenen Server.', `<p>Nicht nur Server verteilen IP-Adressen: Ein Router, ein Layer-3-Switch und eine ASA können selbst DHCP-Server sein. Die Clients fragen per Broadcast, deshalb muss der Server im <b>selben VLAN</b> antworten, an der Schnittstelle (SVI) des Netzes. Steht der DHCP-Server in einem anderen Netz, leitet ein <b>Relay</b> (<code>ip helper-address</code>) die Anfrage an ihn weiter.</p>` + tbl(['Gerät', 'Konfiguration'], [['Cisco IOS', '<code>ip dhcp excluded-address 10.30.0.1 10.30.0.20</code>, <code>ip dhcp pool CLIENTS</code>, darin <code>network 10.30.0.0 255.255.255.0</code>, <code>default-router 10.30.0.1</code>, <code>dns-server 10.10.0.53</code>'], ['Relay (am SVI)', '<code>interface vlan 30</code>, <code>ip helper-address 10.10.0.11</code>'], ['Cisco ASA', '<code>dhcpd address 10.255.0.100-10.255.0.150 inside</code>, <code>dhcpd dns 10.10.0.53</code>, <code>dhcpd enable inside</code>'], ['Prüfen', '<code>show ip dhcp binding</code>, <code>show ip dhcp pool</code>, <code>show dhcpd binding</code>']]) + ul(['Der Pool muss zum Netz der Schnittstelle passen, sonst bekommt der Client nichts', 'Gateway und feste Server-Adressen mit <code>excluded-address</code> ausnehmen', 'Beim Relay braucht der Server einen Pool für das Netz der Relay-Schnittstelle']) + plan('Switch, Router oder ASA anklicken → Web-GUI → „DHCP-Server“. Auf einem PC im Desktop unter „Netzwerkverbindungen“ DHCP einschalten.'), ['dhcp', 'vlan', 'web-gui']);
@@ -4253,11 +4309,11 @@ const WEBGUI = (function () {
     windows: d => [['dashboard', 'Dashboard'], ['local', 'Lokaler Server'], ['roles', 'Rollen und Features'], ['ad', 'Active Directory'], ['dns', 'DNS'], ['dhcp', 'DHCP'], ['shares', 'Dateidienste'], ['services', 'Dienste'], ['firewall', 'Firewall'], ['terminal', 'PowerShell']],
     storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['hypermetro', 'HyperMetro'], ['ports', 'Ports und Controller']],
     fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']],
-    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['rproto', 'Dynamisches Routing'], ['stp', 'Spanning Tree'], ['ec', 'EtherChannel'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
+    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['rproto', 'Dynamisches Routing'], ['stp', 'Spanning Tree'], ['ec', 'EtherChannel'], ['qos', 'QoS'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
     firewall: d => [].concat(...Object.values(FW)),
     ap: d => [['dashboard', 'Übersicht'], ['wlan', 'Funknetzwerke (SSID)'], ['clients', 'Clients'], ['network', 'Netzwerk'], ['controller', 'Controller'], ['cli', 'Konsole']],
     wlc: d => [['dashboard', 'Dashboard'], ['-c', 'Konfiguration'], ['wlan', 'WLANs'], ['aps', 'Access Points'], ['clients', 'Clients'], ['-a', 'Verwaltung'], ['network', 'Netzwerk'], ['cli', 'Konsole']],
-    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['rproto', 'Dynamisches Routing'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
+    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['rproto', 'Dynamisches Routing'], ['qos', 'QoS'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
   };
 
   // ---------- Aktionen ausführen ----------
@@ -4474,7 +4530,7 @@ const WEBGUI = (function () {
       ${card('Gerät', `<dl class="wg-dl"><dt>Hostname</dt><dd>${esc(d.cfg.hostname)}</dd><dt>Modell</dt><dd>${esc(d.model || (sw ? 'Switch' : 'Router'))}</dd><dt>Software</dt><dd>Cisco IOS XE (NetLab)</dd><dt>Management-IP</dt><dd>${m ? esc(m.ip + '/' + maskLen(m.mask) + ' (' + A.SH(m.n) + ')') : '<span class="wg-mut">keine – ' + (sw ? 'SVI anlegen' : 'Schnittstelle konfigurieren') + '</span>'}</dd><dt>Konfiguration</dt><dd>${d.saved ? chip('gespeichert', 'ok') : chip('nicht gespeichert', 'bad')}</dd></dl>`)}
       ${card('Schnittstellen', `<p class="wg-big">${up}<small> von ${d.ports.length} up</small></p>${bar(up, d.ports.length, 101)}<p class="wg-note">${d.ports.filter(p => d.cfg.ifs[p].shutdown).length} administrativ abgeschaltet</p>${btn('Zu den Schnittstellen', 'nav', { p: 'interfaces' }, 'sm')}`)}
       ${sw ? card('VLANs', `<p class="wg-big">${nv}<small> angelegt</small></p><p class="wg-note">Layer 3: ${d.cfg.ipRouting ? chip('ip routing an', 'ok') : chip('reiner Layer-2-Switch')}</p>${btn('Zu den VLANs', 'nav', { p: 'vlans' }, 'sm')}`) : card('Routing', `<p class="wg-big">${d.cfg.routes.length}<small> statische Routen</small></p>${btn('Zum Routing', 'nav', { p: 'l3' }, 'sm')}`)}
-    </div>${card('Portansicht', faceplate(d))}
+    </div>${A.NL.MODELS[d.model] && A.NL.MODELS[d.model].poe ? poeCard(d) : ''}${card('Portansicht', faceplate(d))}
     ${card('Nachbarn (CDP)', nb.length ? `<pre class="wg-pre">${esc(['Gerät          Lokal         Plattform        Port', ...nb].join('\n'))}</pre>` : '<p class="wg-empty">Keine CDP-Nachbarn. Verbinde den Port mit einem Switch oder Router.</p>')}`;
   };
   PAGES.switch.monitor = PAGES.router.monitor = (d, G) => {
@@ -4696,6 +4752,19 @@ const WEBGUI = (function () {
       + card('BGP-Tabelle', showBox(d, 'show ip bgp'));
   };
 
+  // ---------- PoE und QoS ----------
+  const poeCard = d => { const al = A.NL.poeAlloc(A.net(), d), rows = d.ports.filter(p => al.map[p]).map(p => { const a = al.map[p]; return [`<b>${esc(A.SH(p))}</b>`, esc(a.dev), a.state === 'on' ? chip('versorgt', 'ok') : a.state === 'deny' ? chip('Budget erschöpft', 'bad') : chip(a.state === 'never' ? 'PoE aus' : 'Port aus', 'bad'), a.state === 'on' ? a.w.toFixed(1) + ' W' : a.need ? 'braucht ' + a.need + ' W' : '–']; }); return card('PoE-Budget', `<p class="wg-big">${al.used.toFixed(1)}<small> von ${al.budget} W vergeben</small></p>${bar(al.used, al.budget, 90)}` + (rows.length ? tbl(['Port', 'Gerät', 'Status', 'Leistung'], rows) : '<p class="wg-note">Kein PoE-Gerät angeschlossen.</p>') + '<p class="wg-note">Der Switch vergibt sein Budget in Port-Reihenfolge, Ports mit <code>power inline port priority high</code> zuerst. Ist es leer, bleibt der nächste Port ohne Strom (power-deny).</p>'); };
+  const qosLines = (d, pre) => A.blocks(d, pre);
+  PAGES.switch.qos = PAGES.router.qos = (d, G) => {
+    const on = d.cfg.lines.some(l => l.toLowerCase() === 'mls qos'), cms = qosLines(d, 'class-map'), pms = qosLines(d, 'policy-map'), sw = d.type === 'switch';
+    const bound = d.ports.flatMap(p => (d.cfg.ifs[p].extra || []).filter(x => x.startsWith('service-policy ')).map(x => [p, x.split(' ')[1], x.split(' ')[2]]));
+    return `<p class="wg-note">QoS bevorzugt wichtigen Verkehr (z. B. Sprache), wenn eine Leitung voll ist. Ablauf: Verkehr in einer <b>Class-Map</b> erkennen, in einer <b>Policy-Map</b> eine Behandlung festlegen und die Policy an eine Schnittstelle binden. Der Simulator prüft die Konfiguration, simuliert aber keinen Datenstau.</p>`
+      + (sw ? card('QoS global', `<p>${on ? chip('aktiv (mls qos)', 'ok') : chip('aus')}</p><div class="wg-row">${btn(on ? 'QoS ausschalten' : 'QoS einschalten', 'qoson', { on: on ? 0 : 1 }, on ? '' : 'primary')}</div>`) : '')
+      + card('Class-Maps (Verkehr erkennen)', `<div class="wg-row">${btn('Class-Map hinzufügen', 'dlg', { k: 'qcm' }, 'primary')}</div>` + tbl(['Name', 'Regel', 'Match', ''], cms.map(b => [`<b>${esc(b.head.split(' ')[2])}</b>`, esc(b.head.split(' ')[1]), `<code>${esc(b.lines.join('; ') || '–')}</code>`, btn('Löschen', 'qcmdel', { n: b.head.split(' ')[2] }, 'sm ghost bad')]), 'Noch keine Class-Map.'))
+      + card('Policy-Maps (Behandlung festlegen)', `<div class="wg-row">${btn('Policy-Map hinzufügen', 'dlg', { k: 'qpm' }, 'primary' + (cms.length ? '' : ' disabled'))}${btn('Policy an Schnittstelle binden', 'dlg', { k: 'qbind' }, 'sm' + (pms.length ? '' : ' disabled'))}</div>` + tbl(['Name', 'Inhalt', ''], pms.map(b => [`<b>${esc(b.head.split(' ')[1])}</b>`, `<code>${esc(b.lines.join('; ') || '–')}</code>`, btn('Löschen', 'qpmdel', { n: b.head.split(' ')[1] }, 'sm ghost bad')]), cms.length ? 'Noch keine Policy-Map.' : 'Lege zuerst eine Class-Map an.'))
+      + card('Gebundene Policies', tbl(['Schnittstelle', 'Richtung', 'Policy'], bound.map(([p, dir, nm]) => [`<b>${esc(A.SH(p))}</b>`, dir, esc(nm)]), 'Keine Policy gebunden. Eine Policy wirkt erst an einer Schnittstelle.'));
+  };
+
   // ---------- Dialoge ----------
   function dlgHtml(d, G) {
     const x = G.dlg, k = x.k, net = A.net(), wrap = (t, body, ok, okLbl) => `<div class="wg-ov" data-act="dlgbg"><form class="wg-dlg" role="dialog" aria-modal="true" aria-label="${esc(t)}" data-act="dlgok"><h2>${t}</h2>${body}<div class="wg-row end">${btn('Abbrechen', 'dlgx', null, 'ghost')}${ok === false ? '' : `<button type="submit" class="wg-b primary" data-act="dlgok">${okLbl || 'OK'}</button>`}</div></form></div>`;
@@ -4721,6 +4790,9 @@ const WEBGUI = (function () {
       case 'eigrpnet': return wrap('EIGRP-Netz hinzufügen', `<div class="wg-2">${field('net', 'Netz', '', { ph: '10.0.0.0' })}${field('wc', 'Wildcard-Maske', '0.0.0.255')}</div>`, true, 'Hinzufügen');
       case 'bgpnbr': return wrap('BGP-Nachbar hinzufügen', `<div class="wg-2">${field('ip', 'IP-Adresse des Nachbarn', '', { ph: '10.12.0.2' })}${field('as', 'AS des Nachbarn', '', { type: 'number', min: 1 })}</div><label class="wg-ck2"><input type="checkbox" id="wf-nhs"> next-hop-self (für iBGP-Nachbarn)</label><label class="wg-ck2"><input type="checkbox" id="wf-defo"> Default-Route an den Nachbarn senden</label>`, true, 'Hinzufügen');
       case 'bgpnet': return wrap('Netz ankündigen', `<div class="wg-2">${field('net', 'Netz', '', { ph: '10.1.0.0' })}${field('mask', 'Subnetzmaske', '255.255.255.0')}</div>`, true, 'Ankündigen');
+      case 'qcm': return wrap('Class-Map hinzufügen', field('n', 'Name', 'VOICE') + sel('m', 'Match', [['dscp ef', 'DSCP EF (Sprache)'], ['dscp af41', 'DSCP AF41 (Video)'], ['dscp af21', 'DSCP AF21 (Daten, wichtig)'], ['dscp cs1', 'DSCP CS1 (Scavenger)'], ['protocol http', 'Protokoll HTTP'], ['any', 'Alles']]), true, 'Anlegen');
+      case 'qpm': { const cms = A.blocks(d, 'class-map'); return wrap('Policy-Map hinzufügen', field('n', 'Name', 'QOS-POLICY') + sel('c', 'Class-Map', cms.map(b => [b.head.split(' ')[2], b.head.split(' ')[2]])) + `<div class="wg-2">${sel('a', 'Behandlung', [['priority percent', 'Strikte Priorität (Sprache)'], ['bandwidth percent', 'Garantierte Bandbreite']])}${field('pc', 'Prozent der Leitung', 30, { type: 'number', min: 1, max: 100 })}</div>`, true, 'Anlegen'); }
+      case 'qbind': return wrap('Policy an Schnittstelle binden', sel('p', 'Policy-Map', A.blocks(d, 'policy-map').map(b => [b.head.split(' ')[1], b.head.split(' ')[1]])) + sel('i', 'Schnittstelle', d.ports.map(p => [p, A.SH(p)])) + sel('dir', 'Richtung', [['output', 'ausgehend (output)'], ['input', 'eingehend (input)']]), true, 'Binden');
       case 'ifedit': {
         const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
         const vl = Object.keys(d.cfg.vlans || {}).map(Number).sort((a, b) => a - b).map(n => [n, `${n} – ${d.cfg.vlans[n]}`]);
@@ -4728,7 +4800,7 @@ const WEBGUI = (function () {
         return wrap(one ? `Schnittstelle ${esc(A.SH(ps[0]))}` : `${ps.length} Schnittstellen bearbeiten`,
           (one ? field('desc', 'Beschreibung', one.desc || '', { ph: 'z. B. Uplink zu SW2' }) : '')
           + sel('st', 'Status', (one ? [] : [['', '– unverändert –']]).concat([['up', 'aktiv (no shutdown)'], ['down', 'abgeschaltet (shutdown)']]), one ? (one.shutdown ? 'down' : 'up') : '')
-          + (sw ? sel('mode', 'Modus', (one ? [] : [['', '– unverändert –']]).concat([['access', 'Access'], ['trunk', 'Trunk']]), one ? one.mode : '') + sel('vlan', 'Access-VLAN', (one ? [] : [['', '– unverändert –']]).concat(vl), one ? one.vlan : '', 'Gilt im Modus Access.') + `<div class="wg-2">${field('nat', 'Native VLAN (Trunk)', one ? one.native : '', { type: 'number', min: 1, max: 4094 })}${field('allow', 'Erlaubte VLANs (Trunk)', one ? (one.allowed === null ? 'all' : vlStr(one.allowed)) : '', { ph: 'all oder 10,20,30', hint: 'all, none oder Liste' })}</div>`
+          + (sw && A.NL.MODELS[d.model] && A.NL.MODELS[d.model].poe ? sel('poe', 'PoE', (one ? [] : [['', '– unverändert –']]).concat([['auto', 'automatisch (Standard)'], ['never', 'aus (power inline never)'], ['high', 'automatisch, hohe Priorität']]), one ? ((one.extra || []).includes('power inline never') ? 'never' : (one.extra || []).includes('power inline port priority high') ? 'high' : 'auto') : '') : '') + (sw ? sel('mode', 'Modus', (one ? [] : [['', '– unverändert –']]).concat([['access', 'Access'], ['trunk', 'Trunk']]), one ? one.mode : '') + sel('vlan', 'Access-VLAN', (one ? [] : [['', '– unverändert –']]).concat(vl), one ? one.vlan : '', 'Gilt im Modus Access.') + `<div class="wg-2">${field('nat', 'Native VLAN (Trunk)', one ? one.native : '', { type: 'number', min: 1, max: 4094 })}${field('allow', 'Erlaubte VLANs (Trunk)', one ? (one.allowed === null ? 'all' : vlStr(one.allowed)) : '', { ph: 'all oder 10,20,30', hint: 'all, none oder Liste' })}</div>`
             : (one ? `<div class="wg-2">${field('ip', 'IP-Adresse', one.ip || '', { ph: '10.0.0.1' })}${field('mask', 'Subnetzmaske', one.mask || '', { ph: '255.255.255.0' })}</div>` : '')), true, 'Übernehmen');
       }
       case 'newvlan': return wrap('VLAN hinzufügen', `<div class="wg-2">${field('id', 'VLAN-ID', '', { type: 'number', min: 2, max: 4094, ph: '10' })}${field('n', 'Name', '', { ph: 'Verkauf' })}</div>`, true, 'Hinzufügen');
@@ -4814,6 +4886,9 @@ const WEBGUI = (function () {
         case 'eigrpnet': ok = ios(G, [`router eigrp ${x.as}`, `network ${v(G, 'net').trim()} ${v(G, 'wc').trim()}`, 'exit'], 'Netz hinzugefügt.'); break;
         case 'bgpnbr': { const ip = v(G, 'ip').trim(), L = ['router bgp ' + x.as, `neighbor ${ip} remote-as ${v(G, 'as')}`]; if (v(G, 'nhs')) L.push(`neighbor ${ip} next-hop-self`); if (v(G, 'defo')) L.push(`neighbor ${ip} default-originate`); L.push('exit'); ok = ios(G, L, 'Nachbar hinzugefügt. Die Gegenseite braucht einen passenden neighbor-Eintrag.'); break; }
         case 'bgpnet': ok = ios(G, [`router bgp ${x.as}`, `network ${v(G, 'net').trim()} mask ${v(G, 'mask').trim()}`, 'exit'], 'Netz wird angekündigt, sobald es in der Routing-Tabelle steht.'); break;
+        case 'qcm': { const n = v(G, 'n').trim().replace(/\s+/g, '_'), m = v(G, 'm'); if (!n) { ok = false; break; } ok = ios(G, [`class-map match-any ${n}`, m === 'any' ? 'match any' : 'match ' + m, 'exit'], 'Class-Map angelegt.'); break; }
+        case 'qpm': ok = ios(G, [`policy-map ${v(G, 'n').trim().replace(/\s+/g, '_')}`, `class ${v(G, 'c')}`, `${v(G, 'a')} ${v(G, 'pc')}`, 'exit'], 'Policy-Map angelegt. Binde sie jetzt an eine Schnittstelle.'); break;
+        case 'qbind': ok = ios(G, [`interface ${v(G, 'i')}`, `service-policy ${v(G, 'dir')} ${v(G, 'p')}`, 'exit'], 'Policy gebunden.'); break;
         case 'ifedit': {
           const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
           const allow = v(G, 'allow').trim().toLowerCase();
@@ -4827,6 +4902,7 @@ const WEBGUI = (function () {
               const av = v(G, 'vlan'); if (av && (md || dv.cfg.ifs[p].mode) !== 'trunk') L.push('switchport access vlan ' + av);
               if ((md || dv.cfg.ifs[p].mode) === 'trunk') { const nv = v(G, 'nat'); if (nv) L.push('switchport trunk native vlan ' + nv); if (allow) L.push('switchport trunk allowed vlan ' + allow); }
             } else if (one) { const ip = v(G, 'ip').trim(), mk = v(G, 'mask').trim(); L.push(ip ? `ip address ${ip} ${mk}` : 'no ip address'); }
+            { const pv = v(G, 'poe'); if (pv === 'never') L.push('no power inline port priority high', 'power inline never'); else if (pv === 'auto') L.push('no power inline never', 'no power inline port priority high'); else if (pv === 'high') L.push('no power inline never', 'power inline port priority high'); }
             L.push('exit');
           });
           ok = ios(G, L, ps.length > 1 ? `${ps.length} Schnittstellen geändert.` : 'Schnittstelle gespeichert.'); break;
@@ -4912,6 +4988,9 @@ const WEBGUI = (function () {
         case 'rppass': { const hd0 = A.blocks(dv, 'router ' + D.k)[0]; if (hd0) ios(G, [hd0.head, (D.on === '1' ? '' : 'no ') + 'passive-interface ' + D.i, 'exit'], D.on === '1' ? 'Schnittstelle ist passiv: sie sendet keine Hellos mehr.' : 'Schnittstelle ist aktiv.'); break; }
         case 'ospfdef': ios(G, [`router ospf ${D.pid}`, (D.on === '1' ? '' : 'no ') + 'default-information originate', 'exit'], D.on === '1' ? 'Default-Route wird verteilt, sofern der Router selbst eine hat.' : 'Nicht mehr verteilt.'); break;
         case 'bgpnbrdel': ios(G, [`router bgp ${D.as}`, `no neighbor ${D.ip} remote-as ${((A.RTG.bgpCfg(dv) || { nbrs: {} }).nbrs[D.ip] || {}).as}`, 'exit'], 'Nachbar entfernt.'); break;
+        case 'qoson': ios(G, D.on === '1' ? 'mls qos' : 'no mls qos', D.on === '1' ? 'QoS ist aktiv.' : 'QoS ausgeschaltet.'); break;
+        case 'qcmdel': ios(G, 'no class-map ' + D.n, 'Class-Map gelöscht.'); break;
+        case 'qpmdel': ios(G, 'no policy-map ' + D.n, 'Policy-Map gelöscht.'); break;
         case 'dpooldel': ios(G, 'no ip dhcp pool ' + D.n, 'Pool gelöscht.'); break;
         case 'dexcldel': { const a = excluded(dv)[+D.i]; if (a) ios(G, `no ip dhcp excluded-address ${a.join(' ')}`, 'Ausschluss entfernt.'); break; }
         case 'fwacldel': ios(G, 'no access-list ' + D.a, 'Regelliste gelöscht.'); break;
@@ -6021,6 +6100,7 @@ const Sandbox = (function () {
     let h = `<section class="card"><h3 class="hid">${esc(d.cfg.hostname)}</h3><div class="f"><label for="dhost">Hostname</label><div class="irow"><input id="dhost" value="${esc(d.cfg.hostname)}"><button class="btn small" id="dhostGo">Setzen</button></div></div>`;
     if (!d.vm && !(MODELS[d.model] && MODELS[d.model].cloud)) { const ps = powerState(d), left = d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0; h += `<div class="pwr ${ps}"><span class="pdot" aria-hidden="true"></span><div class="ptx"><b>${ps === 'off' ? 'Ausgeschaltet' : ps === 'boot' ? 'Startet …' : 'Eingeschaltet'}</b><small>${ps === 'off' ? 'Alle Links daran sind down.' : ps === 'boot' ? 'Noch nicht erreichbar.' : (isNetOs(d) ? (d.saved ? 'Konfiguration gespeichert' : 'Änderungen nicht gespeichert') : 'Läuft')}</small></div><button class="btn small ${ps === 'on' ? '' : 'primary'}" id="pwrBtn" ${ps === 'boot' ? 'disabled' : ''}>${ps === 'on' ? 'Ausschalten' : ps === 'off' ? 'Einschalten' : 'Bootet'}</button>${ps === 'boot' ? `<i class="pbar" style="animation-duration:${left}ms"></i>` : ''}</div>`; }
     if (M.wifi) h += wifiBox(d);
+    if (d.type !== 'ap' && NL.needPoe(d)) { const pw = NL.poePower(S.net, d); h += `<div class="webbox"><b>Stromversorgung (PoE)</b><span class="muted small">${pw.ok ? 'Strom: ' + esc(pw.via) : '<span class="neg">Kein Strom: ' + esc(pw.reason) + '</span>'}</span><label class="chk"><input type="checkbox" id="poeInj" ${d.injector ? 'checked' : ''}> PoE-Injector verwenden</label></div>`; }
     if (d.type === 'ap') { const pw = NL.apPower(S.net, d), j = NL.apJoined(S.net, d), st = NL.apState(d); h += `<div class="webbox"><b>Access Point</b><span class="muted small">${pw.ok ? 'Strom: ' + esc(pw.via) : '<span class="neg">Kein Strom: ' + esc(pw.reason) + '</span>'}</span><label class="chk"><input type="checkbox" id="apInj" ${st.injector ? 'checked' : ''}> PoE-Injector verwenden</label><span class="muted small">${j === null ? 'Autonom: SSIDs stehen auf dem AP.' : j.ok ? 'Am Controller ' + esc(j.wlc.cfg.hostname) + ' angemeldet.' : 'Controller-Modus, nicht angemeldet: ' + esc(j.why)}</span><span class="muted small">${NL.apClients(S.net, d).length} Client(s) verbunden</span></div>`; }
     if (d.type === 'server' && !(MODELS[d.model] && MODELS[d.model].cloud)) h += `<div class="f"><label for="dos">Betriebssystem (installiert)</label><select id="dos"><option value="linux" ${d.os === 'windows' ? '' : 'selected'}>Ubuntu Linux 22.04</option><option value="windows" ${d.os === 'windows' ? 'selected' : ''}>Windows Server 2022</option></select></div>`;
     if (GUIN.hasGui(d)) h += `<div class="webbox"><b>Web-Verwaltung</b><span class="muted small">https://${esc(guiHost(d))}${GUIN.portOf(d) === 443 ? '' : ':' + GUIN.portOf(d)}</span><button class="btn primary small block" id="guiOpen">${d.vm ? 'Web-GUI der VM öffnen' : 'Web-GUI öffnen'}</button>${d.vm ? '<button class="btn small block" id="hvOpen">Im Virtualisierungs-Manager verwalten</button>' : ''}</div>`;
@@ -6097,6 +6177,7 @@ const Sandbox = (function () {
     };
     if (g('dos')) g('dos').onchange = () => act(() => { d.os = g('dos').value; delete S.out[d.id]; delete S.sess[d.id]; toast(`Betriebssystem: ${d.os === 'windows' ? 'Windows Server 2022' : 'Ubuntu Linux'}. Konsole und Web-GUI wechseln mit.`); });
     if (g('pwrBtn')) g('pwrBtn').onclick = () => togglePower(d.id);
+    if (g('poeInj')) g('poeInj').onchange = e => act(() => { d.injector = e.target.checked; toast(e.target.checked ? 'PoE-Injector angeschlossen.' : 'PoE-Injector entfernt.'); });
     if (g('apInj')) g('apInj').onchange = e => act(() => { NL.apState(d).injector = e.target.checked; toast(e.target.checked ? 'PoE-Injector angeschlossen.' : 'PoE-Injector entfernt.'); });
     if (g('wfGo')) g('wfGo').onclick = () => { let r; act(() => { r = NL.wifiConnect(S.net, d, g('wfs').value, g('wfp').value); toast(r.err ? `<span class="neg">${esc(r.err)}</span>` : `Verbunden mit „${esc(g('wfs').value)}“ über ${esc(r.ap)}.${(d.cfg.dhcp || (hip(d, d.ports[0]) || {}).ip) ? '' : ' Gib dem Gerät jetzt eine IP-Adresse (oder nutze DHCP).'}`); }); };
     if (g('wfX')) g('wfX').onclick = () => act(() => { NL.wifiDisconnect(S.net, d); toast('WLAN getrennt.'); });
@@ -6197,6 +6278,7 @@ const Sandbox = (function () {
     for (const d of devs) {
       const id = d.id;
       if (d.type === 'ap') { const pw = NL.apPower(net, d); if (!pw.ok) add('Fehler', id, 'Access Point ohne Strom: ' + pw.reason); else { if (!(hip(d, d.ports[0]) || {}).ip) add('Hinweis', id, 'AP hat keine Management-IP'); const j = NL.apJoined(net, d); if (j && !j.ok) add('Fehler', id, 'AP im Controller-Modus ohne Join: ' + j.why); else if (!NL.apSsids(net, d).length) add('Hinweis', id, 'Keine SSID konfiguriert'); } continue; }
+      if (NL.needPoe(d) && d.type !== 'ap') { const pw = NL.poePower(net, d); if (!pw.ok) add('Fehler', id, 'Kein Strom (PoE): ' + pw.reason); }
       if (d.wifi && !(d.wifi.ssid)) { add('Hinweis', id, 'WLAN-Gerät ist mit keinem WLAN verbunden'); continue; }
       if (isIcon(d)) { const p = d.ports[0], h = hip(d, p); if (d.vm && d.vm.state !== 'running') add('Hinweis', id, 'VM ist ausgeschaltet'); else if (d.vm && net.devs[d.vm.host].off) add('Hinweis', id, `Der Host ${net.devs[d.vm.host].cfg.hostname} ist ausgeschaltet`); else if (!d.vm && !NL.linkOf(net, id, p)) add('Hinweis', id, 'Endgerät ist nicht verkabelt'); else if (!d.vm && NL.portStatus(net, id, p).st !== 'connected') add('Fehler', id, 'kein Link – ' + NL.portStatus(net, id, p).reason); else if (!h || !h.ip) add('Hinweis', id, 'keine IP-Adresse'); else if (!d.cfg.gw) add('Hinweis', id, 'kein Default-Gateway gesetzt'); continue; }
       if (d.type === 'server' || d.type === 'storage') lintHost(net, d, add); else if (d.type === 'fc') lintFc(net, d, add); else if (d.fw) lintFw(net, d, add); else lintIos(net, d, add);
@@ -6863,6 +6945,21 @@ const Sandbox = (function () {
         { t: '<code>INET-WEB</code> erreicht <code>PC-C</code>', c: n => pg(n, 'INET-WEB', '203.0.113.10') }],
       hints: ['Auf R-EDGE: <code>router bgp 65001</code>, dann <code>neighbor 192.0.2.1 remote-as 65000</code>. Die AS-Nummern müssen auf beiden Seiten zusammenpassen.', 'Damit der Provider dein Netz kennt, kündigst du es an: <code>network 203.0.113.0 mask 255.255.255.0</code>. Es muss exakt in der Routing-Tabelle stehen (hier verbunden).', 'Prüfe mit <code>show ip bgp summary</code> den Zustand und mit <code>show ip route</code> die Default-Route (B*).'],
       sol(net) { rn(net, 'R-EDGE', ['router bgp 65001', 'neighbor 192.0.2.1 remote-as 65000', 'network 203.0.113.0 mask 255.255.255.0']); } }
+    ,
+    { id: 'sc-poe-budget', kind: 'Fehlersuche', title: 'PoE: Telefone und Access Points ohne Strom', est: '20 min',
+      intro: 'Am PoE-Switch <code>SW-PoE</code> (Budget 370 W) hängen 12 Kameras, 6 Access Points und 4 IP-Telefone. Nach dem Einbau der letzten Kameras bekommen die Telefone und ein Teil der Geräte keinen Strom mehr. Der Switch vergibt sein Budget der Reihe nach, und die Kameras stehen an den ersten Ports. Telefone und Access Points sind aber wichtiger.',
+      build(net) {
+        mk(net, 'C9200L-24P-4X', 420, 70, 'SW-PoE'); let p = 1;
+        for (let i = 1; i <= 12; i++) { mk(net, 'IP-Camera', 40 + i * 70, 300, 'CAM-' + i); lk(net, 'CAM-' + i, 'eth0', 'SW-PoE', G + p++); }
+        for (let i = 1; i <= 6; i++) { mk(net, 'C9120AXI', 80 + i * 110, 470, 'AP-' + i); lk(net, 'AP-' + i, 'GigabitEthernet0', 'SW-PoE', G + p++); }
+        for (let i = 1; i <= 4; i++) { mk(net, 'IP-Phone', 150 + i * 120, 620, 'TEL-' + i); lk(net, 'TEL-' + i, 'eth0', 'SW-PoE', G + p++); }
+      },
+      goals: [
+        { t: 'Alle vier IP-Telefone haben Strom', c: n => [1, 2, 3, 4].every(i => NL.poePower(n, hd(n, 'TEL-' + i)).ok) },
+        { t: 'Alle sechs Access Points haben Strom', c: n => [1, 2, 3, 4, 5, 6].every(i => NL.poePower(n, hd(n, 'AP-' + i)).ok) },
+        { t: 'Mindestens 8 der 12 Kameras laufen weiter', c: n => [...Array(12).keys()].filter(i => NL.poePower(n, hd(n, 'CAM-' + (i + 1))).ok).length >= 8 }],
+      hints: ['Prüfe im Switch (Web-GUI → Dashboard → PoE-Budget oder <code>show power inline</code>), welche Ports <code>power-deny</code> haben.', 'Das Budget wird in Port-Reihenfolge vergeben, außer Ports haben eine höhere Priorität.', 'Setze an den Ports der Access Points und Telefone (Gi1/0/13 bis 22) <code>power inline port priority high</code>. Die Kameras bekommen dann das, was übrig bleibt.'],
+      sol(net) { rn(net, 'SW-PoE', ['interface range g1/0/13 - 22', 'power inline port priority high']); } }
     ,
     { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
       intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',
