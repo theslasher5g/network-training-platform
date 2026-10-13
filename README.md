@@ -1,6 +1,25 @@
 # NetLab – Network Training Platform
 
-Lern- und Planungsplattform für Cisco-Netzwerke, komplett im Browser (eine einzelne HTML-Datei, kein Backend).
+Lern- und Planungsplattform für Netzwerk und System Engineering, komplett im Browser (eine einzelne HTML-Datei, kein Backend). Du baust ein Netz aus echter Hardware, konfigurierst es per Terminal oder über die Weboberflächen der Geräte und lässt es von einem Simulator prüfen.
+
+## Auf einen Blick
+
+| | |
+|---|---|
+| ![Startseite](docs/screenshots/01-start.png) | ![Lab mit Terminal](docs/screenshots/02-lab.png) |
+| **Start:** 16 Labs mit Fortschrittsanzeige, Netzplaner und Wiki. | **Labs:** CLI-Übungen mit automatischer Bewertung. |
+| ![Netzplaner](docs/screenshots/03-netzplaner.png) | ![Details und Port-Ansicht](docs/screenshots/04-details.png) |
+| **Netzplaner:** ruhige Werkbank mit Werkzeugleiste unten, Plan mit Punktraster. | **Details:** erscheinen nur bei Auswahl, mit Port-Ansicht, Strom-Schalter und Web-GUI. |
+| ![Gerätekatalog](docs/screenshots/05-geraetekatalog.png) | ![Tab Systeme mit Switch-GUI](docs/screenshots/06-systeme-switch.png) |
+| **Gerätekatalog:** Catalyst, ISR, ASA, MDS, Server, Storage und Endgeräte nach Kategorie. | **Tab Systeme:** alle Weboberflächen an einem Ort, hier der Catalyst-Switch. |
+| ![ASDM](docs/screenshots/07-firewall-asdm.png) | ![Storage-Manager](docs/screenshots/08-storage.png) |
+| **ASA im ASDM-Stil:** Zonen, Zugriffsregeln, NAT, Routing, DHCP. | **Storage-Manager:** Pools, LUNs, Zugriff und Ports. |
+| ![PC-Desktop](docs/screenshots/09-pc-desktop.png) | ![HyperMetro](docs/screenshots/10-hypermetro.png) |
+| **PC-Desktop:** Fenster, Taskleiste, Browser mit Zugriff auf die Switch-Oberfläche. | **HyperMetro:** zwei Arrays, Quorum-Server und Arbitrierung. |
+| ![Wiki](docs/screenshots/11-wiki.png) | |
+| **Wiki:** 150+ Artikel zu Kabeln, Geräten, Protokollen und Storage. | |
+
+Die Bilder entstehen mit `node scripts/screenshots.js` aus dem gebauten Stand.
 
 ## Inhalt
 
@@ -19,6 +38,8 @@ Lern- und Planungsplattform für Cisco-Netzwerke, komplett im Browser (eine einz
 - **Ein- und Ausschalten mit Bootvorgang** – Geräte lassen sich ausschalten und starten dann mit Bootzeit. Cisco-Geräte laden danach nur die Startup-Config: ungespeicherte Änderungen gehen verloren.
 - **PC-Desktop** – Doppelklick auf einen PC öffnet einen Windows-ähnlichen Desktop (verschiebbares Fenster, Taskleiste, Startmenü) mit Eingabeaufforderung, Webbrowser, Netzwerkverbindungen, Datei-Explorer, Editor und Einstellungen.
 - **Web-GUIs der Geräte** – Server, Hypervisor, Windows-Server, Storage und FC-Switch haben eine Weboberfläche mit Anmeldung, Menü, Tabellen und Dialogen (Linux: Dienste, Dateien, Speicher, Firewall; Hypervisor: VMs, vSwitch, Datastores, Cluster; Windows: Rollen, Active Directory, DNS, DHCP, Freigaben; Storage: Pools, LUNs, Zuordnung; Fabric: Zoning). Aufruf über „Web-GUI öffnen“ am Gerät oder per Webbrowser eines PCs unter `https://<IP>:8443`. Jede Aktion zeigt den gleichwertigen Terminal-Befehl.
+- **DHCP überall** – Server (Linux, Windows), Cisco-Router und Layer-3-Switches (`ip dhcp pool`, Ausschlüsse) und die ASA (`dhcpd`) vergeben Adressen. Mit `ip helper-address` leitet ein Relay Anfragen an einen Server in einem anderen Netz weiter. Einrichtung in den Weboberflächen oder per CLI, Kontrolle mit `show ip dhcp binding`.
+- **HyperMetro** – Zwei Storage-Arrays bilden eine aktiv-aktiv-Domäne mit gespiegelten LUN-Paaren. Ein Quorum-Server (Linux-Paket `quorum-server`) entscheidet bei Ausfällen, welche Seite weiterarbeitet; Replikationsverbindung über FC-Zonen, statische Priorität als Fallback. Der Host sieht ein Gerät mit Pfaden zu beiden Arrays. Zwei Szenarien.
 - **Aufgaben** – Aufbau- und Fehlersuche-Szenarien mit live abgehakten Zielen.
 - **Ausfall-Simulation** (Gerät ausschalten, Kabel ziehen), Rückgängig/Wiederholen.
 - **Export** – Gerätekonfigurationen (IOS/IOS-XE, ASA, MDS-Zoning), Hardware-Blätter für Server/Storage, Patchliste (CSV).
@@ -29,7 +50,8 @@ Lern- und Planungsplattform für Cisco-Netzwerke, komplett im Browser (eine einz
 src/engine.js    Simulationskern: L2/L3, VLAN, Trunks, ACL, NAT, IPsec, Firewall, Hardware-Physik, CLI
 src/labs.js      Lab-Definitionen, Aufgaben und Musterlösungen
 src/wiki.js      Wiki-Artikel und Suche
-src/webgui.js    Weboberflächen der Geräte (Linux, Hypervisor, Windows, Storage, FC)
+src/webgui.js    Weboberflächen der Geräte (Linux, Hypervisor, Windows, Storage, FC, Cisco-Switch/-Router, ASDM)
+src/desktop.js   Windows-ähnlicher Desktop für PCs
 src/virt.js      Hypervisor, vSwitch, VMs, Migration, HA
 src/windows.js   Windows-Terminal (PowerShell-Teilmenge, AD, Rollen)
 src/storage.js   Pools, LUNs, Masking, Zoning, FC-Pfade
@@ -38,7 +60,9 @@ src/sandbox.js   Netzplaner (UI), Apps/Dienste, Aufgaben-Szenarien, Lint und Exp
 src/app.js       Startseite, Lab-Ansicht, Routing
 src/shell.html   HTML-Gerüst und Styles
 build.py         fügt src/ zu dist/netlab.html zusammen
-tests/           Node-Tests für Labs, Apps/DNS/DHCP, Internet-Anbindung und Szenarien
+tests/           Node-Tests für Labs, Apps, Szenarien, Planer, Linux, Storage, SAN, HyperMetro, Windows, Virtualisierung, DHCP und Web-GUIs
+scripts/         screenshots.js erzeugt die Bilder für diese README
+docs/screenshots Screenshots der Oberfläche
 dist/netlab.html fertig gebaute Version (direkt im Browser öffnen)
 ```
 
@@ -46,7 +70,8 @@ dist/netlab.html fertig gebaute Version (direkt im Browser öffnen)
 
 ```bash
 npm run build   # erzeugt dist/netlab.html
-npm test        # Labs, Apps, Internet, Szenarien (Musterlösung muss alle Ziele erfüllen)
+npm test        # alle Tests; bei Szenarien muss die Musterlösung alle Ziele erfüllen
+node scripts/screenshots.js   # Screenshots neu erzeugen (braucht playwright-core und Chromium)
 ```
 
 Voraussetzungen: Node.js und Python 3. Die gebaute Datei lädt nur Schriftarten von Google Fonts und JSZip (für den ZIP-Export) von cdnjs; alles andere läuft lokal. Fortschritt und Projekte speichert der Browser per `localStorage`.
