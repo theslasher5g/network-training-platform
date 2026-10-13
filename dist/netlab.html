@@ -732,6 +732,9 @@ table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vert
 @keyframes blink{50%{opacity:.25}}
 .wlink{fill:none;stroke:#0ea5a4;stroke-width:2;stroke-dasharray:2 5;stroke-linecap:round;pointer-events:none}.wlink.dn{stroke:var(--red);opacity:.5}
 .chk{display:flex;gap:.5rem;align-items:center;font-size:.84rem;margin:.3rem 0}
+.stpl{display:flex;align-items:center;gap:.4rem;font-size:.82rem;color:var(--muted)}.stpl select{border:1px solid var(--line);border-radius:8px;padding:.25rem .4rem;font:inherit;background:var(--panel);color:var(--ink)}
+.stpx circle{fill:#f59e0b;stroke:#fff;stroke-width:1.2}.stpx path{stroke:#fff;stroke-width:1.8;stroke-linecap:round}.lw.stpb .wire:not(.hit){stroke-dasharray:6 5}
+.rootb rect{fill:#0ea5a4}.rootb text{fill:#fff;font:700 9px var(--sans);text-anchor:middle;letter-spacing:.04em}
 .dev.booting{animation:blink 1s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.dev.booting,.pwr.boot .pdot{animation:none}}
 .dk-off{position:absolute;inset:0;z-index:50;background:#0a0d12;color:#cfd8e6;display:grid;place-items:center;text-align:center}.dk-off h2{margin:.3rem 0;font:700 1.2rem var(--display);color:#fff}.dk-off p{margin:.2rem 0 1rem;color:#8d9bb0}.dk-off .dk-i{width:46px;height:46px;opacity:.5}
@@ -917,13 +920,13 @@ const NL = (function () {
   const wcMatch = (ip, base, wc) => { const w = ip2n(wc); return ((ip2n(ip) & ~w) >>> 0) === ((ip2n(base) & ~w) >>> 0); };
 
   // ---------- interface names ----------
-  const IFT = [['twentyfivegige', 'TwentyFiveGigE'], ['hundredgige', 'HundredGigE'], ['management', 'Management'], ['tengigabitethernet', 'TenGigabitEthernet'], ['gigabitethernet', 'GigabitEthernet'], ['fastethernet', 'FastEthernet'], ['ethernet', 'Ethernet'], ['tunnel', 'Tunnel'], ['vlan', 'Vlan'], ['loopback', 'Loopback']];
+  const IFT = [['twentyfivegige', 'TwentyFiveGigE'], ['hundredgige', 'HundredGigE'], ['management', 'Management'], ['tengigabitethernet', 'TenGigabitEthernet'], ['gigabitethernet', 'GigabitEthernet'], ['fastethernet', 'FastEthernet'], ['ethernet', 'Ethernet'], ['tunnel', 'Tunnel'], ['vlan', 'Vlan'], ['loopback', 'Loopback'], ['portchannel', 'Port-channel']];
   function normIf(s) {
-    s = String(s).replace(/\s+/g, '').toLowerCase();
+    s = String(s).replace(/\s+/g, '').toLowerCase().replace(/^port-?channel/, 'portchannel');
     const m = s.match(/^([a-z]+)(\d[\d\/\.]*)$/); if (!m) return null;
     const t = IFT.find(x => x[0].startsWith(m[1])); return t ? t[1] + m[2] : null;
   }
-  const sh = n => String(n).replace('TwentyFiveGigE', 'Twe').replace('HundredGigE', 'Hu').replace('Management', 'Mg').replace('TenGigabitEthernet', 'Te').replace('GigabitEthernet', 'Gi').replace('FastEthernet', 'Fa').replace('Ethernet', 'Et').replace('Tunnel', 'Tu').replace('Loopback', 'Lo');
+  const sh = n => String(n).replace('TwentyFiveGigE', 'Twe').replace('HundredGigE', 'Hu').replace('Management', 'Mg').replace('TenGigabitEthernet', 'Te').replace('GigabitEthernet', 'Gi').replace('FastEthernet', 'Fa').replace('Ethernet', 'Et').replace('Tunnel', 'Tu').replace('Loopback', 'Lo').replace('Port-channel', 'Po');
   const natSort = a => a.slice().sort((x, y) => x.localeCompare(y, 'en', { numeric: true }));
 
   // ---------- model ----------
@@ -1205,9 +1208,110 @@ const NL = (function () {
   }
   const allowed = (i, v) => i.allowed === null || i.allowed.includes(v);
 
+  // ---------- EtherChannel und Spanning Tree ----------
+  const hid = (o, k, v) => { Object.defineProperty(o, k, { value: v, writable: true, enumerable: false, configurable: true }); };
+  const effIf = (d, p) => { const i = d.cfg.ifs[p]; if (i && i.cg && d.cfg.ifs['Port-channel' + i.cg.n]) { const b = bundleOf(null, d, p); if (b && b.ok) return d.cfg.ifs['Port-channel' + i.cg.n]; } return i; };
+  const CGMODES = { on: 'on', active: 'lacp', passive: 'lacp', desirable: 'pagp', auto: 'pagp' };
+  // Bündel-Prüfung: alle Mitglieder gehen zum selben Nachbarn, Modi passen zusammen, gleiche Einstellungen
+  function bundleOf(net, d, p) {
+    const i = d.cfg.ifs[p]; if (!i || !i.cg) return null; net = net || d._net;
+    const mem = d.ports.filter(q => d.cfg.ifs[q].cg && d.cfg.ifs[q].cg.n === i.cg.n), po = 'Port-channel' + i.cg.n;
+    if (!net) return { n: i.cg.n, po, members: mem, ok: true };
+    const peers = mem.map(q => peerOf(net, d.id, q)), r = x => ({ n: i.cg.n, po, members: mem, ok: false, reason: x });
+    if (peers.some(x => !x)) return { n: i.cg.n, po, members: mem, ok: mem.some((q, k) => peers[k]), reason: 'nicht alle Mitglieder haben ein Kabel', partial: true, peerDev: (peers.find(x => x) || {}).dev };
+    if (new Set(peers.map(x => x.dev)).size > 1) return r('Die Mitglieder gehen zu verschiedenen Nachbarn');
+    const pd = net.devs[peers[0].dev]; if (pd.type !== 'switch') return r('Der Nachbar ist kein Switch');
+    const pc = peers.map(x => pd.cfg.ifs[x.port]); if (pc.some(x => !x || !x.cg)) return r(`${pd.cfg.hostname}: Gegenstelle hat kein channel-group`);
+    if (new Set(pc.map(x => x.cg.n)).size > 1) return r(`${pd.cfg.hostname}: Mitglieder liegen in verschiedenen Port-Channels`);
+    const ma = i.cg.mode, mb = pc[0].cg.mode, okm = ma === 'on' ? mb === 'on' : mb !== 'on' && CGMODES[ma] === CGMODES[mb] && (ma === 'active' || mb === 'active' || ma === 'desirable' || mb === 'desirable');
+    if (!okm) return r(`Modus passt nicht: ${ma} ↔ ${mb} (${CGMODES[ma] === CGMODES[mb] ? 'beide passiv, keiner verhandelt' : 'LACP/PAgP/on lassen sich nicht mischen'})`);
+    const sp = mem.map(q => { const l = linkOf(net, d.id, q), ph = l && phys(net, l); return ph && ph.ok ? ph.speed : 0; });
+    if (sp.some(x => !x)) return { n: i.cg.n, po, members: mem, ok: mem.some((q, k) => sp[k]), reason: 'nicht alle Mitglieder haben Link', partial: true, peerDev: pd.id, peerPo: pc[0].cg.n };
+    if (new Set(sp).size > 1) return r('Unterschiedliche Geschwindigkeiten');
+    const key = q => { const x = d.cfg.ifs[q]; return [x.mode, x.vlan, x.native, JSON.stringify(x.allowed)].join('|'); };
+    if (new Set(mem.map(key)).size > 1) return r('Die Mitglieder haben unterschiedliche Switchport-Einstellungen (Modus, VLAN, Trunk-Liste)');
+    return { n: i.cg.n, po, members: mem, ok: true, peerDev: pd.id, peerPo: pc[0].cg.n, speed: sp.reduce((a, b) => a + b, 0), mode: ma };
+  }
+  function stpCfg(d) {
+    const r = { mode: 'rapid-pvst', prio: {}, root: {}, off: new Set() };
+    for (const raw of d.cfg.lines) {
+      const l = raw.toLowerCase().trim(); let m;
+      if ((m = l.match(/^spanning-tree mode (\S+)/))) r.mode = m[1];
+      else if ((m = l.match(/^spanning-tree vlan (\S+) priority (\d+)/))) (parseVl(m[1]) || []).forEach(v => { r.prio[v] = +m[2]; delete r.root[v]; });
+      else if ((m = l.match(/^spanning-tree vlan (\S+) root (primary|secondary)/))) (parseVl(m[1]) || []).forEach(v => { r.root[v] = m[2]; });
+      else if ((m = l.match(/^no spanning-tree vlan (\S+)$/))) (parseVl(m[1]) || []).forEach(v => r.off.add(v));
+      else if ((m = l.match(/^spanning-tree vlan (\S+)$/))) (parseVl(m[1]) || []).forEach(v => r.off.delete(v));
+    }
+    return r;
+  }
+  const bridgeMac = d => { const h = hashN('mac|' + d.id) >>> 0, g = hashN(d.id + '|2') & 0xffff; const x = (h >>> 0).toString(16).padStart(8, '0') + g.toString(16).padStart(4, '0'); return '0c' + x.slice(0, 2) + '.' + x.slice(2, 6) + '.' + x.slice(6, 10); };
+  const portCostOf = (speed, i, v) => { if (i) { for (const e of i.extra || []) { let m = e.match(/^spanning-tree vlan (\S+) cost (\d+)$/); if (m && (parseVl(m[1]) || []).includes(v)) return +m[2]; m = e.match(/^spanning-tree cost (\d+)$/); if (m) return +m[1]; } } return speed >= 100000 ? 1 : speed >= 25000 ? 1 : speed >= 10000 ? 2 : speed >= 1000 ? 4 : speed >= 100 ? 19 : 100; };
+  const carries = (d, p, v) => { const i = effIf(d, p); if (!i) return false; return i.mode === 'trunk' ? allowed(i, v) : i.vlan === v; };
+  function stp(net, v) {
+    if (!net._stp) hid(net, '_stp', {}); const key = 'v' + v; if (net._stpAt === STPTICK && net._stp[key]) return net._stp[key];
+    if (net._stpAt !== STPTICK) { net._stp = {}; hid(net, '_stpAt', STPTICK); }
+    const all = Object.values(net.devs).filter(d => d.type === 'switch' && !isDown(d) && d.cfg.vlans[v]);
+    const part = all.filter(d => !stpCfg(d).off.has(v)), isPart = id => part.some(x => x.id === id);
+    all.forEach(d => { hid(d, '_net', net); });
+    // Prioritäten
+    const prio = {}; part.forEach(d => { const c = stpCfg(d); prio[d.id] = c.prio[v] !== undefined ? c.prio[v] : 32768; });
+    part.forEach(d => { const c = stpCfg(d); if (c.root[v]) { const others = part.filter(x => x.id !== d.id).map(x => prio[x.id]); const low = others.length ? Math.min(...others) : 32768; prio[d.id] = c.root[v] === 'primary' ? Math.max(0, Math.min(24576, low - 4096)) : Math.min(28672, Math.max(0, low)); } });
+    const bid = d => [prio[d.id] + v, bridgeMac(d)];
+    const cmp = (a, b) => a[0] - b[0] || (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
+    // Kanten (Bündel zählen als eine Kante)
+    const edges = [], used = new Set();
+    for (const d of all) for (const p of d.ports) {
+      const pe = peerOf(net, d.id, p); if (!pe) continue; const pd = net.devs[pe.dev]; if (pd.type !== 'switch' || !pd.cfg.vlans[v]) continue;
+      const l = linkOf(net, d.id, p), ph = phys(net, l); if (!ph.ok || !portAdminUp(net, d.id, p) || !portAdminUp(net, pd.id, pe.port)) continue;
+      if (!carries(d, p, v) || !carries(pd, pe.port, v)) continue;
+      const ba = bundleOf(net, d, p), bb = bundleOf(net, pd, pe.port);
+      if ((ba && !ba.ok) || (bb && !bb.ok)) continue; // ausgesetzt (suspended)
+      const k = [d.id + (ba ? '|Po' + ba.n : '|' + p), pd.id + (bb ? '|Po' + bb.n : '|' + pe.port)].sort().join('~'); if (used.has(k)) continue; used.add(k);
+      edges.push({ a: d.id, ap: ba ? ba.members : [p], b: pd.id, bp: bb ? bb.members : [pe.port], speed: ba ? ba.speed : ph.speed, ai: d.cfg.ifs[p], bi: pd.cfg.ifs[pe.port], bundle: ba ? ba.n : 0 });
+    }
+    const res = { vlan: v, sw: {}, edges, storm: new Set(), part: part.map(d => d.id) };
+    // Komponenten und Root
+    const adj = {}; part.forEach(d => { adj[d.id] = []; }); edges.forEach(e => { if (isPart(e.a) && isPart(e.b)) { adj[e.a].push(e); adj[e.b].push(e); } });
+    const seen = new Set(), pidx = (d, p) => d.ports.indexOf(p);
+    for (const d0 of part) {
+      if (seen.has(d0.id)) continue; const comp = [], st = [d0.id]; seen.add(d0.id);
+      while (st.length) { const u = st.pop(); comp.push(u); adj[u].forEach(e => { const w = e.a === u ? e.b : e.a; if (!seen.has(w)) { seen.add(w); st.push(w); } }); }
+      const root = comp.map(id => net.devs[id]).sort((a, b) => cmp(bid(a), bid(b)))[0];
+      const dist = {}, via = {}; comp.forEach(id => { dist[id] = Infinity; }); dist[root.id] = 0; const todo = new Set(comp);
+      while (todo.size) {
+        let u = null; todo.forEach(id => { if (u === null || dist[id] < dist[u] || (dist[id] === dist[u] && cmp(bid(net.devs[id]), bid(net.devs[u])) < 0)) u = id; }); todo.delete(u); if (dist[u] === Infinity) break;
+        adj[u].forEach(e => {
+          const w = e.a === u ? e.b : e.a; if (!todo.has(w)) return; const wp = e.a === w ? e.ap[0] : e.bp[0], wi = e.a === w ? e.ai : e.bi, up = e.a === u ? e.ap[0] : e.bp[0], c = dist[u] + portCostOf(e.speed, wi, v);
+          const cand = { cost: c, u, e, wp, up }, cur = via[w];
+          const better = !cur || c < cur.cost || (c === cur.cost && (cmp(bid(net.devs[u]), bid(net.devs[cur.u])) < 0 || (cmp(bid(net.devs[u]), bid(net.devs[cur.u])) === 0 && (pidx(net.devs[u], up) < pidx(net.devs[cur.u], cur.up) || (up === cur.up && pidx(net.devs[w], wp) < pidx(net.devs[w], cur.wp))))));
+          if (better) { via[w] = cand; dist[w] = c; }
+        });
+      }
+      comp.forEach(id => { const d = net.devs[id]; res.sw[id] = { root: id === root.id, rootId: root.id, rootBid: bid(root), bid: bid(d), cost: dist[id], rp: id === root.id ? null : via[id].wp, ports: {}, prio: prio[id], mode: stpCfg(d).mode }; });
+      // Rollen je Kante
+      for (const e of edges) {
+        if (!comp.includes(e.a) || !comp.includes(e.b)) continue;
+        const A = { id: e.a, ports: e.ap, i: e.ai }, B = { id: e.b, ports: e.bp, i: e.bi };
+        const adv = X => [dist[X.id], bid(net.devs[X.id]), pidx(net.devs[X.id], X.ports[0])];
+        const ca = adv(A), cb = adv(B), aWins = ca[0] !== cb[0] ? ca[0] < cb[0] : (cmp(ca[1], cb[1]) !== 0 ? cmp(ca[1], cb[1]) < 0 : ca[2] <= cb[2]);
+        for (const [X, win] of [[A, aWins], [B, !aWins]]) {
+          const S0 = res.sw[X.id], cost = portCostOf(e.speed, X.i, v);
+          X.ports.forEach(p => { if (win) S0.ports[p] = { role: 'desg', sts: 'FWD', cost }; else if (S0.rp === p || (X.ports.includes(S0.rp))) S0.ports[p] = { role: 'root', sts: 'FWD', cost }; else S0.ports[p] = { role: 'altn', sts: 'BLK', cost }; });
+        }
+      }
+    }
+    // Schleifen: Weiterleitungs-Graph aller Switches (auch ohne STP) auf Zyklen prüfen
+    const fe = edges.filter(e => { const sa = res.sw[e.a], sb = res.sw[e.b], blk = (S0, ps) => S0 && ps.every(p => (S0.ports[p] || {}).sts === 'BLK'); return !(blk(sa, e.ap) || blk(sb, e.bp)); });
+    const nodes = new Set(); fe.forEach(e => { nodes.add(e.a); nodes.add(e.b); }); const par = {}; nodes.forEach(n => { par[n] = n; }); const find = x => par[x] === x ? x : (par[x] = find(par[x])); const cyc = new Set();
+    fe.forEach(e => { const ra = find(e.a), rb = find(e.b); if (ra === rb) cyc.add(ra); else par[ra] = rb; });
+    if (cyc.size) nodes.forEach(n => { if ([...cyc].some(c => find(c) === find(n))) res.storm.add(n); });
+    net._stp[key] = res; return res;
+  }
+  let STPTICK = 0; const stpBump = () => { STPTICK++; };
+  const stpBlocked = (net, dId, p, v) => { const r = stp(net, v), s0 = r.sw[dId]; return !!(s0 && s0.ports[p] && s0.ports[p].sts === 'BLK'); };
   // ---------- Layer 2 ----------
   function l2(net, sId, sIf) {
-    const eps = [], notes = [], seen = new Set();
+    STPTICK++; const eps = [], notes = [], seen = new Set();
     const note = s => { if (!notes.includes(s)) notes.push(s); };
     const send = (dId, p, tag) => {
       const pe = peerOf(net, dId, p); if (!pe) return;
@@ -1219,10 +1323,12 @@ const NL = (function () {
     const recv = (dId, p, tag) => {
       const d = net.devs[dId], h = d.cfg.hostname;
       if (d.type === 'switch') {
-        const i = d.cfg.ifs[p]; let v;
+        hid(d, '_net', net); const bu = bundleOf(net, d, p); if (bu && !bu.ok) { note(`${h} ${sh(p)} ist im Port-Channel ${bu.n} ausgesetzt: ${bu.reason}`); return; }
+        const i = effIf(d, p); let v;
         if (i.mode === 'trunk') { v = tag === null ? i.native : tag; if (!allowed(i, v)) { note(`${h} ${sh(p)}: VLAN ${v} ist auf dem Trunk nicht erlaubt`); return; } }
         else { if (tag !== null) { note(`${h} ${sh(p)} ist ein Access-Port, empfängt aber getaggte Frames (VLAN ${tag}) – fehlt hier ein Trunk?`); return; } v = i.vlan; }
         if (!d.cfg.vlans[v]) { note(`${h}: VLAN ${v} ist nicht angelegt – Port ${sh(p)} ist inaktiv`); return; }
+        if (stpBlocked(net, dId, p, v)) { note(`${h} ${sh(p)}: Spanning Tree blockiert den Port in VLAN ${v} (Alternate/BLK)`); return; }
         inSw(dId, v);
       } else if (d.type === 'router') {
         if (tag === null) { const i = d.cfg.ifs[p]; if (i && !i.shutdown && i.ip) eps.push({ dev: dId, ifn: p }); }
@@ -1260,10 +1366,13 @@ const NL = (function () {
     };
     const inSw = (dId, v) => {
       const k = dId + '|' + v; if (seen.has(k)) return; seen.add(k);
-      const d = net.devs[dId];
+      const d = net.devs[dId]; hid(d, '_net', net);
+      if (stp(net, v).storm.has(dId)) { note(`Broadcast-Sturm in VLAN ${v}: Eine Schleife zwischen den Switches ohne Spanning Tree legt das Netz lahm (${d.cfg.hostname})`); return; }
       const svi = d.cfg.ifs['Vlan' + v]; if (svi && !svi.shutdown && svi.ip) eps.push({ dev: dId, ifn: 'Vlan' + v });
       for (const p of d.ports) {
-        const i = d.cfg.ifs[p]; if (!peerOf(net, dId, p)) continue;
+        const i = effIf(d, p); if (!peerOf(net, dId, p)) continue;
+        { const bu = bundleOf(net, d, p); if (bu && !bu.ok) continue; }
+        if (stpBlocked(net, dId, p, v)) continue;
         if (i.mode === 'trunk') { if (allowed(i, v)) send(dId, p, v === i.native ? null : v); else note(`${d.cfg.hostname} ${sh(p)}: VLAN ${v} ist auf dem Trunk nicht erlaubt`); }
         else if (i.vlan === v) send(dId, p, null);
       }
@@ -1288,6 +1397,7 @@ const NL = (function () {
     const i = d.cfg.ifs[n]; if (!i || i.shutdown) return false;
     if (n.startsWith('Vlan')) return !!d.cfg.vlans[+n.slice(4)];
     if (n.startsWith('Loopback')) return true;
+    if (n.startsWith('Port-channel')) return d.ports.some(q => d.cfg.ifs[q].cg && 'Port-channel' + d.cfg.ifs[q].cg.n === n && (bundleOf(net, d, q) || {}).ok && linkUp(net, dId, q));
     if (n.startsWith('Tunnel')) return opt.noTunnel ? false : tunnel(net, dId, n).up;
     if (n.includes('.')) return linkUp(net, dId, n.split('.')[0]);
     return linkUp(net, dId, n);
@@ -1480,6 +1590,7 @@ const NL = (function () {
       }
       if (i.ip) o.push(` ip address ${i.ip} ${i.mask}`); else if (d.type === 'router' || n.startsWith('Vlan')) o.push(' no ip address');
       if (i.helper) o.push(' ip helper-address ' + i.helper);
+      if (i.cg) o.push(` channel-group ${i.cg.n} mode ${i.cg.mode}`);
       if (i.aclIn) o.push(' ip access-group ' + i.aclIn + ' in'); if (i.aclOut) o.push(' ip access-group ' + i.aclOut + ' out');
       if (i.tsrc) o.push(' tunnel source ' + i.tsrc); if (i.tdst) o.push(' tunnel destination ' + i.tdst);
       if (n.startsWith('Tunnel') && i.tmode === 'ipsec') o.push(' tunnel mode ipsec ipv4'); if (i.tprot) o.push(' tunnel protection ipsec profile ' + i.tprot);
@@ -1636,6 +1747,30 @@ const NL = (function () {
     }
     return o.join('\n');
   }
+  function stpShow(net, d, u) {
+    STPTICK++;
+    const vs = u[1] === 'vlan' && u[2] ? (parseVl(u[2]) || []) : Object.keys(d.cfg.vlans).map(Number).sort((a, b) => a - b);
+    if (u[1] === 'summary') { const off = stpCfg(d).off; return ['Switch is in ' + stpCfg(d).mode + ' mode', ...vs.map(v => pad('VLAN' + String(v).padStart(4, '0'), 10) + (off.has(v) ? 'Spanning Tree DEAKTIVIERT' : 'aktiv'))].join('\n'); }
+    if (u[1] === 'root') { return [pad('Vlan', 14) + pad('Root ID', 26) + pad('Cost', 6) + 'Root Port', ...vs.map(v => { const r = stp(net, v), x = r.sw[d.id]; return x ? pad('VLAN' + String(v).padStart(4, '0'), 14) + pad(x.rootBid[0] + ' ' + x.rootBid[1], 26) + pad(x.cost, 6) + (x.rp ? sh(x.rp) : 'Dieser Switch ist die Root') : pad('VLAN' + String(v).padStart(4, '0'), 14) + 'kein STP'; })].join('\n'); }
+    const out = [];
+    for (const v of vs) {
+      const r = stp(net, v), x = r.sw[d.id], tag = 'VLAN' + String(v).padStart(4, '0'); if (!d.cfg.vlans[v]) { out.push('Spanning tree instance(s) for vlan ' + v + ' does not exist.'); continue; }
+      if (!x) { out.push(tag, stpCfg(d).off.has(v) ? '  Spanning tree ist für dieses VLAN DEAKTIVIERT (no spanning-tree vlan ' + v + ')' : '  Keine Spanning-Tree-Teilnehmer (kein Link in diesem VLAN)', ''); continue; }
+      const proto = x.mode === 'pvst' ? 'ieee' : 'rstp';
+      out.push(tag, `  Spanning tree enabled protocol ${proto}`, `  Root ID    Priority    ${x.rootBid[0]}`, `             Address     ${x.rootBid[1]}`, x.root ? '             Dieser Switch ist die Root' : `             Cost        ${x.cost}\n             Port        ${sh(x.rp)}`, `  Bridge ID  Priority    ${x.bid[0]}  (priority ${x.prio} sys-id-ext ${v})`, `             Address     ${x.bid[1]}`, '',
+        pad('Interface', 14) + pad('Role', 6) + pad('Sts', 5) + pad('Cost', 6) + 'Type');
+      Object.keys(x.ports).sort((a, b) => d.ports.indexOf(a) - d.ports.indexOf(b)).forEach(p => { const q = x.ports[p]; out.push(pad(sh(p), 14) + pad(q.role === 'desg' ? 'Desg' : q.role === 'root' ? 'Root' : 'Altn', 6) + pad(q.sts, 5) + pad(q.cost, 6) + 'P2p'); });
+      out.push('');
+    }
+    return out.join('\n').trim();
+  }
+  function ecShow(net, d) {
+    const groups = {}; d.ports.forEach(p => { const i = d.cfg.ifs[p]; if (i.cg) (groups[i.cg.n] = groups[i.cg.n] || []).push(p); });
+    const ns = Object.keys(groups).map(Number).sort((a, b) => a - b); if (!ns.length) return 'Es ist kein Port-Channel konfiguriert (channel-group am Port).';
+    const o = ['Flags:  D - down   P - bundled in port-channel   s - suspended   I - stand-alone', '', 'Number of channel-groups in use: ' + ns.length, '', pad('Group', 7) + pad('Port-channel', 15) + pad('Protocol', 10) + 'Ports'];
+    ns.forEach(n => { const b = bundleOf(net, d, groups[n][0]), prot = { on: 'none', active: 'LACP', passive: 'LACP', desirable: 'PAgP', auto: 'PAgP' }[d.cfg.ifs[groups[n][0]].cg.mode]; o.push(pad(n, 7) + pad(`Po${n}(${b && b.ok ? 'SU' : b && b.partial ? 'SD' : 'SD'})`, 15) + pad(prot, 10) + groups[n].map(p => `${sh(p)}(${b && b.ok ? 'P' : b && b.partial ? 'D' : 's'})`).join(' ')); if (b && !b.ok && b.reason) o.push(pad('', 7) + '  → ' + b.reason); });
+    return o.join('\n');
+  }
   function cdpShow(net, d) {
     const o = ['Capability Codes: R - Router, S - Switch, H - Host, P - Phone', '', pad('Device ID', 17) + pad('Local Intrfce', 18) + pad('Holdtme', 9) + pad('Capability', 12) + pad('Platform', 16) + 'Port ID'];
     for (const p of d.ports) {
@@ -1690,8 +1825,8 @@ const NL = (function () {
     (vocab[f] || []).forEach((lst, k) => { if (t[k + 1]) { const x = pick(t[k + 1], lst); if (x) t[k + 1] = x; } });
     return t;
   }
-  const IFX = { authentication: [['port-control', 'host-mode', 'order', 'priority', 'periodic'], ['auto', 'force-authorized', 'force-unauthorized', 'multi-auth', 'multi-domain', 'single-host']], dot1x: [['pae', 'timeout'], ['authenticator']], mab: [], 'spanning-tree': [['portfast', 'bpduguard', 'guard'], ['enable', 'disable', 'root']], 'storm-control': [], speed: [], mtu: [], 'priority-flow-control': [['mode'], ['on', 'off', 'auto']], duplex: [], cdp: [['enable']], lldp: [['transmit', 'receive']] };
-  const GL = ['ip dhcp excluded-address ', 'aaa ', 'dot1x system-auth-control', 'enable secret ', 'enable password ', 'service ', 'username ', 'ip domain-name ', 'ip domain name ', 'banner ', 'snmp-server ', 'ntp server ', 'logging ', 'ip ssh ', 'spanning-tree ', 'no cdp run', 'cdp run', 'lldp run', 'no ip http server', 'no ip http secure-server', 'ip dhcp snooping', 'device-tracking', 'radius-server ', 'authentication ', 'no service '];
+  const IFX = { authentication: [['port-control', 'host-mode', 'order', 'priority', 'periodic'], ['auto', 'force-authorized', 'force-unauthorized', 'multi-auth', 'multi-domain', 'single-host']], dot1x: [['pae', 'timeout'], ['authenticator']], mab: [], 'spanning-tree': [['portfast', 'bpduguard', 'guard', 'cost', 'port-priority', 'vlan', 'link-type'], ['enable', 'disable', 'root']], 'storm-control': [], speed: [], mtu: [], 'priority-flow-control': [['mode'], ['on', 'off', 'auto']], duplex: [], cdp: [['enable']], lldp: [['transmit', 'receive']] };
+  const GL = ['no spanning-tree vlan ', 'ip dhcp excluded-address ', 'aaa ', 'dot1x system-auth-control', 'enable secret ', 'enable password ', 'service ', 'username ', 'ip domain-name ', 'ip domain name ', 'banner ', 'snmp-server ', 'ntp server ', 'logging ', 'ip ssh ', 'spanning-tree ', 'no cdp run', 'cdp run', 'lldp run', 'no ip http server', 'no ip http secure-server', 'ip dhcp snooping', 'device-tracking', 'radius-server ', 'authentication ', 'no service '];
   const GREPL = ['enable secret', 'enable password', 'ip domain-name', 'ip domain name', 'banner motd', 'ip ssh version', 'aaa authentication dot1x', 'aaa authorization network', 'aaa accounting dot1x', 'spanning-tree mode'];
 
   function exec(net, dId, s, raw) {
@@ -1730,6 +1865,8 @@ const NL = (function () {
       if (d.fw && M(u, 'nat')) return natShow(d);
       if (d.fw && M(u, 'route')) return routeShow(net, d);
       if (M(u, 'ip', 'interface')) return ipBrief(net, d);
+      if (d.type === 'switch' && M(u, 'spanning-tree')) return stpShow(net, d, u.map(x => x.toLowerCase()));
+      if (d.type === 'switch' && M(u, 'etherchannel')) return ecShow(net, d);
       if (M(u, 'ip', 'route')) return routeShow(net, d);
       if (!d.fw && M(u, 'ip', 'dhcp', 'binding')) { const rows = []; for (const pn in (d.leases || {})) for (const cid in d.leases[pn]) rows.push(pad(d.leases[pn][cid], 16) + pad(net.devs[cid] ? net.devs[cid].cfg.hostname : cid, 18) + 'Automatic (Pool ' + pn + ')'); return ['Bindings from all pools not associated with VRF:', pad('IP address', 16) + pad('Client', 18) + 'Type', ...rows].join('\n'); }
       if (!d.fw && M(u, 'ip', 'dhcp', 'pool')) { const ps = blocks(d, 'ip dhcp pool'); if (!ps.length) return 'Kein DHCP-Pool konfiguriert (ip dhcp pool <Name>).'; return ps.map(b => { const nm = b.head.split(' ')[3], n = bval(b, 'network'), lc = d.leases && d.leases[nm] ? Object.keys(d.leases[nm]).length : 0; return `Pool ${nm} :\n Network               : ${n || '–'}\n Default router        : ${bval(b, 'default-router') || '–'}\n DNS server            : ${bval(b, 'dns-server') || '–'}\n Aktive Leases         : ${lc}`; }).join('\n\n'); }
@@ -1756,6 +1893,13 @@ const NL = (function () {
     if (M(t, 'hostname') && t[1]) { c.hostname = t[1]; return ''; }
     if (!d.fw && M(t, 'ip', 'dhcp', 'pool') && t[3]) { if (d.type === 'switch' && !d.cfg.ipRouting && false) return null; return enterBlk(c, s, `ip dhcp pool ${t[3]}`, 'dhcppool', 'dhcp-config'); }
     if (!d.fw && M(t, 'no', 'ip', 'dhcp', 'pool') && t[4]) { c.blocks = c.blocks.filter(b => b.head !== `ip dhcp pool ${t[4]}`); return ''; }
+    if (M(t, 'no', 'interface') && t[2]) {
+      const n = normIf(t.slice(2).join('')); if (!n || !c.ifs[n]) return `% Interface ${t[2]} gibt es nicht`;
+      if (!(n.startsWith('Vlan') || n.startsWith('Port-channel') || n.startsWith('Loopback') || n.startsWith('Tunnel') || (n.includes('.') && !d.ports.includes(n)))) return '% Physische Schnittstellen lassen sich nicht löschen';
+      if (n === 'Vlan1') return '% Vlan1 lässt sich nicht löschen';
+      if (n.startsWith('Port-channel')) d.ports.forEach(q => { const i = c.ifs[q]; if (i.cg && 'Port-channel' + i.cg.n === n) i.cg = null; });
+      delete c.ifs[n]; return '';
+    }
     if (M(t, 'interface') && t[1]) {
       if (M(t.slice(1), 'range')) {
         const spec = t.slice(2).join('').toLowerCase(); const out = [];
@@ -1768,7 +1912,7 @@ const NL = (function () {
       }
       const n = normIf(t.slice(1).join('')); if (!n) return null;
       if (!c.ifs[n]) {
-        if (sw && n.startsWith('Vlan')) c.ifs[n] = Object.assign(newIf('switch'), { shutdown: false });
+        if (sw && (n.startsWith('Vlan') || n.startsWith('Port-channel'))) c.ifs[n] = Object.assign(newIf('switch'), { shutdown: false });
         else if (rt && (n.startsWith('Tunnel') || n.startsWith('Loopback'))) c.ifs[n] = Object.assign(newIf('router'), { shutdown: false });
         else if (rt && n.includes('.') && c.ifs[n.split('.')[0]]) c.ifs[n] = Object.assign(newIf('router'), { shutdown: false });
         else return `% Interface ${n} gibt es auf diesem Gerät nicht`;
@@ -1889,6 +2033,13 @@ const NL = (function () {
       if (L < 31 && (ip2n(ip) === nn || ip2n(ip) === ((nn | (~ip2n(m) >>> 0)) >>> 0))) return `% ${ip} ist Netz- oder Broadcast-Adresse im Subnetz /${L}`;
       for (const n in c.ifs) { if (n === s.ifs[0]) continue; const x = c.ifs[n]; if (x.ip && (inNet(ip, x.ip, x.mask) || inNet(x.ip, ip, m))) return `% ${n2ip(nn)} overlaps with ${n}`; }
       one.ip = ip; one.mask = m; return '';
+    }
+    if (sw && M(u, 'channel-group')) {
+      if (neg) return each((i, n) => { i.cg = null; });
+      const n = +u[1], md = (u[3] || '').toLowerCase(); if (!(n >= 1 && n <= 64) || !u[2] || !'mode'.startsWith(u[2].toLowerCase()) || !['on', 'active', 'passive', 'desirable', 'auto'].includes(md)) return '% Syntax: channel-group <1-64> mode <on|active|passive|desirable|auto>';
+      if (s.ifs.some(q => q.startsWith('Vlan') || q.startsWith('Port-channel'))) return '% channel-group gehört an physische Ports';
+      if (!c.ifs['Port-channel' + n]) c.ifs['Port-channel' + n] = Object.assign(newIf('switch'), { shutdown: false });
+      return each(i => { i.cg = { n, mode: md }; });
     }
     if (M(u, 'ip', 'helper-address')) { if (neg) return each(i => { i.helper = null; }); if (!validIp(u[2] || '')) return '% Syntax: ip helper-address <IP-Adresse des DHCP-Servers>'; return each(i => { i.helper = u[2]; }); }
     if (M(u, 'ip', 'access-group')) {
@@ -2029,7 +2180,7 @@ const NL = (function () {
   function snapshot(net) { const o = {}; for (const id in net.devs) o[id] = { cfg: net.devs[id].cfg, saved: net.devs[id].saved }; return o; }
   function restore(net, snap) { for (const id in snap) if (net.devs[id]) { net.devs[id].cfg = snap[id].cfg; net.devs[id].saved = snap[id].saved; } }
 
-  return { apState, wlcState, apPower, apJoined, apSsids, apClients, wifiScan, wifiConnect, wifiDisconnect, wifiLinkOf, isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
+  return { peerOfPort: (net, d, p) => peerOf(net, d, p), stp: (net, v) => { STPTICK++; return stp(net, v); }, bundleOf, bridgeMac, stpCfg, effIf, apState, wlcState, apPower, apJoined, apSsids, apClients, wifiScan, wifiConnect, wifiDisconnect, wifiLinkOf, isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
 })();
 if (typeof module !== 'undefined') module.exports = NL;
 
@@ -3820,7 +3971,7 @@ const WEBGUI = (function () {
     windows: d => [['dashboard', 'Dashboard'], ['local', 'Lokaler Server'], ['roles', 'Rollen und Features'], ['ad', 'Active Directory'], ['dns', 'DNS'], ['dhcp', 'DHCP'], ['shares', 'Dateidienste'], ['services', 'Dienste'], ['firewall', 'Firewall'], ['terminal', 'PowerShell']],
     storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['hypermetro', 'HyperMetro'], ['ports', 'Ports und Controller']],
     fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']],
-    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
+    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['stp', 'Spanning Tree'], ['ec', 'EtherChannel'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
     firewall: d => [].concat(...Object.values(FW)),
     ap: d => [['dashboard', 'Übersicht'], ['wlan', 'Funknetzwerke (SSID)'], ['clients', 'Clients'], ['network', 'Netzwerk'], ['controller', 'Controller'], ['cli', 'Konsole']],
     wlc: d => [['dashboard', 'Dashboard'], ['-c', 'Konfiguration'], ['wlan', 'WLANs'], ['aps', 'Access Points'], ['clients', 'Clients'], ['-a', 'Verwaltung'], ['network', 'Netzwerk'], ['cli', 'Konsole']],
@@ -4213,6 +4364,26 @@ const WEBGUI = (function () {
   };
   PAGES.wlc.clients = (d, G) => { const ip = hostLn(d).ip, aps = Object.values(A.net().devs).filter(x => x.type === 'ap' && NLw().apState(x).wlc === ip && (NLw().apJoined(A.net(), x) || {}).ok); return card('Verbundene Clients', tbl(['Client', 'SSID', 'AP', 'IP-Adresse', 'Status'], clientRows([].concat(...aps.map(a => NLw().apClients(A.net(), a)))), 'Kein Client verbunden.')); };
 
+  // ---------- Spanning Tree und EtherChannel ----------
+  PAGES.switch.stp = (d, G) => {
+    const net = A.net(), vls = Object.keys(d.cfg.vlans).map(Number).sort((a, b) => a - b), v = vls.includes(+G.tab.stpv) ? +G.tab.stpv : vls[0], r = A.NL.stp(net, v), x = r.sw[d.id], c = A.NL.stpCfg(d), peers = Object.values(net.devs).filter(y => y.type === 'switch');
+    const root = x ? net.devs[x.rootId] : null, ports = x ? Object.keys(x.ports).sort((a, b) => d.ports.indexOf(a) - d.ports.indexOf(b)) : [];
+    const prios = [0, 4096, 8192, 12288, 16384, 20480, 24576, 28672, 32768, 36864, 40960, 45056, 49152, 53248, 57344, 61440];
+    return `<div class="wg-row end"><div class="wg-f"><label for="wf-stpv">VLAN</label><select id="wf-stpv" data-act="stpv">${vls.map(n => `<option value="${n}" ${n === v ? 'selected' : ''}>VLAN ${n}</option>`).join('')}</select></div><div class="wg-f"><label for="wf-mode">Modus</label><select id="wf-stmode"><option value="rapid-pvst" ${c.mode === 'rapid-pvst' ? 'selected' : ''}>Rapid-PVST+</option><option value="pvst" ${c.mode === 'pvst' ? 'selected' : ''}>PVST+</option></select></div>${btn('Modus setzen', 'stmode', null, 'sm')}</div>`
+      + card(`Spanning Tree VLAN ${v}`, c.off.has(v) ? `<p>${chip('deaktiviert', 'bad')} Dieser Switch nimmt in VLAN ${v} nicht am Spanning Tree teil. Schleifen legen das Netz lahm.</p><div class="wg-row">${btn('Spanning Tree einschalten', 'stoff', { v, on: 1 }, 'primary')}</div>`
+        : x ? `<dl class="wg-dl"><dt>Root Bridge</dt><dd><b>${esc(root.cfg.hostname)}</b> ${x.root ? chip('dieser Switch', 'ok') : ''}</dd><dt>Root-ID</dt><dd><code>${x.rootBid[0]} ${esc(x.rootBid[1])}</code></dd><dt>Bridge-ID dieses Switches</dt><dd><code>${x.bid[0]} ${esc(x.bid[1])}</code> (Priorität ${x.prio})</dd><dt>Pfadkosten zur Root</dt><dd>${x.root ? '0' : x.cost}</dd><dt>Root-Port</dt><dd>${x.rp ? esc(A.SH(x.rp)) : '–'}</dd></dl>
+          <div class="wg-row end"><div class="wg-f"><label for="wf-sprio">Priorität</label><select id="wf-sprio">${prios.map(n => `<option value="${n}" ${n === x.prio ? 'selected' : ''}>${n}</option>`).join('')}</select></div>${btn('Priorität setzen', 'stprio', { v }, 'primary')}${btn('Root primary', 'stroot', { v }, 'sm')}${btn('Spanning Tree aus', 'stoff', { v, on: 0 }, 'sm ghost bad')}</div>
+          <p class="wg-note">Die Root Bridge ist der Switch mit der niedrigsten Bridge-ID (Priorität, dann MAC-Adresse). Wähle sie bewusst: am besten ein Core-Switch mit Priorität 4096 oder <code>root primary</code>.</p>` : `<p class="wg-empty">In diesem VLAN gibt es keinen Link zu einem anderen Switch.</p>`)
+      + (x ? card('Ports', tbl(['Port', 'Rolle', 'Status', 'Kosten'], ports.map(p => { const q = x.ports[p]; return [`<b>${esc(A.SH(p))}</b>`, q.role === 'desg' ? 'Designated' : q.role === 'root' ? 'Root' : 'Alternate', q.sts === 'FWD' ? chip('Forwarding', 'ok') : chip('Blocking', 'bad'), q.cost]; }), 'Keine Ports mit Nachbar-Switch.')) : '')
+      + (peers.length > 1 ? card('Alle Switches in diesem VLAN', tbl(['Switch', 'Priorität', 'Rolle'], Object.entries(r.sw).map(([id, y]) => [`<b>${esc(net.devs[id].cfg.hostname)}</b>`, y.prio, y.root ? chip('Root', 'ok') : 'Non-Root']), 'Keine.')) : '');
+  };
+  PAGES.switch.ec = (d, G) => {
+    const net = A.net(), groups = {}; d.ports.forEach(p => { const i = d.cfg.ifs[p]; if (i.cg) (groups[i.cg.n] = groups[i.cg.n] || []).push(p); });
+    const ns = Object.keys(groups).map(Number).sort((a, b) => a - b), prot = m => ({ on: 'statisch (on)', active: 'LACP active', passive: 'LACP passive', desirable: 'PAgP desirable', auto: 'PAgP auto' }[m]);
+    return `<div class="wg-row">${btn('Port-Channel erstellen', 'dlg', { k: 'ecnew' }, 'primary')}</div>` + tbl(['Port-Channel', 'Protokoll', 'Status', 'Mitglieder', 'Nachbar', ''], ns.map(n => { const b = A.NL.bundleOf(net, d, groups[n][0]), po = d.cfg.ifs['Port-channel' + n]; return [`<b>Po${n}</b> <small class="wg-mut">${po && po.mode === 'trunk' ? 'Trunk' : 'Access VLAN ' + (po ? po.vlan : 1)}</small>`, esc(prot(d.cfg.ifs[groups[n][0]].cg.mode)), b && b.ok ? chip('gebündelt', 'ok') : chip(b && b.partial ? 'unvollständig' : 'ausgesetzt', 'bad') + (b && b.reason ? `<br><small class="wg-mut">${esc(b.reason)}</small>` : ''), groups[n].map(p => esc(A.SH(p))).join(', '), b && b.peerDev ? esc(net.devs[b.peerDev].cfg.hostname) : '–', btn('Auflösen', 'ecdel', { n }, 'sm ghost bad')]; }), 'Noch kein Port-Channel. Mehrere Links zwischen zwei Switches ohne Bündelung blockiert das Spanning Tree bis auf einen.')
+      + '<p class="wg-note">Ein EtherChannel fasst mehrere Kabel zu einem logischen Link zusammen: mehr Bandbreite und Ausfallsicherheit, und das Spanning Tree sieht nur einen Link. Beide Seiten müssen passende Modi haben (active mit active oder passive, oder beide <code>on</code>) und gleich konfigurierte Ports.</p>';
+  };
+
   // ---------- Dialoge ----------
   function dlgHtml(d, G) {
     const x = G.dlg, k = x.k, net = A.net(), wrap = (t, body, ok, okLbl) => `<div class="wg-ov" data-act="dlgbg"><form class="wg-dlg" role="dialog" aria-modal="true" aria-label="${esc(t)}" data-act="dlgok"><h2>${t}</h2>${body}<div class="wg-row end">${btn('Abbrechen', 'dlgx', null, 'ghost')}${ok === false ? '' : `<button type="submit" class="wg-b primary" data-act="dlgok">${okLbl || 'OK'}</button>`}</div></form></div>`;
@@ -4232,6 +4403,7 @@ const WEBGUI = (function () {
       case 'hmpair': { const dm = S0().hm(d), b = net.devs[dm.peer], free = S0().st(d).luns.filter(l => !l.hm); return wrap('HyperMetro-Paar erstellen', free.length ? sel('lun', 'LUN auf diesem Array', free.map(l => [l.id, `${l.name} (${gb(l.gb)})`])) + sel('pool', `Pool auf ${esc(b.cfg.hostname)} für die Partner-LUN`, S0().st(b).pools.map(p => [p.name, `${p.name} (${gb(S0().poolInfo(b, p).free)} frei)`]), '', 'Die Partner-LUN bekommt dieselbe Größe und dieselbe Host-Zuordnung.') : '<p class="wg-empty">Lege zuerst eine LUN an, die gespiegelt werden soll.</p>', free.length > 0, 'Paar erstellen'); }
       case 'ssid': { const L = ssidList(d), cur = x.i === '' ? null : L[+x.i] || null; return wrap(cur ? `SSID ${esc(cur.name)}` : (d.type === 'wlc' ? 'WLAN hinzufügen' : 'SSID hinzufügen'), field('n', 'Name der SSID', cur ? cur.name : '', { ph: 'Firma-WLAN' }) + sel('sec', 'Sicherheit', [['wpa2', 'WPA2-PSK'], ['wpa3', 'WPA3-SAE'], ['open', 'Offen (ohne Passwort)']], cur ? cur.sec : 'wpa2') + field('psk', 'WLAN-Schlüssel (8 bis 63 Zeichen)', cur ? cur.psk : '', { hint: 'Wird bei „Offen“ ignoriert.' }) + field('vlan', 'VLAN (0 = nativ/untagged)', cur ? cur.vlan || 0 : 0, { type: 'number', min: 0, max: 4094 }), true, 'Speichern'); }
       case 'apnet': { const h = hostLn(d); return wrap('IP-Konfiguration', field('ip', 'IP-Adresse', h.ip || '', { ph: '10.0.0.60' }) + field('len', 'Präfixlänge', h.mask ? maskLen(h.mask) : 24, { type: 'number', min: 1, max: 30 }) + field('gw', 'Gateway', d.cfg.gw || '', { ph: '10.0.0.1' }), true, 'Speichern'); }
+      case 'ecnew': { const used = new Set(d.ports.filter(p => d.cfg.ifs[p].cg).map(p => d.cfg.ifs[p].cg.n)); let n = 1; while (used.has(n)) n++; const ps = d.ports.filter(p => A.NL.peerOfPort(net, d.id, p) && !d.cfg.ifs[p].cg); return wrap('Port-Channel erstellen', `<div class="wg-2">${field('n', 'Nummer', n, { type: 'number', min: 1, max: 64 })}${sel('md', 'Modus', [['active', 'LACP active (empfohlen)'], ['passive', 'LACP passive'], ['on', 'statisch (on)'], ['desirable', 'PAgP desirable'], ['auto', 'PAgP auto']], 'active')}</div><div class="wg-f"><label>Mitglieder (Ports mit Kabel)</label>${ps.length ? ps.map(p => `<label class="wg-ck2"><input type="checkbox" data-ecp="${esc(p)}"> ${esc(A.SH(p))} → ${esc(net.devs[A.NL.peerOfPort(net, d.id, p).dev].cfg.hostname)}</label>`).join('') : '<small>Keine freien Ports mit Kabel.</small>'}</div><label class="wg-ck2"><input type="checkbox" id="wf-trunk" checked> Als Trunk konfigurieren</label>`, ps.length > 1, 'Erstellen'); }
       case 'ifedit': {
         const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
         const vl = Object.keys(d.cfg.vlans || {}).map(Number).sort((a, b) => a - b).map(n => [n, `${n} – ${d.cfg.vlans[n]}`]);
@@ -4319,6 +4491,7 @@ const WEBGUI = (function () {
           G.msg = { t: 'SSID gespeichert. Clients verbinden sich mit dem Schlüssel.' }; break;
         }
         case 'apnet': { const ip = v(G, 'ip').trim(), gw = v(G, 'gw').trim(); if (!ip) { ok = false; G.msg = { err: true, t: 'IP-Adresse fehlt.' }; break; } const o = A.exec(dv, `ip ${ip}/${v(G, 'len')}${gw ? ' ' + gw : ''}`); G.log.push({ cmd: `ip ${ip}/${v(G, 'len')}${gw ? ' ' + gw : ''}`, err: false }); if (/ungültig|nicht|invalid/i.test(o)) { G.msg = { err: true, t: String(o).split('\n')[0] }; ok = false; } else { A.act(() => { dv.cfg.dhcp = false; }); G.msg = { t: 'IP-Konfiguration gespeichert.' }; } break; }
+        case 'ecnew': { const ps = [...root.querySelectorAll('[data-ecp]')].filter(c => c.checked).map(c => c.dataset.ecp), n = +v(G, 'n'); if (ps.length < 2) { G.msg = { err: true, t: 'Wähle mindestens zwei Ports.' }; ok = false; break; } const L = []; ps.forEach(p => L.push('interface ' + p, `channel-group ${n} mode ${v(G, 'md')}`, 'exit')); if (v(G, 'trunk')) L.push('interface port-channel ' + n, 'switchport mode trunk', 'exit'); ok = ios(G, L, `Port-Channel ${n} erstellt. Richte die Gegenseite mit passendem Modus ein.`); break; }
         case 'ifedit': {
           const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
           const allow = v(G, 'allow').trim().toLowerCase();
@@ -4382,7 +4555,8 @@ const WEBGUI = (function () {
     root.addEventListener('submit', e => { e.preventDefault(); const f = e.target.closest('[data-act]'); if (!f) return; if (f.dataset.act === 'login') { SESS[G.id] = true; G.auth = true; G.msg = null; done(); } else if (f.dataset.act === 'dlgok') dlgOk(); else if (f.dataset.act === 'pingf') { const dst = v(G, 'pdst').trim(), m = (e.submitter && e.submitter.dataset.m) || 'ping'; G.pdst = dst; if (dst) { const dv = d(); G.pout = { t: `${m} ${dst}`, o: A.iosShow(dv, `${m} ${dst}`) }; } done(); } else if (f.dataset.act === 'term') { const i = root.querySelector('#wg-cmd'); if (i && i.value.trim()) { A.termRun(d(), i.value); i.value = ''; } done(); } });
     root.addEventListener('change', e => {
       const t = e.target, a = t.dataset && t.dataset.act; if (!a) return; const dv = d(), net = A.net();
-      if (a === 'isel') { G.isel = G.isel || []; G.isel = t.checked ? G.isel.concat(t.dataset.p) : G.isel.filter(x => x !== t.dataset.p); G._keep = 1; done(); }
+      if (a === 'stpv') { G.tab.stpv = t.value; done(); }
+      else if (a === 'isel') { G.isel = G.isel || []; G.isel = t.checked ? G.isel.concat(t.dataset.p) : G.isel.filter(x => x !== t.dataset.p); G._keep = 1; done(); }
       else if (a === 'enable') { if (exec(G, `sudo systemctl ${t.checked ? 'enable' : 'disable'} ${t.dataset.u}`, 'Autostart geändert.')) { } done(); }
       else if (a === 'uplink') { A.act(() => { A.VIRT.setUplink(dv, t.dataset.p, t.checked); }); G.msg = { t: 'Uplinks gespeichert.' }; done(); }
       else if (a === 'ha') { A.act(() => { A.VIRT.setHa(net, dv, t.checked); }); G.msg = { t: t.checked ? 'HA aktiv: Fällt ein Host aus, starten seine VMs auf anderen Cluster-Hosts neu.' : 'HA aus.' }; done(); }
@@ -4406,6 +4580,11 @@ const WEBGUI = (function () {
         case 'apinj': A.act(() => { const st = NLw().apState(dv); st.injector = !st.injector; }); G.msg = { t: NLw().apState(dv).injector ? 'PoE-Injector angeschlossen.' : 'PoE-Injector entfernt.' }; break;
         case 'apwlc': { const ip = v(G, 'wlc').trim(); if (ip && !A.NL.validIp(ip)) { G.msg = { err: true, t: 'Ungültige IP-Adresse.' }; break; } A.act(() => { NLw().apState(dv).wlc = ip; }); G.log.push({ cmd: ip ? `capwap ap controller ip address ${ip}` : 'no capwap ap controller ip address', err: false }); G.msg = { t: ip ? 'Controller gespeichert. Der AP versucht sich anzumelden.' : 'Autonomer Betrieb.' }; break; }
         case 'apdhcp': { let r; A.act(() => { dv.cfg.dhcp = true; r = A.dhcp(dv); }); G.msg = r.err ? { err: true, t: 'DHCP fehlgeschlagen: ' + r.err } : { t: `DHCP: ${r.ip}/${maskLen(r.mask)} von ${r.server}.` }; break; }
+        case 'stprio': ios(G, `spanning-tree vlan ${D.v} priority ${v(G, 'sprio')}`, 'Priorität gesetzt.'); break;
+        case 'stroot': ios(G, `spanning-tree vlan ${D.v} root primary`, 'Dieser Switch ist jetzt Root Bridge für das VLAN.'); break;
+        case 'stoff': ios(G, D.on === '1' ? `spanning-tree vlan ${D.v}` : `no spanning-tree vlan ${D.v}`, D.on === '1' ? 'Spanning Tree eingeschaltet.' : 'Spanning Tree ausgeschaltet. Achtung: Schleifen führen zu einem Broadcast-Sturm.'); break;
+        case 'stmode': ios(G, 'spanning-tree mode ' + v(G, 'stmode'), 'Modus gesetzt.'); break;
+        case 'ecdel': { const L = []; dv.ports.filter(p => dv.cfg.ifs[p].cg && dv.cfg.ifs[p].cg.n === +D.n).forEach(p => L.push('interface ' + p, 'no channel-group', 'exit')); L.push('no interface port-channel ' + D.n); ios(G, L, 'Port-Channel aufgelöst.'); break; }
         case 'dpooldel': ios(G, 'no ip dhcp pool ' + D.n, 'Pool gelöscht.'); break;
         case 'dexcldel': { const a = excluded(dv)[+D.i]; if (a) ios(G, `no ip dhcp excluded-address ${a.join(' ')}`, 'Ausschluss entfernt.'); break; }
         case 'fwacldel': ios(G, 'no access-list ' + D.a, 'Regelliste gelöscht.'); break;
@@ -4850,6 +5029,7 @@ const Sandbox = (function () {
         <div class="seg2" id="segv" role="group" aria-label="Ansicht"><button data-v="plan">Netzplan</button><button data-v="rack">Rack</button><button data-v="sys">Systeme</button></div>
         <div class="seg2" id="segm" role="group" aria-label="Modus"><button data-m="rt">Echtzeit</button><button data-m="sim">Simulation</button></div>
         <button class="ibtn" id="undoBtn" title="Rückgängig (Strg+Z)" aria-label="Rückgängig"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button><button class="ibtn" id="redoBtn" title="Wiederholen (Strg+Y)" aria-label="Wiederholen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg></button>
+        <label class="stpl" id="stpwrap" hidden title="Spanning-Tree-Ansicht: Root und blockierte Ports für dieses VLAN">STP <select id="stpv" aria-label="Spanning-Tree-VLAN"></select></label>
         <button class="pill" id="scenpill" hidden></button>
         <button class="ibtn" id="inspBtn" title="Details ein- oder ausblenden" aria-label="Details ein- oder ausblenden" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
         <div class="sp"></div>
@@ -4876,6 +5056,7 @@ const Sandbox = (function () {
     </div>`;
     $$('#segv button').forEach(b => b.onclick = () => { S.view = b.dataset.v; store.set('sbxview', S.view); render(); });
     $$('#segm button').forEach(b => b.onclick = () => { S.mode = b.dataset.m; store.set('sbxmode', S.mode); S.sim = null; S.ptab = 'pdu'; render(); });
+    $('#stpv').onchange = e => { S.stpVlan = +e.target.value; render(); };
     $('#inspBtn').onclick = () => { S.inspOpen = !S.inspOpen; render(); };
     $('#xBtn').onclick = exportModal; $('#undoBtn').onclick = undo; $('#redoBtn').onclick = redo; $('#scenpill').onclick = () => { S.dock = 'task'; S.dockOpen = true; drawDock(); };
     $$('.mlist button').forEach(b => b.onclick = () => { b.closest('details').open = false; menu(b.dataset.m); });
@@ -4923,6 +5104,7 @@ const Sandbox = (function () {
     $$('#segv button').forEach(b => b.classList.toggle('act', b.dataset.v === S.view)); $$('#segm button').forEach(b => b.classList.toggle('act', b.dataset.m === S.mode));
     if (S._ls !== undefined && S.sel !== S._ls && S.view !== 'sys') S.inspOpen = true; S._ls = S.sel;
     { const sb = $('.sbx'); sb.classList.toggle('noinsp', !S.inspOpen || S.view === 'sys'); sb.classList.toggle('vsys', S.view === 'sys'); $('#inspBtn').setAttribute('aria-pressed', !!S.inspOpen); }
+    { const sws = Object.values(S.net.devs).filter(d => d.type === 'switch'), vl = [...new Set(sws.flatMap(d => Object.keys(d.cfg.vlans).map(Number)))].sort((a, b) => a - b); if (!vl.includes(S.stpVlan)) S.stpVlan = vl[0] || 1; const w = $('#stpwrap'); w.hidden = sws.length < 2 || S.view === 'sys'; if (!w.hidden) $('#stpv').innerHTML = vl.map(v => `<option value="${v}" ${v === S.stpVlan ? 'selected' : ''}>VLAN ${v}</option>`).join(''); }
     $('#cvwrap').dataset.tool = S.cabling ? 'cable' : S.tool;
     let h = '';
     if (S.cabling) h = S.pend ? `<b>Kabel:</b> Ende A ist ${esc(dh(S.pend.dev))} ${esc(SH(S.pend.port))} – jetzt freien Port am anderen Gerät anklicken (Esc: Abbruch)` : `<b>Kabel (${CABSHORT[S.cable]}):</b> freien Port anklicken (Esc: Ende)`;
@@ -5202,12 +5384,14 @@ const Sandbox = (function () {
     const net = S.net, LC = {}; for (const id in net.devs) LC[id] = layout(net.devs[id]);
     const P = (id, p) => { const d = net.devs[id], L = LC[id], q = L.ports[p]; return { x: d.x - L.w / 2 + q.x + q.s / 2, y: d.y - L.h / 2 + q.y + q.s / 2, s: q.s, row: q.row, rows: L.rows }; };
     let s = defs() + '<pattern id="gr" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".9" style="fill:var(--line)"/></pattern><rect x="-4000" y="-4000" width="9000" height="9000" fill="url(#gr)" pointer-events="none"/>', cab = '';
+    const stpR = Object.values(net.devs).filter(d => d.type === 'switch').length > 1 ? NL.stp(net, S.stpVlan || 1) : null, blkEnd = (id, p) => !!(stpR && stpR.sw[id] && stpR.sw[id].ports[p] && stpR.sw[id].ports[p].sts === 'BLK');
     const lamp = st => st.st === 'connected' ? '#3DDB8A' : st.st === 'err-disabled' ? '#FFB020' : st.link && st.st !== 'disabled' ? '#FF5A4A' : st.st === 'disabled' ? '#8a8f95' : '#FF5A4A';
     net.links.forEach((l, li) => {
       if (!LC[l.a] || !LC[l.b] || !LC[l.a].ports[l.ap] || !LC[l.b].ports[l.bp]) return;
       const st = NL.portStatus(net, l.a, l.ap), up = st.st === 'connected', rel = S.sel && (l.a === S.sel || l.b === S.sel), c = cablePath(P(l.a, l.ap), P(l.b, l.bp));
-      cab += `<g class="lw ${rel ? 'rel' : ''}" data-d="${l.a}" data-p="${esc(l.ap)}"><title>${esc(dh(l.a))} ${esc(SH(l.ap))} ↔ ${esc(dh(l.b))} ${esc(SH(l.bp))}, ${CABSHORT[l.cable || 'cu']}${up ? ', Link up' : ', kein Link: ' + esc(st.reason)}</title>`
-        + `<path d="${c.d}" class="wire hit"/><path d="${c.d}" data-li="${li}" class="wire ${up ? '' : 'dn'} ${l.cut ? 'cut' : ''}" style="stroke:${CABCOL[l.cable || 'cu']}"/><circle class="lamp" cx="${c.la.x.toFixed(1)}" cy="${c.la.y.toFixed(1)}" r="2.7" style="fill:${lamp(st)}"/><circle class="lamp" cx="${c.lb.x.toFixed(1)}" cy="${c.lb.y.toFixed(1)}" r="2.7" style="fill:${lamp(NL.portStatus(net, l.b, l.bp))}"/>${up ? '' : `<circle cx="${c.mx}" cy="${c.my}" r="7" class="xdot"/><path class="xmark" d="M${c.mx - 3} ${c.my - 3}l6 6m0 -6l-6 6"/>`}</g>`;
+      const ba = blkEnd(l.a, l.ap), bb = blkEnd(l.b, l.bp), bx = (c0, on) => on ? `<g class="stpx"><circle cx="${c0.x.toFixed(1)}" cy="${c0.y.toFixed(1)}" r="6"/><path d="M${(c0.x - 2.6).toFixed(1)} ${(c0.y - 2.6).toFixed(1)}l5.2 5.2M${(c0.x + 2.6).toFixed(1)} ${(c0.y - 2.6).toFixed(1)}l-5.2 5.2"/></g>` : '';
+      cab += `<g class="lw ${rel ? 'rel' : ''} ${ba || bb ? 'stpb' : ''}" data-d="${l.a}" data-p="${esc(l.ap)}"><title>${esc(dh(l.a))} ${esc(SH(l.ap))} ↔ ${esc(dh(l.b))} ${esc(SH(l.bp))}, ${CABSHORT[l.cable || 'cu']}${up ? ', Link up' : ', kein Link: ' + esc(st.reason)}${ba || bb ? ' · Spanning Tree blockiert (VLAN ' + (S.stpVlan || 1) + ')' : ''}</title>`
+        + `<path d="${c.d}" class="wire hit"/><path d="${c.d}" data-li="${li}" class="wire ${up ? '' : 'dn'} ${l.cut ? 'cut' : ''}" style="stroke:${CABCOL[l.cable || 'cu']}"/><circle class="lamp" cx="${c.la.x.toFixed(1)}" cy="${c.la.y.toFixed(1)}" r="2.7" style="fill:${lamp(st)}"/><circle class="lamp" cx="${c.lb.x.toFixed(1)}" cy="${c.lb.y.toFixed(1)}" r="2.7" style="fill:${lamp(NL.portStatus(net, l.b, l.bp))}"/>${bx(c.la, ba)}${bx(c.lb, bb)}${up ? '' : `<circle cx="${c.mx}" cy="${c.my}" r="7" class="xdot"/><path class="xmark" d="M${c.mx - 3} ${c.my - 3}l6 6m0 -6l-6 6"/>`}</g>`;
     });
     let vl = ''; net.links.forEach(l => { if (l.wifi) { const c = net.devs[l.a], ap = net.devs[l.b]; if (!c || !ap || !LC[c.id] || !LC[ap.id]) return; const ok = NL.portStatus(net, c.id, c.ports[0]).st === 'connected'; vl += `<path class="wlink ${ok ? '' : 'dn'}" d="M${ap.x} ${ap.y - 12} Q${((ap.x + c.x) / 2 + 24).toFixed(1)} ${((ap.y + c.y) / 2 - 20).toFixed(1)} ${c.x} ${c.y - 26}"><title>WLAN ${esc((c.wifi || {}).ssid || '')}: ${esc(c.cfg.hostname)} ↔ ${esc(ap.cfg.hostname)}</title></path>`; return; } if (!l.virt) return; const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], hh = net.devs[vm.vm.host]; if (!hh || !LC[hh.id]) return; vl += `<line class="vlink ${vm.vm.state === 'running' && !NL.isDown(hh) ? '' : 'dn'}" x1="${hh.x}" y1="${(hh.y + LC[hh.id].h / 2).toFixed(1)}" x2="${vm.x}" y2="${vm.y - 24}"/>`; });
     s += zonesSvg() + vl + cab;
@@ -5219,6 +5403,7 @@ const Sandbox = (function () {
         + `<rect class="selbox" x="-5" y="-5" width="${L.w + 10}" height="${L.h + 10}" rx="7"/>`
         + (L.icon ? `<g transform="translate(32,34) scale(.85)" class="ic">${ICON[d.icon] || ICON[d.type]}</g>` : `<rect class="fpl t-${d.fw ? 'fw' : d.type}" width="${L.w}" height="${L.h}" rx="4"/>${groupsSvg(L, 0, 0, false)}`)
         + portsSvg(d, L, 0, 0, false)
+        + (stpR && stpR.sw[id] && stpR.sw[id].root ? `<g class="rootb"><rect x="${L.w - 44}" y="-27" width="44" height="16" rx="8"/><text x="${L.w - 22}" y="-16">ROOT</text></g>` : '')
         + (L.icon ? `<text class="hn" x="${L.w / 2}" y="${L.h + 14}">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="${L.h + 26}">${esc(sub)}</text>`
           : `<text class="hn" x="${L.w / 2}" y="-18">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="-6">${stt.used}/${stt.total} Ports belegt</text>`) + '</g>';
     }
@@ -6054,6 +6239,14 @@ const Sandbox = (function () {
     });
     if (!o.noStorage) { const t = hd(net, 'STO-01'); [['A-slot2/1', 'fc1/9'], ['B-slot2/1', 'fc1/10']].forEach(([q, w]) => { lk(net, 'STO-01', q, 'MDS-A', w, 'mmf'); t.xcvr[q] = FCX; hd(net, 'MDS-A').xcvr[w] = FCX; }); }
   }
+  // Spanning-Tree-Lab: Core und zwei Access-Switches im Dreieck, je ein PC an den Access-Switches
+  function stpBase(net) {
+    mk(net, 'C9200L-24T-4G', 400, 80, 'SW-CORE'); mk(net, 'C9200L-24T-4G', 160, 300, 'SW-A1'); mk(net, 'C9200L-24T-4G', 640, 300, 'SW-A2');
+    lk(net, 'SW-CORE', G + 1, 'SW-A1', G + 1); lk(net, 'SW-CORE', G + 2, 'SW-A2', G + 1); lk(net, 'SW-A1', G + 2, 'SW-A2', G + 2);
+    mk(net, 'PC', 160, 480, 'PC-A1'); mk(net, 'PC', 640, 480, 'PC-A2'); lk(net, 'PC-A1', 'eth0', 'SW-A1', G + 10); lk(net, 'PC-A2', 'eth0', 'SW-A2', G + 10);
+    ['SW-CORE', 'SW-A1', 'SW-A2'].forEach(h => rn(net, h, ['interface range g1/0/1 - 2', 'switchport mode trunk']));
+    rn(net, 'PC-A1', ['ip 10.0.0.11/24']); rn(net, 'PC-A2', ['ip 10.0.0.12/24']);
+  }
   // WLAN-Lab: PoE-Switch, Gateway, Webserver, Access Point(s), Clients
   function wlBase(net, o = {}) {
     mk(net, 'C9200L-24P-4X', 360, 80, 'SW'); mk(net, 'ISR4331', 700, 80, 'R-GW'); lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24);
@@ -6293,6 +6486,33 @@ const Sandbox = (function () {
         { t: 'Als Absicherung ist „Statische Priorität als Fallback“ eingeschaltet', c: n => !!STORN.hm(hd(n, 'STO-01')).staticFallback }],
       hints: ['Öffne die HyperMetro-Seite von STO-01: Die Domänenübersicht zeigt, ob die Arrays den Quorum-Server erreichen und ob die Replikationsverbindung steht.', 'Der Quorum-Dienst auf QSRV ist gestoppt (<code>sudo systemctl start quorum-server</code>), und die Replikationszone am MDS-A fehlt („Replikationszonen anlegen“).', 'Unter „Einstellungen“ schaltest du die statische Priorität ein: Dann arbeitet der bevorzugte Standort auch weiter, wenn der Quorum-Server ausfällt.'],
       sol(net) { const t1 = hd(net, 'STO-01'); lxr(net, 'QSRV', 'sudo systemctl start quorum-server'); STORN.hmAutoZone(net, t1); STORN.hmSet(net, t1, { staticFallback: true }); } }
+    ,
+    { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
+      intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',
+      build(net) { stpBase(net); rn(net, 'SW-A1', ['spanning-tree vlan 1 priority 4096']); },
+      goals: [
+        { t: '<code>SW-CORE</code> ist Root Bridge in VLAN 1', c: n => { const x = NL.stp(n, 1).sw[hd(n, 'SW-CORE').id]; return !!x && x.root; } },
+        { t: 'Der blockierte Port liegt am Link <code>SW-A1</code> – <code>SW-A2</code> (nicht am Core)', c: n => { const r = NL.stp(n, 1), core = hd(n, 'SW-CORE').id, blk = Object.entries(r.sw).flatMap(([id, x]) => Object.entries(x.ports).filter(([p, q]) => q.sts === 'BLK').map(([p]) => id)); return blk.length === 1 && blk[0] !== core && Object.values(r.sw[core].ports).every(q => q.sts === 'FWD') && !r.sw[hd(n, 'SW-A1').id].root; } },
+        { t: '<code>PC-A1</code> erreicht <code>PC-A2</code>', c: n => pg(n, 'PC-A1', '10.0.0.12') }],
+      hints: ['Öffne die Web-GUI eines Switches → „Spanning Tree“. Dort steht, welcher Switch Root ist, und welche Ports blockieren. Im Netzplan zeigt „ROOT“ die Root Bridge und ein orangenes Kreuz den blockierten Port.', 'Die Root Bridge hat die niedrigste Bridge-ID. Auf SW-A1 steht Priorität 4096, die kleiner ist als der Standardwert 32768.', 'Entferne die Priorität auf SW-A1 (<code>no spanning-tree vlan 1 priority</code>) und setze den Core mit <code>spanning-tree vlan 1 root primary</code> auf Root.'],
+      sol(net) { rn(net, 'SW-A1', ['no spanning-tree vlan 1 priority']); rn(net, 'SW-CORE', ['spanning-tree vlan 1 root primary']); } }
+    ,
+    { id: 'sc-ec-mismatch', kind: 'Fehlersuche', title: 'EtherChannel: Bündel wird ausgesetzt', est: '20 min',
+      intro: 'Zwischen <code>SW-CORE</code> und <code>SW-DS</code> laufen zwei Kabel (Gi1/0/1 und Gi1/0/2), die als EtherChannel gebündelt sein sollen. Das Bündel ist ausgesetzt, und die beiden PCs im VLAN 10 erreichen sich nicht. Es gibt zwei Ursachen.',
+      build(net) {
+        mk(net, 'C9200L-24T-4G', 300, 100, 'SW-CORE'); mk(net, 'C9200L-24T-4G', 300, 320, 'SW-DS'); lk(net, 'SW-CORE', G + 1, 'SW-DS', G + 1); lk(net, 'SW-CORE', G + 2, 'SW-DS', G + 2);
+        mk(net, 'PC', 120, 100, 'PC-1'); mk(net, 'PC', 120, 320, 'PC-2'); lk(net, 'PC-1', 'eth0', 'SW-CORE', G + 10); lk(net, 'PC-2', 'eth0', 'SW-DS', G + 10);
+        ['SW-CORE', 'SW-DS'].forEach(h => rn(net, h, ['vlan 10', 'interface range g1/0/1 - 2', 'switchport mode trunk', 'switchport trunk allowed vlan 10', 'interface g1/0/10', 'switchport mode access', 'switchport access vlan 10']));
+        rn(net, 'PC-1', ['ip 10.10.0.1/24']); rn(net, 'PC-2', ['ip 10.10.0.2/24']);
+        rn(net, 'SW-CORE', ['interface range g1/0/1 - 2', 'channel-group 1 mode active', 'interface port-channel 1', 'switchport mode trunk', 'switchport trunk allowed vlan 10']);
+        rn(net, 'SW-DS', ['interface range g1/0/1 - 2', 'channel-group 1 mode on', 'interface port-channel 1', 'switchport mode trunk', 'switchport trunk allowed vlan 10', 'interface g1/0/2', 'switchport mode access']);
+      },
+      goals: [
+        { t: 'Das Bündel Port-Channel 1 ist auf <code>SW-CORE</code> aktiv (<code>show etherchannel summary</code>: SU)', c: n => { const d = hd(n, 'SW-CORE'); return !!(NL.bundleOf(n, d, d.ports[0]) || {}).ok; } },
+        { t: 'Das Bündel ist auch auf <code>SW-DS</code> aktiv', c: n => { const d = hd(n, 'SW-DS'); return !!(NL.bundleOf(n, d, d.ports[0]) || {}).ok; } },
+        { t: '<code>PC-1</code> erreicht <code>PC-2</code>', c: n => pg(n, 'PC-1', '10.10.0.2') }],
+      hints: ['Prüfe auf beiden Switches <code>show etherchannel summary</code>. Dort steht unter dem Bündel der Grund.', 'Beide Seiten müssen zusammenpassen: LACP active mit active oder passive, oder beide <code>on</code>. Gemischt geht nicht.', 'Alle Mitglieder müssen gleich konfiguriert sein. Ein Port steht auf Access statt Trunk.'],
+      sol(net) { rn(net, 'SW-DS', ['interface range g1/0/1 - 2', 'no channel-group', 'switchport mode trunk', 'switchport trunk allowed vlan 10', 'channel-group 1 mode active']); } }
     ,
     { id: 'sc-wl-dev', kind: 'Fehlersuche', title: 'WLAN: Notebook kommt nicht ins Büro-Netz', est: '20 min',
       intro: 'Das Notebook <code>LAP-1</code> soll sich über den Access Point <code>AP-1</code> mit dem WLAN <code>Buero</code> verbinden und den Webserver <code>SRV-WEB</code> (10.20.0.10) im VLAN 20 erreichen. Das WLAN-Passwort ist <code>Buero-2026</code>. Es klappt weder die Verbindung noch der Zugriff. Es gibt zwei Ursachen.',

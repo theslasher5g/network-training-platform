@@ -134,6 +134,7 @@ const Sandbox = (function () {
         <div class="seg2" id="segv" role="group" aria-label="Ansicht"><button data-v="plan">Netzplan</button><button data-v="rack">Rack</button><button data-v="sys">Systeme</button></div>
         <div class="seg2" id="segm" role="group" aria-label="Modus"><button data-m="rt">Echtzeit</button><button data-m="sim">Simulation</button></div>
         <button class="ibtn" id="undoBtn" title="Rückgängig (Strg+Z)" aria-label="Rückgängig"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg></button><button class="ibtn" id="redoBtn" title="Wiederholen (Strg+Y)" aria-label="Wiederholen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg></button>
+        <label class="stpl" id="stpwrap" hidden title="Spanning-Tree-Ansicht: Root und blockierte Ports für dieses VLAN">STP <select id="stpv" aria-label="Spanning-Tree-VLAN"></select></label>
         <button class="pill" id="scenpill" hidden></button>
         <button class="ibtn" id="inspBtn" title="Details ein- oder ausblenden" aria-label="Details ein- oder ausblenden" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
         <div class="sp"></div>
@@ -160,6 +161,7 @@ const Sandbox = (function () {
     </div>`;
     $$('#segv button').forEach(b => b.onclick = () => { S.view = b.dataset.v; store.set('sbxview', S.view); render(); });
     $$('#segm button').forEach(b => b.onclick = () => { S.mode = b.dataset.m; store.set('sbxmode', S.mode); S.sim = null; S.ptab = 'pdu'; render(); });
+    $('#stpv').onchange = e => { S.stpVlan = +e.target.value; render(); };
     $('#inspBtn').onclick = () => { S.inspOpen = !S.inspOpen; render(); };
     $('#xBtn').onclick = exportModal; $('#undoBtn').onclick = undo; $('#redoBtn').onclick = redo; $('#scenpill').onclick = () => { S.dock = 'task'; S.dockOpen = true; drawDock(); };
     $$('.mlist button').forEach(b => b.onclick = () => { b.closest('details').open = false; menu(b.dataset.m); });
@@ -207,6 +209,7 @@ const Sandbox = (function () {
     $$('#segv button').forEach(b => b.classList.toggle('act', b.dataset.v === S.view)); $$('#segm button').forEach(b => b.classList.toggle('act', b.dataset.m === S.mode));
     if (S._ls !== undefined && S.sel !== S._ls && S.view !== 'sys') S.inspOpen = true; S._ls = S.sel;
     { const sb = $('.sbx'); sb.classList.toggle('noinsp', !S.inspOpen || S.view === 'sys'); sb.classList.toggle('vsys', S.view === 'sys'); $('#inspBtn').setAttribute('aria-pressed', !!S.inspOpen); }
+    { const sws = Object.values(S.net.devs).filter(d => d.type === 'switch'), vl = [...new Set(sws.flatMap(d => Object.keys(d.cfg.vlans).map(Number)))].sort((a, b) => a - b); if (!vl.includes(S.stpVlan)) S.stpVlan = vl[0] || 1; const w = $('#stpwrap'); w.hidden = sws.length < 2 || S.view === 'sys'; if (!w.hidden) $('#stpv').innerHTML = vl.map(v => `<option value="${v}" ${v === S.stpVlan ? 'selected' : ''}>VLAN ${v}</option>`).join(''); }
     $('#cvwrap').dataset.tool = S.cabling ? 'cable' : S.tool;
     let h = '';
     if (S.cabling) h = S.pend ? `<b>Kabel:</b> Ende A ist ${esc(dh(S.pend.dev))} ${esc(SH(S.pend.port))} – jetzt freien Port am anderen Gerät anklicken (Esc: Abbruch)` : `<b>Kabel (${CABSHORT[S.cable]}):</b> freien Port anklicken (Esc: Ende)`;
@@ -486,12 +489,14 @@ const Sandbox = (function () {
     const net = S.net, LC = {}; for (const id in net.devs) LC[id] = layout(net.devs[id]);
     const P = (id, p) => { const d = net.devs[id], L = LC[id], q = L.ports[p]; return { x: d.x - L.w / 2 + q.x + q.s / 2, y: d.y - L.h / 2 + q.y + q.s / 2, s: q.s, row: q.row, rows: L.rows }; };
     let s = defs() + '<pattern id="gr" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".9" style="fill:var(--line)"/></pattern><rect x="-4000" y="-4000" width="9000" height="9000" fill="url(#gr)" pointer-events="none"/>', cab = '';
+    const stpR = Object.values(net.devs).filter(d => d.type === 'switch').length > 1 ? NL.stp(net, S.stpVlan || 1) : null, blkEnd = (id, p) => !!(stpR && stpR.sw[id] && stpR.sw[id].ports[p] && stpR.sw[id].ports[p].sts === 'BLK');
     const lamp = st => st.st === 'connected' ? '#3DDB8A' : st.st === 'err-disabled' ? '#FFB020' : st.link && st.st !== 'disabled' ? '#FF5A4A' : st.st === 'disabled' ? '#8a8f95' : '#FF5A4A';
     net.links.forEach((l, li) => {
       if (!LC[l.a] || !LC[l.b] || !LC[l.a].ports[l.ap] || !LC[l.b].ports[l.bp]) return;
       const st = NL.portStatus(net, l.a, l.ap), up = st.st === 'connected', rel = S.sel && (l.a === S.sel || l.b === S.sel), c = cablePath(P(l.a, l.ap), P(l.b, l.bp));
-      cab += `<g class="lw ${rel ? 'rel' : ''}" data-d="${l.a}" data-p="${esc(l.ap)}"><title>${esc(dh(l.a))} ${esc(SH(l.ap))} ↔ ${esc(dh(l.b))} ${esc(SH(l.bp))}, ${CABSHORT[l.cable || 'cu']}${up ? ', Link up' : ', kein Link: ' + esc(st.reason)}</title>`
-        + `<path d="${c.d}" class="wire hit"/><path d="${c.d}" data-li="${li}" class="wire ${up ? '' : 'dn'} ${l.cut ? 'cut' : ''}" style="stroke:${CABCOL[l.cable || 'cu']}"/><circle class="lamp" cx="${c.la.x.toFixed(1)}" cy="${c.la.y.toFixed(1)}" r="2.7" style="fill:${lamp(st)}"/><circle class="lamp" cx="${c.lb.x.toFixed(1)}" cy="${c.lb.y.toFixed(1)}" r="2.7" style="fill:${lamp(NL.portStatus(net, l.b, l.bp))}"/>${up ? '' : `<circle cx="${c.mx}" cy="${c.my}" r="7" class="xdot"/><path class="xmark" d="M${c.mx - 3} ${c.my - 3}l6 6m0 -6l-6 6"/>`}</g>`;
+      const ba = blkEnd(l.a, l.ap), bb = blkEnd(l.b, l.bp), bx = (c0, on) => on ? `<g class="stpx"><circle cx="${c0.x.toFixed(1)}" cy="${c0.y.toFixed(1)}" r="6"/><path d="M${(c0.x - 2.6).toFixed(1)} ${(c0.y - 2.6).toFixed(1)}l5.2 5.2M${(c0.x + 2.6).toFixed(1)} ${(c0.y - 2.6).toFixed(1)}l-5.2 5.2"/></g>` : '';
+      cab += `<g class="lw ${rel ? 'rel' : ''} ${ba || bb ? 'stpb' : ''}" data-d="${l.a}" data-p="${esc(l.ap)}"><title>${esc(dh(l.a))} ${esc(SH(l.ap))} ↔ ${esc(dh(l.b))} ${esc(SH(l.bp))}, ${CABSHORT[l.cable || 'cu']}${up ? ', Link up' : ', kein Link: ' + esc(st.reason)}${ba || bb ? ' · Spanning Tree blockiert (VLAN ' + (S.stpVlan || 1) + ')' : ''}</title>`
+        + `<path d="${c.d}" class="wire hit"/><path d="${c.d}" data-li="${li}" class="wire ${up ? '' : 'dn'} ${l.cut ? 'cut' : ''}" style="stroke:${CABCOL[l.cable || 'cu']}"/><circle class="lamp" cx="${c.la.x.toFixed(1)}" cy="${c.la.y.toFixed(1)}" r="2.7" style="fill:${lamp(st)}"/><circle class="lamp" cx="${c.lb.x.toFixed(1)}" cy="${c.lb.y.toFixed(1)}" r="2.7" style="fill:${lamp(NL.portStatus(net, l.b, l.bp))}"/>${bx(c.la, ba)}${bx(c.lb, bb)}${up ? '' : `<circle cx="${c.mx}" cy="${c.my}" r="7" class="xdot"/><path class="xmark" d="M${c.mx - 3} ${c.my - 3}l6 6m0 -6l-6 6"/>`}</g>`;
     });
     let vl = ''; net.links.forEach(l => { if (l.wifi) { const c = net.devs[l.a], ap = net.devs[l.b]; if (!c || !ap || !LC[c.id] || !LC[ap.id]) return; const ok = NL.portStatus(net, c.id, c.ports[0]).st === 'connected'; vl += `<path class="wlink ${ok ? '' : 'dn'}" d="M${ap.x} ${ap.y - 12} Q${((ap.x + c.x) / 2 + 24).toFixed(1)} ${((ap.y + c.y) / 2 - 20).toFixed(1)} ${c.x} ${c.y - 26}"><title>WLAN ${esc((c.wifi || {}).ssid || '')}: ${esc(c.cfg.hostname)} ↔ ${esc(ap.cfg.hostname)}</title></path>`; return; } if (!l.virt) return; const vm = net.devs[l.a].vm ? net.devs[l.a] : net.devs[l.b], hh = net.devs[vm.vm.host]; if (!hh || !LC[hh.id]) return; vl += `<line class="vlink ${vm.vm.state === 'running' && !NL.isDown(hh) ? '' : 'dn'}" x1="${hh.x}" y1="${(hh.y + LC[hh.id].h / 2).toFixed(1)}" x2="${vm.x}" y2="${vm.y - 24}"/>`; });
     s += zonesSvg() + vl + cab;
@@ -503,6 +508,7 @@ const Sandbox = (function () {
         + `<rect class="selbox" x="-5" y="-5" width="${L.w + 10}" height="${L.h + 10}" rx="7"/>`
         + (L.icon ? `<g transform="translate(32,34) scale(.85)" class="ic">${ICON[d.icon] || ICON[d.type]}</g>` : `<rect class="fpl t-${d.fw ? 'fw' : d.type}" width="${L.w}" height="${L.h}" rx="4"/>${groupsSvg(L, 0, 0, false)}`)
         + portsSvg(d, L, 0, 0, false)
+        + (stpR && stpR.sw[id] && stpR.sw[id].root ? `<g class="rootb"><rect x="${L.w - 44}" y="-27" width="44" height="16" rx="8"/><text x="${L.w - 22}" y="-16">ROOT</text></g>` : '')
         + (L.icon ? `<text class="hn" x="${L.w / 2}" y="${L.h + 14}">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="${L.h + 26}">${esc(sub)}</text>`
           : `<text class="hn" x="${L.w / 2}" y="-18">${esc(d.cfg.hostname)}</text><text class="ipl" x="${L.w / 2}" y="-6">${stt.used}/${stt.total} Ports belegt</text>`) + '</g>';
     }
@@ -1338,6 +1344,14 @@ const Sandbox = (function () {
     });
     if (!o.noStorage) { const t = hd(net, 'STO-01'); [['A-slot2/1', 'fc1/9'], ['B-slot2/1', 'fc1/10']].forEach(([q, w]) => { lk(net, 'STO-01', q, 'MDS-A', w, 'mmf'); t.xcvr[q] = FCX; hd(net, 'MDS-A').xcvr[w] = FCX; }); }
   }
+  // Spanning-Tree-Lab: Core und zwei Access-Switches im Dreieck, je ein PC an den Access-Switches
+  function stpBase(net) {
+    mk(net, 'C9200L-24T-4G', 400, 80, 'SW-CORE'); mk(net, 'C9200L-24T-4G', 160, 300, 'SW-A1'); mk(net, 'C9200L-24T-4G', 640, 300, 'SW-A2');
+    lk(net, 'SW-CORE', G + 1, 'SW-A1', G + 1); lk(net, 'SW-CORE', G + 2, 'SW-A2', G + 1); lk(net, 'SW-A1', G + 2, 'SW-A2', G + 2);
+    mk(net, 'PC', 160, 480, 'PC-A1'); mk(net, 'PC', 640, 480, 'PC-A2'); lk(net, 'PC-A1', 'eth0', 'SW-A1', G + 10); lk(net, 'PC-A2', 'eth0', 'SW-A2', G + 10);
+    ['SW-CORE', 'SW-A1', 'SW-A2'].forEach(h => rn(net, h, ['interface range g1/0/1 - 2', 'switchport mode trunk']));
+    rn(net, 'PC-A1', ['ip 10.0.0.11/24']); rn(net, 'PC-A2', ['ip 10.0.0.12/24']);
+  }
   // WLAN-Lab: PoE-Switch, Gateway, Webserver, Access Point(s), Clients
   function wlBase(net, o = {}) {
     mk(net, 'C9200L-24P-4X', 360, 80, 'SW'); mk(net, 'ISR4331', 700, 80, 'R-GW'); lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24);
@@ -1577,6 +1591,33 @@ const Sandbox = (function () {
         { t: 'Als Absicherung ist „Statische Priorität als Fallback“ eingeschaltet', c: n => !!STORN.hm(hd(n, 'STO-01')).staticFallback }],
       hints: ['Öffne die HyperMetro-Seite von STO-01: Die Domänenübersicht zeigt, ob die Arrays den Quorum-Server erreichen und ob die Replikationsverbindung steht.', 'Der Quorum-Dienst auf QSRV ist gestoppt (<code>sudo systemctl start quorum-server</code>), und die Replikationszone am MDS-A fehlt („Replikationszonen anlegen“).', 'Unter „Einstellungen“ schaltest du die statische Priorität ein: Dann arbeitet der bevorzugte Standort auch weiter, wenn der Quorum-Server ausfällt.'],
       sol(net) { const t1 = hd(net, 'STO-01'); lxr(net, 'QSRV', 'sudo systemctl start quorum-server'); STORN.hmAutoZone(net, t1); STORN.hmSet(net, t1, { staticFallback: true }); } }
+    ,
+    { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
+      intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',
+      build(net) { stpBase(net); rn(net, 'SW-A1', ['spanning-tree vlan 1 priority 4096']); },
+      goals: [
+        { t: '<code>SW-CORE</code> ist Root Bridge in VLAN 1', c: n => { const x = NL.stp(n, 1).sw[hd(n, 'SW-CORE').id]; return !!x && x.root; } },
+        { t: 'Der blockierte Port liegt am Link <code>SW-A1</code> – <code>SW-A2</code> (nicht am Core)', c: n => { const r = NL.stp(n, 1), core = hd(n, 'SW-CORE').id, blk = Object.entries(r.sw).flatMap(([id, x]) => Object.entries(x.ports).filter(([p, q]) => q.sts === 'BLK').map(([p]) => id)); return blk.length === 1 && blk[0] !== core && Object.values(r.sw[core].ports).every(q => q.sts === 'FWD') && !r.sw[hd(n, 'SW-A1').id].root; } },
+        { t: '<code>PC-A1</code> erreicht <code>PC-A2</code>', c: n => pg(n, 'PC-A1', '10.0.0.12') }],
+      hints: ['Öffne die Web-GUI eines Switches → „Spanning Tree“. Dort steht, welcher Switch Root ist, und welche Ports blockieren. Im Netzplan zeigt „ROOT“ die Root Bridge und ein orangenes Kreuz den blockierten Port.', 'Die Root Bridge hat die niedrigste Bridge-ID. Auf SW-A1 steht Priorität 4096, die kleiner ist als der Standardwert 32768.', 'Entferne die Priorität auf SW-A1 (<code>no spanning-tree vlan 1 priority</code>) und setze den Core mit <code>spanning-tree vlan 1 root primary</code> auf Root.'],
+      sol(net) { rn(net, 'SW-A1', ['no spanning-tree vlan 1 priority']); rn(net, 'SW-CORE', ['spanning-tree vlan 1 root primary']); } }
+    ,
+    { id: 'sc-ec-mismatch', kind: 'Fehlersuche', title: 'EtherChannel: Bündel wird ausgesetzt', est: '20 min',
+      intro: 'Zwischen <code>SW-CORE</code> und <code>SW-DS</code> laufen zwei Kabel (Gi1/0/1 und Gi1/0/2), die als EtherChannel gebündelt sein sollen. Das Bündel ist ausgesetzt, und die beiden PCs im VLAN 10 erreichen sich nicht. Es gibt zwei Ursachen.',
+      build(net) {
+        mk(net, 'C9200L-24T-4G', 300, 100, 'SW-CORE'); mk(net, 'C9200L-24T-4G', 300, 320, 'SW-DS'); lk(net, 'SW-CORE', G + 1, 'SW-DS', G + 1); lk(net, 'SW-CORE', G + 2, 'SW-DS', G + 2);
+        mk(net, 'PC', 120, 100, 'PC-1'); mk(net, 'PC', 120, 320, 'PC-2'); lk(net, 'PC-1', 'eth0', 'SW-CORE', G + 10); lk(net, 'PC-2', 'eth0', 'SW-DS', G + 10);
+        ['SW-CORE', 'SW-DS'].forEach(h => rn(net, h, ['vlan 10', 'interface range g1/0/1 - 2', 'switchport mode trunk', 'switchport trunk allowed vlan 10', 'interface g1/0/10', 'switchport mode access', 'switchport access vlan 10']));
+        rn(net, 'PC-1', ['ip 10.10.0.1/24']); rn(net, 'PC-2', ['ip 10.10.0.2/24']);
+        rn(net, 'SW-CORE', ['interface range g1/0/1 - 2', 'channel-group 1 mode active', 'interface port-channel 1', 'switchport mode trunk', 'switchport trunk allowed vlan 10']);
+        rn(net, 'SW-DS', ['interface range g1/0/1 - 2', 'channel-group 1 mode on', 'interface port-channel 1', 'switchport mode trunk', 'switchport trunk allowed vlan 10', 'interface g1/0/2', 'switchport mode access']);
+      },
+      goals: [
+        { t: 'Das Bündel Port-Channel 1 ist auf <code>SW-CORE</code> aktiv (<code>show etherchannel summary</code>: SU)', c: n => { const d = hd(n, 'SW-CORE'); return !!(NL.bundleOf(n, d, d.ports[0]) || {}).ok; } },
+        { t: 'Das Bündel ist auch auf <code>SW-DS</code> aktiv', c: n => { const d = hd(n, 'SW-DS'); return !!(NL.bundleOf(n, d, d.ports[0]) || {}).ok; } },
+        { t: '<code>PC-1</code> erreicht <code>PC-2</code>', c: n => pg(n, 'PC-1', '10.10.0.2') }],
+      hints: ['Prüfe auf beiden Switches <code>show etherchannel summary</code>. Dort steht unter dem Bündel der Grund.', 'Beide Seiten müssen zusammenpassen: LACP active mit active oder passive, oder beide <code>on</code>. Gemischt geht nicht.', 'Alle Mitglieder müssen gleich konfiguriert sein. Ein Port steht auf Access statt Trunk.'],
+      sol(net) { rn(net, 'SW-DS', ['interface range g1/0/1 - 2', 'no channel-group', 'switchport mode trunk', 'switchport trunk allowed vlan 10', 'channel-group 1 mode active']); } }
     ,
     { id: 'sc-wl-dev', kind: 'Fehlersuche', title: 'WLAN: Notebook kommt nicht ins Büro-Netz', est: '20 min',
       intro: 'Das Notebook <code>LAP-1</code> soll sich über den Access Point <code>AP-1</code> mit dem WLAN <code>Buero</code> verbinden und den Webserver <code>SRV-WEB</code> (10.20.0.10) im VLAN 20 erreichen. Das WLAN-Passwort ist <code>Buero-2026</code>. Es klappt weder die Verbindung noch der Zugriff. Es gibt zwei Ursachen.',
