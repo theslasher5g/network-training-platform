@@ -505,6 +505,9 @@ const NL = (function () {
     return r;
   }
   const isRouter = d => d.type === 'router' || (d.type === 'switch' && d.cfg.ipRouting);
+  const HOOK = {}; const setHooks = h => Object.assign(HOOK, h);
+  let RTICK = 0, DEPTH = 0; const topLevel = f => (...a) => { if (DEPTH === 0) RTICK++; DEPTH++; try { return f(...a); } finally { DEPTH--; } };
+  const rtick = () => RTICK;
   function lookup(net, dId, dst, opt = {}) {
     const d = net.devs[dId], h = d.cfg.hostname, ifs = l3(net, dId, opt);
     if (!isRouter(d)) {
@@ -517,15 +520,16 @@ const NL = (function () {
       return { ifn: gi.ifn, nh: gw };
     }
     let best = null; const skip = [];
-    const cand = (len, ifn, nh) => { if (!best || len > best.len) best = { len, ifn, nh }; };
+    const cand = (len, ifn, nh, ad = 1) => { if (!best || len > best.len || (len === best.len && ad < best.ad)) best = { len, ifn, nh, ad }; };
     for (const i of ifs) if (inNet(dst, i.ip, i.mask)) cand(maskLen(i.mask) + 0.5, i.ifn, dst);
     for (const r of d.cfg.routes) {
       if (!inNet(dst, r.net, r.mask)) continue;
       const L = maskLen(r.mask);
-      if (r.ifn) { const i = ifs.find(x => x.ifn === r.ifn); if (i) cand(L, r.ifn, inNet(dst, i.ip, i.mask) ? dst : (r.nh || dst));
+      if (r.ifn) { const i = ifs.find(x => x.ifn === r.ifn); if (i) cand(L, r.ifn, inNet(dst, i.ip, i.mask) ? dst : (r.nh || dst), r.ad || 1);
         else if (!opt.noTunnel) skip.push(`${h}: Route ${r.net}/${L} via ${sh(r.ifn)} ist inaktiv` + (r.ifn.startsWith('Tunnel') ? ' – ' + tunnel(net, dId, r.ifn).reason : ' (Interface down)')); }
-      else { const i = ifs.find(x => inNet(r.nh, x.ip, x.mask)); if (i) cand(L, i.ifn, r.nh); else skip.push(`${h}: Route ${r.net}/${L} via ${r.nh} ist inaktiv (Next Hop in keinem aktiven Netz)`); }
+      else { const i = ifs.find(x => inNet(r.nh, x.ip, x.mask)); if (i) cand(L, i.ifn, r.nh, r.ad || 1); else skip.push(`${h}: Route ${r.net}/${L} via ${r.nh} ist inaktiv (Next Hop in keinem aktiven Netz)`); }
     }
+    if (HOOK.dyn && !(d.fw)) for (const r of HOOK.dyn(net, d)) { if (!inNet(dst, r.net, r.mask) || !r.ifn) continue; const i = ifs.find(x => x.ifn === r.ifn); if (i) cand(maskLen(r.mask), r.ifn, r.nh, r.ad); }
     if (!best) return { err: `${h}: keine Route zu ${dst} in der Routing-Tabelle`, skip };
     best.skip = skip; return best;
   }
@@ -693,7 +697,7 @@ const NL = (function () {
       if (i.shutdown) o.push(' shutdown');
       o.push('!');
     }
-    c.routes.forEach(r => o.push(`ip route ${r.net} ${r.mask} ${r.ifn || r.nh}`));
+    c.routes.forEach(r => o.push(`ip route ${r.net} ${r.mask} ${r.ifn || r.nh}${r.ad ? ' ' + r.ad : ''}`));
     if (c.gw && d.type === 'switch') o.push('ip default-gateway ' + c.gw);
     for (const a in c.acls) c.acls[a].forEach(e => o.push('access-list ' + a + ' ' + e.text));
     o.push('!');
@@ -812,12 +816,14 @@ const NL = (function () {
     return o.join('\n');
   }
   function routeShow(net, d) {
-    const o = ['Codes: C - connected, S - static, * - candidate default', ''];
+    const o = ['Codes: C - connected, S - static, O - OSPF, D - EIGRP, B - BGP, E2 - OSPF external type 2, * - candidate default', ''];
     const def = d.cfg.routes.find(r => r.net === '0.0.0.0' && r.mask === '0.0.0.0');
-    o.push(def ? `Gateway of last resort is ${def.nh || def.ifn} to network 0.0.0.0` : 'Gateway of last resort is not set', '');
+    const dd = HOOK.dyn && !d.fw ? HOOK.dyn(net, d).find(r => r.net === '0.0.0.0' && r.mask === '0.0.0.0') : null;
+    o.push(def ? `Gateway of last resort is ${def.nh || def.ifn} to network 0.0.0.0` : dd ? `Gateway of last resort is ${dd.nh} to network 0.0.0.0` : 'Gateway of last resort is not set', '');
     if (d.type === 'switch' && !d.cfg.ipRouting) return o.concat(['% IP routing ist auf diesem Switch nicht aktiv (ip routing)']).join('\n');
     l3(net, d.id).forEach(i => o.push(`C     ${n2ip(netN(i.ip, i.mask))}/${maskLen(i.mask)} is directly connected, ${i.ifn}`));
-    d.cfg.routes.forEach(r => o.push(`S${r.net === '0.0.0.0' ? '*' : ' '}    ${r.net}/${maskLen(r.mask)} [1/0] via ${r.nh || r.ifn}`));
+    d.cfg.routes.forEach(r => o.push(`S${r.net === '0.0.0.0' ? '*' : ' '}    ${r.net}/${maskLen(r.mask)} [${r.ad || 1}/0] via ${r.nh || r.ifn}`));
+    if (HOOK.dyn && !d.fw) HOOK.dyn(net, d).forEach(r => o.push(`${{ ospf: r.ext ? 'O E2' : 'O   ', eigrp: 'D   ', bgp: 'B   ' }[r.proto] || '?   '}  ${r.net}/${maskLen(r.mask)} [${r.ad}/${r.metric}] via ${r.nh}, ${r.ifn}`));
     return o.join('\n');
   }
   function cryptoShow(net, d) {
@@ -910,6 +916,9 @@ const NL = (function () {
     radius: { address: [['ipv4']], key: [], timeout: [], 'automate-tester': [] },
     line: { transport: [['input', 'output']], login: [['local', 'authentication']], password: [], 'exec-timeout': [], 'logging': [], 'access-class': [], privilege: [] },
     aaagroup: { server: [['name']] },
+    rospf: { network: [], 'router-id': [], 'passive-interface': [], 'default-information': [['originate']], redistribute: [['connected', 'static', 'eigrp', 'bgp']], 'auto-cost': [['reference-bandwidth']], 'log-adjacency-changes': [], 'maximum-paths': [] },
+    reigrp: { network: [], 'passive-interface': [], 'auto-summary': [], eigrp: [['router-id']], redistribute: [['connected', 'static', 'ospf', 'bgp']], 'variance': [], 'maximum-paths': [] },
+    rbgp: { neighbor: [], network: [], bgp: [['router-id', 'log-neighbor-changes']], redistribute: [['connected', 'static', 'ospf', 'eigrp']], 'maximum-paths': [], synchronization: [], 'auto-summary': [] },
     dhcppool: { network: [], 'default-router': [], 'dns-server': [], lease: [], 'domain-name': [] }
   };
   const REPL = { transport: 2, login: 1, password: 1, address: 1, key: 1, encryption: 1, integrity: 1, group: 1, set: 2, keyring: 2, 'pre-shared-key': 1, mode: 1, 'exec-timeout': 1, network: 1, 'default-router': 1, 'dns-server': 1, lease: 1, 'domain-name': 1 };
@@ -954,6 +963,7 @@ const NL = (function () {
     if (M(t, 'traceroute') && t[1]) return traceOut(net, d, t[1]);
     if (M(t, 'show')) {
       const u = t.slice(1);
+      if (HOOK.show && !d.fw) { const hr = HOOK.show(net, d, u.map(x => x.toLowerCase())); if (hr !== undefined) return hr; }
       if (priv && M(u, 'running-config')) return cfgOf(net, d);
       if (d.fw && M(u, 'interface', 'ip', 'brief')) return fwBrief(net, d);
       if (d.fw && M(u, 'nameif')) return fwBrief(net, d);
@@ -986,6 +996,15 @@ const NL = (function () {
     if (d.fw) { const fr = fwConf(d, s, t); if (fr !== undefined) return fr; }
     if (M(t, 'exit')) { s.mode = 'priv'; return ''; }
     if (M(t, 'hostname') && t[1]) { c.hostname = t[1]; return ''; }
+    if (!d.fw && (d.type === 'router' || d.cfg.ipRouting) && M(t, 'router') && t[1] && t[2]) {
+      const pr = t[1].toLowerCase(), n = t[2];
+      if (!['ospf', 'eigrp', 'bgp'].some(x => x.startsWith(pr)) || pr.length < 2) return null;
+      const kind = 'ospf'.startsWith(pr) ? 'ospf' : 'eigrp'.startsWith(pr) ? 'eigrp' : 'bgp';
+      if (!/^\d+$/.test(n) || +n < 1 || +n > (kind === 'bgp' ? 4294967295 : kind === 'ospf' ? 65535 : 65535)) return `% ${kind === 'bgp' ? 'AS-Nummer' : 'Prozess-/AS-Nummer'} ungültig`;
+      if (kind === 'bgp') c.blocks = c.blocks.filter(b => !b.head.startsWith('router bgp ') || b.head === 'router bgp ' + n); else c.blocks = c.blocks.filter(b => !(b.head.startsWith('router ' + kind + ' ') && b.head !== `router ${kind} ${n}` && kind === 'bgp'));
+      return enterBlk(c, s, `router ${kind} ${n}`, 'r' + kind, 'config-router');
+    }
+    if (!d.fw && M(t, 'no', 'router') && t[2] && t[3]) { const kind = 'ospf'.startsWith(t[2].toLowerCase()) ? 'ospf' : 'eigrp'.startsWith(t[2].toLowerCase()) ? 'eigrp' : 'bgp'; c.blocks = c.blocks.filter(b => b.head !== `router ${kind} ${t[3]}`); return ''; }
     if (!d.fw && M(t, 'ip', 'dhcp', 'pool') && t[3]) { if (d.type === 'switch' && !d.cfg.ipRouting && false) return null; return enterBlk(c, s, `ip dhcp pool ${t[3]}`, 'dhcppool', 'dhcp-config'); }
     if (!d.fw && M(t, 'no', 'ip', 'dhcp', 'pool') && t[4]) { c.blocks = c.blocks.filter(b => b.head !== `ip dhcp pool ${t[4]}`); return ''; }
     if (M(t, 'no', 'interface') && t[2]) {
@@ -1024,6 +1043,7 @@ const NL = (function () {
       const [, , n, m, x] = t; if (!validIp(n) || maskLen(m) === null) return '% Ungültiges Netz oder Maske';
       if (netN(n, m) !== ip2n(n)) return `% Inkonsistente Adresse/Maske – meintest du ${n2ip(netN(n, m))}?`;
       let r; if (validIp(x)) r = { net: n, mask: m, nh: x, ifn: null }; else { const i = normIf(x); if (!i || !c.ifs[i]) return null; r = { net: n, mask: m, nh: null, ifn: i }; }
+      if (t[5] !== undefined) { const ad = +t[5]; if (!(ad >= 1 && ad <= 255)) return '% Administrative Distance 1–255'; if (ad !== 1) r.ad = ad; }
       c.routes = c.routes.filter(q => !(q.net === n && q.mask === m && (q.nh || q.ifn) === (r.nh || r.ifn))); c.routes.push(r); return '';
     }
     if (M(t, 'no', 'ip', 'route') && t.length >= 5) { c.routes = c.routes.filter(q => !(q.net === t[3] && q.mask === t[4] && (!t[5] || (q.nh || q.ifn) === (validIp(t[5]) ? t[5] : normIf(t[5]))))); return ''; }
@@ -1078,12 +1098,19 @@ const NL = (function () {
       if (e[0] === 'network' && !(validIp(e[1] || '') && maskLen(e[2] || '') !== null)) return '% Syntax: network <Netz> <Subnetzmaske>, z. B. network 192.168.10.0 255.255.255.0';
       if (['default-router', 'dns-server'].includes(e[0]) && !validIp(e[1] || '')) return '% Syntax: ' + e[0] + ' <IP-Adresse>';
     }
+    if (['rospf', 'reigrp', 'rbgp'].includes(s.bk) && neg && e[0] === 'passive-interface' && e[1] && e[1] !== 'default') { b.lines = b.lines.filter(l => l.toLowerCase() !== 'passive-interface ' + e[1].toLowerCase() && l.toLowerCase() !== 'no passive-interface ' + e[1].toLowerCase()); b.lines.push('no passive-interface ' + e[1]); return ''; }
     if (neg) { b.lines = b.lines.filter(l => !l.toLowerCase().startsWith(ln.toLowerCase())); return ''; }
     if (s.bk === 'keyring' && e[0] === 'peer') { if (!e[1]) return null; s.sub = 1; if (!b.lines.includes('peer ' + e[1])) b.lines.push('peer ' + e[1]); return ''; }
     if (s.bk === 'keyring' && !s.sub && ['address', 'pre-shared-key'].includes(e[0])) return '% Zuerst in den Peer wechseln: peer NAME';
     if (s.bk === 'radius' && e[0] === 'address' && (!validIp(e[2] || '') || e[1] !== 'ipv4')) return '% Syntax: address ipv4 <IP> auth-port 1812 acct-port 1813';
     if (s.bk === 'policy' && e[0] === 'proposal' && !e[1]) return null;
-    const rk = REPL[e[0]];
+    const RR = { 'router-id': 1, 'default-information': 1, 'auto-cost': 1, bgp: 2, eigrp: 2, neighbor: 3, 'maximum-paths': 1, variance: 1 }, isR = ['rospf', 'reigrp', 'rbgp'].includes(s.bk);
+    if (isR && !neg && e[0] === 'network' && s.bk === 'rospf' && !(validIp(e[1] || '') && validIp(e[2] || '') && e[3] === 'area' && /^\d+$/.test(e[4] || ''))) return '% Syntax: network <Netz> <Wildcard-Maske> area <Nr>, z. B. network 10.0.0.0 0.0.0.255 area 0';
+    if (isR && !neg && e[0] === 'network' && s.bk !== 'rospf' && !validIp(e[1] || '')) return '% Syntax: network <Netz> [<Wildcard-Maske>]';
+    if (isR && !neg && s.bk === 'rbgp' && e[0] === 'network' && !(validIp(e[1] || '') && (e.length === 2 || (e[2] === 'mask' && maskLen(e[3] || '') !== null)))) return '% Syntax: network <Netz> mask <Subnetzmaske>';
+    if (isR && !neg && s.bk === 'rbgp' && e[0] === 'neighbor') { if (!validIp(e[1] || '') || !e[2]) return '% Syntax: neighbor <IP> remote-as <AS> | update-source <If> | next-hop-self | default-originate | ebgp-multihop [n] | shutdown'; if (!['remote-as', 'update-source', 'next-hop-self', 'default-originate', 'ebgp-multihop', 'shutdown', 'description', 'password', 'route-reflector-client'].includes(e[2].toLowerCase())) return null; if (e[2].toLowerCase() === 'remote-as' && !/^\d+$/.test(e[3] || '')) return '% Syntax: neighbor <IP> remote-as <AS>'; }
+    if (isR && !neg && e[0] === 'passive-interface' && e[1] && e[1] !== 'default') b.lines = b.lines.filter(l => l.toLowerCase() !== 'no passive-interface ' + e[1].toLowerCase());
+    const rk = isR ? RR[e[0]] : REPL[e[0]];
     if (rk && s.bk !== 'keyring' && !(s.bk === 'profile' && e[0] === 'match') && !(s.bk === 'profile' && e[0] === 'authentication')) { const key = e.slice(0, rk).join(' ').toLowerCase(); b.lines = b.lines.filter(l => !l.toLowerCase().startsWith(key)); }
     if (s.bk === 'profile' && e[0] === 'authentication') { const key = e.slice(0, 2).join(' '); b.lines = b.lines.filter(l => !l.startsWith(key)); }
     if (s.bk === 'keyring' && rk) { // replace within current peer
@@ -1129,6 +1156,20 @@ const NL = (function () {
       for (const n in c.ifs) { if (n === s.ifs[0]) continue; const x = c.ifs[n]; if (x.ip && (inNet(ip, x.ip, x.mask) || inNet(x.ip, ip, m))) return `% ${n2ip(nn)} overlaps with ${n}`; }
       one.ip = ip; one.mask = m; return '';
     }
+    if (!d.fw && (rt || (sw && c.ipRouting) || (sw && s.ifs.every(q => q.startsWith('Vlan')))) && M(u, 'ip', 'ospf') && u[2]) {
+      const sb = u[2].toLowerCase(); let line, key;
+      if (sb === 'cost') { if (!(+u[3] >= 1 && +u[3] <= 65535)) return '% Syntax: ip ospf cost <1-65535>'; line = 'ip ospf cost ' + u[3]; key = 'ip ospf cost'; }
+      else if (/^\d+$/.test(sb) && (u[3] || '').toLowerCase() === 'area' && /^\d+$/.test(u[4] || '')) { line = `ip ospf ${sb} area ${u[4]}`; key = `ip ospf ${sb} area`; }
+      else if (['hello-interval', 'dead-interval', 'priority'].includes(sb)) { if (!(+u[3] >= 0)) return `% Syntax: ip ospf ${sb} <Zahl>`; line = `ip ospf ${sb} ${u[3]}`; key = 'ip ospf ' + sb; }
+      else if (sb === 'network' && ['point-to-point', 'broadcast'].includes((u[3] || '').toLowerCase())) { line = 'ip ospf network ' + u[3].toLowerCase(); key = 'ip ospf network'; }
+      else return null;
+      return each(i => { i.extra = i.extra.filter(x => !x.startsWith(key)); if (!neg) i.extra.push(line); });
+    }
+    if ((rt || sw) && (M(u, 'bandwidth') || M(u, 'delay')) && u[1]) {
+      const k = M(u, 'bandwidth') ? 'bandwidth' : 'delay'; if (!(+u[1] >= 1)) return `% Syntax: ${k} <Zahl>`;
+      return each(i => { i.extra = i.extra.filter(x => !x.startsWith(k + ' ')); if (!neg) i.extra.push(`${k} ${u[1]}`); });
+    }
+    if (rt && M(u, 'ip', 'hello-interval') && (u[2] || '').toLowerCase() === 'eigrp' && +u[3] >= 1 && +u[4] >= 1) return each(i => { i.extra = i.extra.filter(x => !x.startsWith('ip hello-interval eigrp ' + u[3] + ' ')); if (!neg) i.extra.push(`ip hello-interval eigrp ${u[3]} ${u[4]}`); });
     if (sw && M(u, 'channel-group')) {
       if (neg) return each((i, n) => { i.cg = null; });
       const n = +u[1], md = (u[3] || '').toLowerCase(); if (!(n >= 1 && n <= 64) || !u[2] || !'mode'.startsWith(u[2].toLowerCase()) || !['on', 'active', 'passive', 'desirable', 'auto'].includes(md)) return '% Syntax: channel-group <1-64> mode <on|active|passive|desirable|auto>';
@@ -1275,6 +1316,6 @@ const NL = (function () {
   function snapshot(net) { const o = {}; for (const id in net.devs) o[id] = { cfg: net.devs[id].cfg, saved: net.devs[id].saved }; return o; }
   function restore(net, snap) { for (const id in snap) if (net.devs[id]) { net.devs[id].cfg = snap[id].cfg; net.devs[id].saved = snap[id].saved; } }
 
-  return { peerOfPort: (net, d, p) => peerOf(net, d, p), stp: (net, v) => { STPTICK++; return stp(net, v); }, bundleOf, bridgeMac, stpCfg, effIf, apState, wlcState, apPower, apJoined, apSsids, apClients, wifiScan, wifiConnect, wifiDisconnect, wifiLinkOf, isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
+  return { setHooks, topLevel, rtick, isRouter, peerOfPort: (net, d, p) => peerOf(net, d, p), stp: (net, v) => { STPTICK++; return stp(net, v); }, bundleOf, bridgeMac, stpCfg, effIf, apState, wlcState, apPower, apJoined, apSsids, apClients, wifiScan, wifiConnect, wifiDisconnect, wifiLinkOf, isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup: topLevel(lookup), ping: topLevel(ping), tunnel, exec: topLevel(exec), newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
 })();
 if (typeof module !== 'undefined') module.exports = NL;

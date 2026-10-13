@@ -732,7 +732,7 @@ table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vert
 @keyframes blink{50%{opacity:.25}}
 .wlink{fill:none;stroke:#0ea5a4;stroke-width:2;stroke-dasharray:2 5;stroke-linecap:round;pointer-events:none}.wlink.dn{stroke:var(--red);opacity:.5}
 .chk{display:flex;gap:.5rem;align-items:center;font-size:.84rem;margin:.3rem 0}
-.stpl{display:flex;align-items:center;gap:.4rem;font-size:.82rem;color:var(--muted)}.stpl select{border:1px solid var(--line);border-radius:8px;padding:.25rem .4rem;font:inherit;background:var(--panel);color:var(--ink)}
+.stpl[hidden]{display:none}.stpl{display:flex;align-items:center;gap:.4rem;font-size:.82rem;color:var(--muted)}.stpl select{border:1px solid var(--line);border-radius:8px;padding:.25rem .4rem;font:inherit;background:var(--panel);color:var(--ink)}
 .stpx circle{fill:#f59e0b;stroke:#fff;stroke-width:1.2}.stpx path{stroke:#fff;stroke-width:1.8;stroke-linecap:round}.lw.stpb .wire:not(.hit){stroke-dasharray:6 5}
 .rootb rect{fill:#0ea5a4}.rootb text{fill:#fff;font:700 9px var(--sans);text-anchor:middle;letter-spacing:.04em}
 .dev.booting{animation:blink 1s ease-in-out infinite}
@@ -1410,6 +1410,9 @@ const NL = (function () {
     return r;
   }
   const isRouter = d => d.type === 'router' || (d.type === 'switch' && d.cfg.ipRouting);
+  const HOOK = {}; const setHooks = h => Object.assign(HOOK, h);
+  let RTICK = 0, DEPTH = 0; const topLevel = f => (...a) => { if (DEPTH === 0) RTICK++; DEPTH++; try { return f(...a); } finally { DEPTH--; } };
+  const rtick = () => RTICK;
   function lookup(net, dId, dst, opt = {}) {
     const d = net.devs[dId], h = d.cfg.hostname, ifs = l3(net, dId, opt);
     if (!isRouter(d)) {
@@ -1422,15 +1425,16 @@ const NL = (function () {
       return { ifn: gi.ifn, nh: gw };
     }
     let best = null; const skip = [];
-    const cand = (len, ifn, nh) => { if (!best || len > best.len) best = { len, ifn, nh }; };
+    const cand = (len, ifn, nh, ad = 1) => { if (!best || len > best.len || (len === best.len && ad < best.ad)) best = { len, ifn, nh, ad }; };
     for (const i of ifs) if (inNet(dst, i.ip, i.mask)) cand(maskLen(i.mask) + 0.5, i.ifn, dst);
     for (const r of d.cfg.routes) {
       if (!inNet(dst, r.net, r.mask)) continue;
       const L = maskLen(r.mask);
-      if (r.ifn) { const i = ifs.find(x => x.ifn === r.ifn); if (i) cand(L, r.ifn, inNet(dst, i.ip, i.mask) ? dst : (r.nh || dst));
+      if (r.ifn) { const i = ifs.find(x => x.ifn === r.ifn); if (i) cand(L, r.ifn, inNet(dst, i.ip, i.mask) ? dst : (r.nh || dst), r.ad || 1);
         else if (!opt.noTunnel) skip.push(`${h}: Route ${r.net}/${L} via ${sh(r.ifn)} ist inaktiv` + (r.ifn.startsWith('Tunnel') ? ' – ' + tunnel(net, dId, r.ifn).reason : ' (Interface down)')); }
-      else { const i = ifs.find(x => inNet(r.nh, x.ip, x.mask)); if (i) cand(L, i.ifn, r.nh); else skip.push(`${h}: Route ${r.net}/${L} via ${r.nh} ist inaktiv (Next Hop in keinem aktiven Netz)`); }
+      else { const i = ifs.find(x => inNet(r.nh, x.ip, x.mask)); if (i) cand(L, i.ifn, r.nh, r.ad || 1); else skip.push(`${h}: Route ${r.net}/${L} via ${r.nh} ist inaktiv (Next Hop in keinem aktiven Netz)`); }
     }
+    if (HOOK.dyn && !(d.fw)) for (const r of HOOK.dyn(net, d)) { if (!inNet(dst, r.net, r.mask) || !r.ifn) continue; const i = ifs.find(x => x.ifn === r.ifn); if (i) cand(maskLen(r.mask), r.ifn, r.nh, r.ad); }
     if (!best) return { err: `${h}: keine Route zu ${dst} in der Routing-Tabelle`, skip };
     best.skip = skip; return best;
   }
@@ -1598,7 +1602,7 @@ const NL = (function () {
       if (i.shutdown) o.push(' shutdown');
       o.push('!');
     }
-    c.routes.forEach(r => o.push(`ip route ${r.net} ${r.mask} ${r.ifn || r.nh}`));
+    c.routes.forEach(r => o.push(`ip route ${r.net} ${r.mask} ${r.ifn || r.nh}${r.ad ? ' ' + r.ad : ''}`));
     if (c.gw && d.type === 'switch') o.push('ip default-gateway ' + c.gw);
     for (const a in c.acls) c.acls[a].forEach(e => o.push('access-list ' + a + ' ' + e.text));
     o.push('!');
@@ -1717,12 +1721,14 @@ const NL = (function () {
     return o.join('\n');
   }
   function routeShow(net, d) {
-    const o = ['Codes: C - connected, S - static, * - candidate default', ''];
+    const o = ['Codes: C - connected, S - static, O - OSPF, D - EIGRP, B - BGP, E2 - OSPF external type 2, * - candidate default', ''];
     const def = d.cfg.routes.find(r => r.net === '0.0.0.0' && r.mask === '0.0.0.0');
-    o.push(def ? `Gateway of last resort is ${def.nh || def.ifn} to network 0.0.0.0` : 'Gateway of last resort is not set', '');
+    const dd = HOOK.dyn && !d.fw ? HOOK.dyn(net, d).find(r => r.net === '0.0.0.0' && r.mask === '0.0.0.0') : null;
+    o.push(def ? `Gateway of last resort is ${def.nh || def.ifn} to network 0.0.0.0` : dd ? `Gateway of last resort is ${dd.nh} to network 0.0.0.0` : 'Gateway of last resort is not set', '');
     if (d.type === 'switch' && !d.cfg.ipRouting) return o.concat(['% IP routing ist auf diesem Switch nicht aktiv (ip routing)']).join('\n');
     l3(net, d.id).forEach(i => o.push(`C     ${n2ip(netN(i.ip, i.mask))}/${maskLen(i.mask)} is directly connected, ${i.ifn}`));
-    d.cfg.routes.forEach(r => o.push(`S${r.net === '0.0.0.0' ? '*' : ' '}    ${r.net}/${maskLen(r.mask)} [1/0] via ${r.nh || r.ifn}`));
+    d.cfg.routes.forEach(r => o.push(`S${r.net === '0.0.0.0' ? '*' : ' '}    ${r.net}/${maskLen(r.mask)} [${r.ad || 1}/0] via ${r.nh || r.ifn}`));
+    if (HOOK.dyn && !d.fw) HOOK.dyn(net, d).forEach(r => o.push(`${{ ospf: r.ext ? 'O E2' : 'O   ', eigrp: 'D   ', bgp: 'B   ' }[r.proto] || '?   '}  ${r.net}/${maskLen(r.mask)} [${r.ad}/${r.metric}] via ${r.nh}, ${r.ifn}`));
     return o.join('\n');
   }
   function cryptoShow(net, d) {
@@ -1815,6 +1821,9 @@ const NL = (function () {
     radius: { address: [['ipv4']], key: [], timeout: [], 'automate-tester': [] },
     line: { transport: [['input', 'output']], login: [['local', 'authentication']], password: [], 'exec-timeout': [], 'logging': [], 'access-class': [], privilege: [] },
     aaagroup: { server: [['name']] },
+    rospf: { network: [], 'router-id': [], 'passive-interface': [], 'default-information': [['originate']], redistribute: [['connected', 'static', 'eigrp', 'bgp']], 'auto-cost': [['reference-bandwidth']], 'log-adjacency-changes': [], 'maximum-paths': [] },
+    reigrp: { network: [], 'passive-interface': [], 'auto-summary': [], eigrp: [['router-id']], redistribute: [['connected', 'static', 'ospf', 'bgp']], 'variance': [], 'maximum-paths': [] },
+    rbgp: { neighbor: [], network: [], bgp: [['router-id', 'log-neighbor-changes']], redistribute: [['connected', 'static', 'ospf', 'eigrp']], 'maximum-paths': [], synchronization: [], 'auto-summary': [] },
     dhcppool: { network: [], 'default-router': [], 'dns-server': [], lease: [], 'domain-name': [] }
   };
   const REPL = { transport: 2, login: 1, password: 1, address: 1, key: 1, encryption: 1, integrity: 1, group: 1, set: 2, keyring: 2, 'pre-shared-key': 1, mode: 1, 'exec-timeout': 1, network: 1, 'default-router': 1, 'dns-server': 1, lease: 1, 'domain-name': 1 };
@@ -1859,6 +1868,7 @@ const NL = (function () {
     if (M(t, 'traceroute') && t[1]) return traceOut(net, d, t[1]);
     if (M(t, 'show')) {
       const u = t.slice(1);
+      if (HOOK.show && !d.fw) { const hr = HOOK.show(net, d, u.map(x => x.toLowerCase())); if (hr !== undefined) return hr; }
       if (priv && M(u, 'running-config')) return cfgOf(net, d);
       if (d.fw && M(u, 'interface', 'ip', 'brief')) return fwBrief(net, d);
       if (d.fw && M(u, 'nameif')) return fwBrief(net, d);
@@ -1891,6 +1901,15 @@ const NL = (function () {
     if (d.fw) { const fr = fwConf(d, s, t); if (fr !== undefined) return fr; }
     if (M(t, 'exit')) { s.mode = 'priv'; return ''; }
     if (M(t, 'hostname') && t[1]) { c.hostname = t[1]; return ''; }
+    if (!d.fw && (d.type === 'router' || d.cfg.ipRouting) && M(t, 'router') && t[1] && t[2]) {
+      const pr = t[1].toLowerCase(), n = t[2];
+      if (!['ospf', 'eigrp', 'bgp'].some(x => x.startsWith(pr)) || pr.length < 2) return null;
+      const kind = 'ospf'.startsWith(pr) ? 'ospf' : 'eigrp'.startsWith(pr) ? 'eigrp' : 'bgp';
+      if (!/^\d+$/.test(n) || +n < 1 || +n > (kind === 'bgp' ? 4294967295 : kind === 'ospf' ? 65535 : 65535)) return `% ${kind === 'bgp' ? 'AS-Nummer' : 'Prozess-/AS-Nummer'} ungültig`;
+      if (kind === 'bgp') c.blocks = c.blocks.filter(b => !b.head.startsWith('router bgp ') || b.head === 'router bgp ' + n); else c.blocks = c.blocks.filter(b => !(b.head.startsWith('router ' + kind + ' ') && b.head !== `router ${kind} ${n}` && kind === 'bgp'));
+      return enterBlk(c, s, `router ${kind} ${n}`, 'r' + kind, 'config-router');
+    }
+    if (!d.fw && M(t, 'no', 'router') && t[2] && t[3]) { const kind = 'ospf'.startsWith(t[2].toLowerCase()) ? 'ospf' : 'eigrp'.startsWith(t[2].toLowerCase()) ? 'eigrp' : 'bgp'; c.blocks = c.blocks.filter(b => b.head !== `router ${kind} ${t[3]}`); return ''; }
     if (!d.fw && M(t, 'ip', 'dhcp', 'pool') && t[3]) { if (d.type === 'switch' && !d.cfg.ipRouting && false) return null; return enterBlk(c, s, `ip dhcp pool ${t[3]}`, 'dhcppool', 'dhcp-config'); }
     if (!d.fw && M(t, 'no', 'ip', 'dhcp', 'pool') && t[4]) { c.blocks = c.blocks.filter(b => b.head !== `ip dhcp pool ${t[4]}`); return ''; }
     if (M(t, 'no', 'interface') && t[2]) {
@@ -1929,6 +1948,7 @@ const NL = (function () {
       const [, , n, m, x] = t; if (!validIp(n) || maskLen(m) === null) return '% Ungültiges Netz oder Maske';
       if (netN(n, m) !== ip2n(n)) return `% Inkonsistente Adresse/Maske – meintest du ${n2ip(netN(n, m))}?`;
       let r; if (validIp(x)) r = { net: n, mask: m, nh: x, ifn: null }; else { const i = normIf(x); if (!i || !c.ifs[i]) return null; r = { net: n, mask: m, nh: null, ifn: i }; }
+      if (t[5] !== undefined) { const ad = +t[5]; if (!(ad >= 1 && ad <= 255)) return '% Administrative Distance 1–255'; if (ad !== 1) r.ad = ad; }
       c.routes = c.routes.filter(q => !(q.net === n && q.mask === m && (q.nh || q.ifn) === (r.nh || r.ifn))); c.routes.push(r); return '';
     }
     if (M(t, 'no', 'ip', 'route') && t.length >= 5) { c.routes = c.routes.filter(q => !(q.net === t[3] && q.mask === t[4] && (!t[5] || (q.nh || q.ifn) === (validIp(t[5]) ? t[5] : normIf(t[5]))))); return ''; }
@@ -1983,12 +2003,19 @@ const NL = (function () {
       if (e[0] === 'network' && !(validIp(e[1] || '') && maskLen(e[2] || '') !== null)) return '% Syntax: network <Netz> <Subnetzmaske>, z. B. network 192.168.10.0 255.255.255.0';
       if (['default-router', 'dns-server'].includes(e[0]) && !validIp(e[1] || '')) return '% Syntax: ' + e[0] + ' <IP-Adresse>';
     }
+    if (['rospf', 'reigrp', 'rbgp'].includes(s.bk) && neg && e[0] === 'passive-interface' && e[1] && e[1] !== 'default') { b.lines = b.lines.filter(l => l.toLowerCase() !== 'passive-interface ' + e[1].toLowerCase() && l.toLowerCase() !== 'no passive-interface ' + e[1].toLowerCase()); b.lines.push('no passive-interface ' + e[1]); return ''; }
     if (neg) { b.lines = b.lines.filter(l => !l.toLowerCase().startsWith(ln.toLowerCase())); return ''; }
     if (s.bk === 'keyring' && e[0] === 'peer') { if (!e[1]) return null; s.sub = 1; if (!b.lines.includes('peer ' + e[1])) b.lines.push('peer ' + e[1]); return ''; }
     if (s.bk === 'keyring' && !s.sub && ['address', 'pre-shared-key'].includes(e[0])) return '% Zuerst in den Peer wechseln: peer NAME';
     if (s.bk === 'radius' && e[0] === 'address' && (!validIp(e[2] || '') || e[1] !== 'ipv4')) return '% Syntax: address ipv4 <IP> auth-port 1812 acct-port 1813';
     if (s.bk === 'policy' && e[0] === 'proposal' && !e[1]) return null;
-    const rk = REPL[e[0]];
+    const RR = { 'router-id': 1, 'default-information': 1, 'auto-cost': 1, bgp: 2, eigrp: 2, neighbor: 3, 'maximum-paths': 1, variance: 1 }, isR = ['rospf', 'reigrp', 'rbgp'].includes(s.bk);
+    if (isR && !neg && e[0] === 'network' && s.bk === 'rospf' && !(validIp(e[1] || '') && validIp(e[2] || '') && e[3] === 'area' && /^\d+$/.test(e[4] || ''))) return '% Syntax: network <Netz> <Wildcard-Maske> area <Nr>, z. B. network 10.0.0.0 0.0.0.255 area 0';
+    if (isR && !neg && e[0] === 'network' && s.bk !== 'rospf' && !validIp(e[1] || '')) return '% Syntax: network <Netz> [<Wildcard-Maske>]';
+    if (isR && !neg && s.bk === 'rbgp' && e[0] === 'network' && !(validIp(e[1] || '') && (e.length === 2 || (e[2] === 'mask' && maskLen(e[3] || '') !== null)))) return '% Syntax: network <Netz> mask <Subnetzmaske>';
+    if (isR && !neg && s.bk === 'rbgp' && e[0] === 'neighbor') { if (!validIp(e[1] || '') || !e[2]) return '% Syntax: neighbor <IP> remote-as <AS> | update-source <If> | next-hop-self | default-originate | ebgp-multihop [n] | shutdown'; if (!['remote-as', 'update-source', 'next-hop-self', 'default-originate', 'ebgp-multihop', 'shutdown', 'description', 'password', 'route-reflector-client'].includes(e[2].toLowerCase())) return null; if (e[2].toLowerCase() === 'remote-as' && !/^\d+$/.test(e[3] || '')) return '% Syntax: neighbor <IP> remote-as <AS>'; }
+    if (isR && !neg && e[0] === 'passive-interface' && e[1] && e[1] !== 'default') b.lines = b.lines.filter(l => l.toLowerCase() !== 'no passive-interface ' + e[1].toLowerCase());
+    const rk = isR ? RR[e[0]] : REPL[e[0]];
     if (rk && s.bk !== 'keyring' && !(s.bk === 'profile' && e[0] === 'match') && !(s.bk === 'profile' && e[0] === 'authentication')) { const key = e.slice(0, rk).join(' ').toLowerCase(); b.lines = b.lines.filter(l => !l.toLowerCase().startsWith(key)); }
     if (s.bk === 'profile' && e[0] === 'authentication') { const key = e.slice(0, 2).join(' '); b.lines = b.lines.filter(l => !l.startsWith(key)); }
     if (s.bk === 'keyring' && rk) { // replace within current peer
@@ -2034,6 +2061,20 @@ const NL = (function () {
       for (const n in c.ifs) { if (n === s.ifs[0]) continue; const x = c.ifs[n]; if (x.ip && (inNet(ip, x.ip, x.mask) || inNet(x.ip, ip, m))) return `% ${n2ip(nn)} overlaps with ${n}`; }
       one.ip = ip; one.mask = m; return '';
     }
+    if (!d.fw && (rt || (sw && c.ipRouting) || (sw && s.ifs.every(q => q.startsWith('Vlan')))) && M(u, 'ip', 'ospf') && u[2]) {
+      const sb = u[2].toLowerCase(); let line, key;
+      if (sb === 'cost') { if (!(+u[3] >= 1 && +u[3] <= 65535)) return '% Syntax: ip ospf cost <1-65535>'; line = 'ip ospf cost ' + u[3]; key = 'ip ospf cost'; }
+      else if (/^\d+$/.test(sb) && (u[3] || '').toLowerCase() === 'area' && /^\d+$/.test(u[4] || '')) { line = `ip ospf ${sb} area ${u[4]}`; key = `ip ospf ${sb} area`; }
+      else if (['hello-interval', 'dead-interval', 'priority'].includes(sb)) { if (!(+u[3] >= 0)) return `% Syntax: ip ospf ${sb} <Zahl>`; line = `ip ospf ${sb} ${u[3]}`; key = 'ip ospf ' + sb; }
+      else if (sb === 'network' && ['point-to-point', 'broadcast'].includes((u[3] || '').toLowerCase())) { line = 'ip ospf network ' + u[3].toLowerCase(); key = 'ip ospf network'; }
+      else return null;
+      return each(i => { i.extra = i.extra.filter(x => !x.startsWith(key)); if (!neg) i.extra.push(line); });
+    }
+    if ((rt || sw) && (M(u, 'bandwidth') || M(u, 'delay')) && u[1]) {
+      const k = M(u, 'bandwidth') ? 'bandwidth' : 'delay'; if (!(+u[1] >= 1)) return `% Syntax: ${k} <Zahl>`;
+      return each(i => { i.extra = i.extra.filter(x => !x.startsWith(k + ' ')); if (!neg) i.extra.push(`${k} ${u[1]}`); });
+    }
+    if (rt && M(u, 'ip', 'hello-interval') && (u[2] || '').toLowerCase() === 'eigrp' && +u[3] >= 1 && +u[4] >= 1) return each(i => { i.extra = i.extra.filter(x => !x.startsWith('ip hello-interval eigrp ' + u[3] + ' ')); if (!neg) i.extra.push(`ip hello-interval eigrp ${u[3]} ${u[4]}`); });
     if (sw && M(u, 'channel-group')) {
       if (neg) return each((i, n) => { i.cg = null; });
       const n = +u[1], md = (u[3] || '').toLowerCase(); if (!(n >= 1 && n <= 64) || !u[2] || !'mode'.startsWith(u[2].toLowerCase()) || !['on', 'active', 'passive', 'desirable', 'auto'].includes(md)) return '% Syntax: channel-group <1-64> mode <on|active|passive|desirable|auto>';
@@ -2180,9 +2221,249 @@ const NL = (function () {
   function snapshot(net) { const o = {}; for (const id in net.devs) o[id] = { cfg: net.devs[id].cfg, saved: net.devs[id].saved }; return o; }
   function restore(net, snap) { for (const id in snap) if (net.devs[id]) { net.devs[id].cfg = snap[id].cfg; net.devs[id].saved = snap[id].saved; } }
 
-  return { peerOfPort: (net, d, p) => peerOf(net, d, p), stp: (net, v) => { STPTICK++; return stp(net, v); }, bundleOf, bridgeMac, stpCfg, effIf, apState, wlcState, apPower, apJoined, apSsids, apClients, wifiScan, wifiConnect, wifiDisconnect, wifiLinkOf, isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup, ping, tunnel, exec, newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
+  return { setHooks, topLevel, rtick, isRouter, peerOfPort: (net, d, p) => peerOf(net, d, p), stp: (net, v) => { STPTICK++; return stp(net, v); }, bundleOf, bridgeMac, stpCfg, effIf, apState, wlcState, apPower, apJoined, apSsids, apClients, wifiScan, wifiConnect, wifiDisconnect, wifiLinkOf, isDown, booting, setClock, l2, MODELS, XCVR, CABLES, CARDS, KIND, setCard, wwpn, fmtSpeed, hip, cfgOf, slotAccepts, phys, portStatus, linkOf, exportCfg, ip2n, n2ip, validIp, lenMask, maskLen, netN, inNet, normIf, sh, mkDev, newIf, isHost, peerOf, linkUp, ifUp, l3, lookup: topLevel(lookup), ping: topLevel(ping), tunnel, exec: topLevel(exec), newSess, prompt, runcfg, snapshot, restore, blk, blocks, parseVl };
 })();
 if (typeof module !== 'undefined') module.exports = NL;
+
+// ===================== NetLab Routing-Protokolle: OSPF, EIGRP, BGP =====================
+// Berechnet dynamische Routen aus der Konfiguration (router ospf/eigrp/bgp) und der Verkabelung.
+// Der Engine-Kern fragt über den Hook "dyn" nach diesen Routen und über "show" nach den Anzeigebefehlen.
+const RTG = (function () {
+  const N = typeof NL !== 'undefined' ? NL : require('./engine.js');
+  const { inNet, maskLen, netN, n2ip, ip2n, validIp, peerOf, l2, l3, isDown, portStatus, blocks } = N;
+  const AD = { ospf: 110, eigrp: 90, ebgp: 20, ibgp: 200 };
+  const wc2m = wc => n2ip(~ip2n(wc) >>> 0);
+  const classful = ip => { const a = +ip.split('.')[0]; return a < 128 ? '255.0.0.0' : a < 192 ? '255.255.0.0' : '255.255.255.0'; };
+  const pad = (s, n) => String(s).padEnd(n);
+  const isRt = d => !d.fw && !(d.model && N.MODELS[d.model] && N.MODELS[d.model].cloud) && (d.type === 'router' || (d.type === 'switch' && d.cfg.ipRouting));
+  const sh = N.sh || (x => x);
+  const nif = x => (N.normIf(x) || x).toLowerCase();
+  const lines = b => b ? b.lines.map(l => l.trim()) : [];
+
+  // ---------- Konfiguration lesen ----------
+  function ospfCfg(d) {
+    const b = blocks(d, 'router ospf')[0]; if (!b) return null; const c = { pid: b.head.split(' ')[2], nets: [], passiveDef: false, passive: new Set(), noPassive: new Set(), rid: null, defOrig: null, redist: new Set(), refBw: 100 };
+    for (const l of lines(b)) { const t = l.split(/\s+/), k = t[0].toLowerCase();
+      if (k === 'network' && t[4]) c.nets.push({ net: t[1], mask: wc2m(t[2]), area: t[4] });
+      else if (k === 'passive-interface') { if (t[1] === 'default') c.passiveDef = true; else c.passive.add(nif(t[1])); }
+      else if (k === 'no' && t[1] === 'passive-interface') c.noPassive.add(nif(t[2]));
+      else if (k === 'router-id') c.rid = t[1];
+      else if (k === 'default-information') c.defOrig = /always/.test(l) ? 'always' : 'if';
+      else if (k === 'redistribute') c.redist.add(t[1]);
+      else if (k === 'auto-cost') c.refBw = +t[2] || 100; }
+    return c;
+  }
+  function eigrpCfg(d) {
+    const b = blocks(d, 'router eigrp')[0]; if (!b) return null; const c = { as: b.head.split(' ')[2], nets: [], passiveDef: false, passive: new Set(), noPassive: new Set(), rid: null, redist: new Set() };
+    for (const l of lines(b)) { const t = l.split(/\s+/), k = t[0].toLowerCase();
+      if (k === 'network' && validIp(t[1])) c.nets.push({ net: t[1], mask: t[2] && validIp(t[2]) ? wc2m(t[2]) : classful(t[1]) });
+      else if (k === 'passive-interface') { if (t[1] === 'default') c.passiveDef = true; else c.passive.add(nif(t[1])); }
+      else if (k === 'no' && t[1] === 'passive-interface') c.noPassive.add(nif(t[2]));
+      else if (k === 'eigrp' && t[1] === 'router-id') c.rid = t[2];
+      else if (k === 'redistribute') c.redist.add(t[1]); }
+    return c;
+  }
+  function bgpCfg(d) {
+    const b = blocks(d, 'router bgp')[0]; if (!b) return null; const c = { as: +b.head.split(' ')[2], nbrs: {}, nets: [], rid: null, redist: new Set() };
+    for (const l of lines(b)) { const t = l.split(/\s+/), k = t[0].toLowerCase();
+      if (k === 'neighbor' && validIp(t[1])) { const n = c.nbrs[t[1]] = c.nbrs[t[1]] || { ip: t[1], as: null, upd: null, nhs: false, defOrig: false, multihop: 1, shut: false }, o = (t[2] || '').toLowerCase();
+        if (o === 'remote-as') n.as = +t[3]; else if (o === 'update-source') n.upd = t[3]; else if (o === 'next-hop-self') n.nhs = true; else if (o === 'default-originate') n.defOrig = true; else if (o === 'ebgp-multihop') n.multihop = +t[3] || 255; else if (o === 'shutdown') n.shut = true; }
+      else if (k === 'network') c.nets.push({ net: t[1], mask: t[3] || classful(t[1]) });
+      else if (k === 'bgp' && t[1] === 'router-id') c.rid = t[2];
+      else if (k === 'redistribute') c.redist.add(t[1]); }
+    return c;
+  }
+
+  // ---------- gemeinsame Hilfen ----------
+  const ifaceSpeed = (net, d, ifn) => { if (/^(Loopback|Vlan|Tunnel|Port-channel)/.test(ifn)) return ifn.startsWith('Loopback') ? 8000 : 1000; const ps = portStatus(net, d.id, ifn); return ps.st === 'connected' ? ps.speed : 1000; };
+  const extra = (d, ifn, re) => { const i = d.cfg.ifs[ifn]; for (const e of (i && i.extra) || []) { const m = e.match(re); if (m) return m; } return null; };
+  const routerId = (d, cfgRid, ifs) => { if (cfgRid) return cfgRid; const lo = ifs.filter(i => i.ifn.startsWith('Loopback')).map(i => i.ip).sort((a, b) => ip2n(b) - ip2n(a)); if (lo.length) return lo[0]; const all = ifs.map(i => i.ip).sort((a, b) => ip2n(b) - ip2n(a)); return all[0] || '0.0.0.0'; };
+  function neighborsOn(net, d, i) { // andere Geräte-Interfaces im selben L2-Segment
+    const eps = l2(net, d.id, i.ifn).eps; const out = [];
+    for (const e of eps) { const nd = net.devs[e.dev]; if (!nd || nd.id === d.id || !isRt(nd) || isDown(nd)) continue; const ni = l3(net, nd.id).find(x => x.ifn === e.ifn); if (ni) out.push({ dev: nd, i: ni }); }
+    return out;
+  }
+
+  // ---------- OSPF ----------
+  function ospfIfaces(net, d, c) {
+    const ifs = l3(net, d.id), res = [];
+    for (const i of ifs) {
+      let area = null; const nm = (i.ifn + '').toLowerCase();
+      const ex = extra(d, i.ifn, new RegExp('^ip ospf ' + c.pid + ' area (\\d+)$')); if (ex) area = ex[1];
+      else for (const n of c.nets) if (inNet(i.ip, n.net, n.mask)) { area = n.area; break; }
+      if (area === null) continue;
+      const passive = (c.passiveDef ? !c.noPassive.has(nm) : c.passive.has(nm)), cm = extra(d, i.ifn, /^ip ospf cost (\d+)$/), spd = ifaceSpeed(net, d, i.ifn) ;
+      res.push({ ifn: i.ifn, ip: i.ip, mask: i.mask, area, passive, cost: cm ? +cm[1] : Math.max(1, Math.floor(c.refBw / spd)), hello: +((extra(d, i.ifn, /^ip ospf hello-interval (\d+)$/) || [])[1] || 10), dead: +((extra(d, i.ifn, /^ip ospf dead-interval (\d+)$/) || [])[1] || 0) });
+    }
+    return res;
+  }
+  function ospfAll(net) {
+    const R = {}; for (const d of Object.values(net.devs)) { if (!isRt(d) || isDown(d)) continue; const c = ospfCfg(d); if (!c) continue; const ifs = ospfIfaces(net, d, c); R[d.id] = { d, c, ifs, rid: routerId(d, c.rid, l3(net, d.id)), adj: [], bad: [] }; }
+    for (const id in R) { const r = R[id];
+      for (const i of r.ifs) { if (i.passive) continue;
+        for (const nb of neighborsOn(net, r.d, i)) { const o = R[nb.dev.id]; if (!o) continue; const oi = o.ifs.find(x => x.ifn === nb.i.ifn);
+          if (!oi) { r.bad.push({ ifn: i.ifn, peer: nb.dev.cfg.hostname, why: `${nb.dev.cfg.hostname} hat ${sh(nb.i.ifn)} nicht in OSPF (network-Anweisung fehlt)` }); continue; }
+          if (oi.passive) { r.bad.push({ ifn: i.ifn, peer: nb.dev.cfg.hostname, why: `${nb.dev.cfg.hostname} ${sh(oi.ifn)} ist passive-interface und sendet keine Hellos` }); continue; }
+          if (oi.area !== i.area) { r.bad.push({ ifn: i.ifn, peer: nb.dev.cfg.hostname, why: `Area stimmt nicht: ${i.area} ↔ ${oi.area}` }); continue; }
+          if (maskLen(oi.mask) !== maskLen(i.mask)) { r.bad.push({ ifn: i.ifn, peer: nb.dev.cfg.hostname, why: `Subnetzmaske stimmt nicht: /${maskLen(i.mask)} ↔ /${maskLen(oi.mask)}` }); continue; }
+          if (i.hello !== oi.hello || (i.dead || i.hello * 4) !== (oi.dead || oi.hello * 4)) { r.bad.push({ ifn: i.ifn, peer: nb.dev.cfg.hostname, why: `Hello-/Dead-Timer passen nicht (${i.hello}/${i.dead || i.hello * 4} ↔ ${oi.hello}/${oi.dead || oi.hello * 4})` }); continue; }
+          r.adj.push({ id: nb.dev.id, rid: o.rid, ifn: i.ifn, ip: nb.i.ip, cost: i.cost, host: nb.dev.cfg.hostname }); } } }
+    return R;
+  }
+  function ospfRoutes(net, R, rid) {
+    const me = R[rid]; if (!me) return []; const dist = { [rid]: 0 }, first = { [rid]: null }, todo = new Set(Object.keys(R));
+    while (todo.size) { let u = null; todo.forEach(x => { if (dist[x] !== undefined && (u === null || dist[x] < dist[u])) u = x; }); if (u === null) break; todo.delete(u);
+      for (const a of R[u].adj) { const nd = dist[u] + a.cost; if (dist[a.id] === undefined || nd < dist[a.id]) { dist[a.id] = nd; first[a.id] = u === rid ? { ifn: a.ifn, nh: a.ip } : first[u]; } } }
+    const best = {}; const put = (net0, mask, metric, f, ext) => { const k = net0 + '/' + mask, cur = best[k]; if (!cur || metric < cur.metric) best[k] = { proto: 'ospf', net: net0, mask, nh: f.nh, ifn: f.ifn, ad: AD.ospf, metric, ext }; };
+    const own = new Set(me.ifs.map(i => n2ip(netN(i.ip, i.mask)) + '/' + i.mask));
+    for (const id in R) { if (id === rid || dist[id] === undefined) continue; const s = R[id], f = first[id];
+      for (const i of s.ifs) { const nw = n2ip(netN(i.ip, i.mask)); if (!own.has(nw + '/' + i.mask)) put(nw, i.mask, dist[id] + i.cost, f, ''); }
+      const hasDef = s.d.cfg.routes.some(r => r.net === '0.0.0.0' && r.mask === '0.0.0.0');
+      if (s.c.defOrig === 'always' || (s.c.defOrig && hasDef)) put('0.0.0.0', '0.0.0.0', dist[id] + 1, f, 'E2');
+      if (s.c.redist.has('static')) s.d.cfg.routes.filter(r => !(r.net === '0.0.0.0' && s.c.defOrig)).forEach(r => put(r.net, r.mask, dist[id] + 20, f, 'E2'));
+      if (s.c.redist.has('connected')) l3(net, s.d.id).filter(i => !s.ifs.some(x => x.ifn === i.ifn)).forEach(i => put(n2ip(netN(i.ip, i.mask)), i.mask, dist[id] + 20, f, 'E2')); }
+    return Object.values(best);
+  }
+
+  // ---------- EIGRP ----------
+  function eigrpIfaces(net, d, c) {
+    const res = []; for (const i of l3(net, d.id)) { if (!c.nets.some(n => inNet(i.ip, n.net, n.mask))) continue; const nm = i.ifn.toLowerCase(), spd = ifaceSpeed(net, d, i.ifn);
+      const bw = extra(d, i.ifn, /^bandwidth (\d+)$/), dl = extra(d, i.ifn, /^delay (\d+)$/), hello = extra(d, i.ifn, new RegExp('^ip hello-interval eigrp ' + c.as + ' (\\d+)$'));
+      res.push({ ifn: i.ifn, ip: i.ip, mask: i.mask, passive: c.passiveDef ? !c.noPassive.has(nm) : c.passive.has(nm), bw: bw ? +bw[1] : spd * 1000, delay: dl ? +dl[1] : spd >= 10000 ? 1 : spd >= 1000 ? 10 : spd >= 100 ? 100 : 1000, loop: i.ifn.startsWith('Loopback'), hello: hello ? +hello[1] : 5 }); }
+    return res;
+  }
+  function eigrpAll(net) {
+    const R = {}; for (const d of Object.values(net.devs)) { if (!isRt(d) || isDown(d)) continue; const c = eigrpCfg(d); if (!c) continue; const ifs = eigrpIfaces(net, d, c); R[d.id] = { d, c, ifs, rid: routerId(d, c.rid, l3(net, d.id)), adj: [], bad: [] }; }
+    for (const id in R) { const r = R[id];
+      for (const i of r.ifs) { if (i.passive || i.loop) continue;
+        for (const nb of neighborsOn(net, r.d, i)) { const o = R[nb.dev.id]; if (!o) { continue; } const oi = o.ifs.find(x => x.ifn === nb.i.ifn);
+          if (r.c.as !== o.c.as) { r.bad.push({ ifn: i.ifn, peer: nb.dev.cfg.hostname, why: `AS-Nummer stimmt nicht: ${r.c.as} ↔ ${o.c.as}` }); continue; }
+          if (!oi) { r.bad.push({ ifn: i.ifn, peer: nb.dev.cfg.hostname, why: `${nb.dev.cfg.hostname} hat ${sh(nb.i.ifn)} nicht in EIGRP (network-Anweisung fehlt)` }); continue; }
+          if (oi.passive) { r.bad.push({ ifn: i.ifn, peer: nb.dev.cfg.hostname, why: `${nb.dev.cfg.hostname} ${sh(oi.ifn)} ist passive-interface` }); continue; }
+          if (maskLen(oi.mask) !== maskLen(i.mask)) { r.bad.push({ ifn: i.ifn, peer: nb.dev.cfg.hostname, why: 'Subnetzmaske stimmt nicht' }); continue; }
+          r.adj.push({ id: nb.dev.id, ifn: i.ifn, ip: nb.i.ip, bw: i.bw, delay: i.delay, host: nb.dev.cfg.hostname }); } } }
+    return R;
+  }
+  function eigrpRoutes(net, R, rid) {
+    const me = R[rid]; if (!me) return []; const best = {}; const own = new Set(me.ifs.map(i => n2ip(netN(i.ip, i.mask)) + '/' + i.mask));
+    const metric = (minBw, delay) => 256 * (Math.floor(1e7 / minBw) + delay);
+    const walk = (cur, visited, minBw, delay, first) => {
+      for (const a of R[cur].adj) { if (visited.has(a.id)) continue; const o = R[a.id], mb = Math.min(minBw, a.bw), dl = delay + a.delay, f = first || { ifn: a.ifn, nh: a.ip }, v2 = new Set(visited).add(a.id);
+        for (const i of o.ifs) { const nw = n2ip(netN(i.ip, i.mask)), k = nw + '/' + i.mask; if (own.has(k)) continue; const m = metric(Math.min(mb, i.bw), dl + i.delay), cur2 = best[k]; if (!cur2 || m < cur2.metric) best[k] = { proto: 'eigrp', net: nw, mask: i.mask, nh: f.nh, ifn: f.ifn, ad: AD.eigrp, metric: m, ext: '' }; }
+        if (v2.size < 10) walk(a.id, v2, mb, dl, f); }
+    };
+    walk(rid, new Set([rid]), Infinity, 0, null);
+    return Object.values(best);
+  }
+
+  // ---------- BGP ----------
+  // Basis-Tabelle ohne BGP: verbunden, statisch, OSPF, EIGRP (für Nachbar-Erreichbarkeit und Next-Hop-Auflösung)
+  function baseLookup(net, d, ip, igp) {
+    const ifs = l3(net, d.id); let best = null;
+    for (const i of ifs) if (inNet(ip, i.ip, i.mask)) { const L = maskLen(i.mask) + 0.5; if (!best || L > best.len) best = { len: L, ifn: i.ifn, nh: ip, direct: true }; }
+    const cand = (r, ifn, nh, ad) => { const L = maskLen(r.mask); if (!best || L > best.len || (L === best.len && ad < best.ad)) best = { len: L, ifn, nh, ad, direct: false }; };
+    for (const r of d.cfg.routes) { if (!inNet(ip, r.net, r.mask)) continue; if (r.ifn) { const i = ifs.find(x => x.ifn === r.ifn); if (i) cand(r, r.ifn, inNet(ip, i.ip, i.mask) ? ip : (r.nh || ip), r.ad || 1); } else { const i = ifs.find(x => inNet(r.nh, x.ip, x.mask)); if (i) cand(r, i.ifn, r.nh, r.ad || 1); } }
+    for (const r of (igp[d.id] || [])) { if (!inNet(ip, r.net, r.mask)) continue; cand(r, r.ifn, r.nh, r.ad); }
+    return best;
+  }
+  function bgpAll(net, igp) {
+    const R = {};
+    for (const d of Object.values(net.devs)) { if (!isRt(d) || isDown(d)) continue; const c = bgpCfg(d); if (!c) continue; R[d.id] = { d, c, ifs: l3(net, d.id), rid: routerId(d, c.rid, l3(net, d.id)), peers: [], rib: {}, adjin: {} }; }
+    const owner = ip => Object.values(R).find(r => r.ifs.some(i => i.ip === ip));
+    // Sitzungen
+    for (const id in R) { const r = R[id];
+      for (const n of Object.values(r.c.nbrs)) {
+        const pr = { ip: n.ip, as: n.as, cfg: n, state: 'Idle', why: '', peer: null, ibgp: n.as === r.c.as, src: null };
+        r.peers.push(pr);
+        if (n.shut) { pr.why = 'administrativ abgeschaltet (shutdown)'; continue; } if (!n.as) { pr.why = 'remote-as fehlt'; continue; }
+        const o = owner(n.ip); if (!o) { pr.state = 'Active'; pr.why = `Unter ${n.ip} antwortet kein BGP-Router`; continue; }
+        pr.peer = o; if (isDown(o.d)) { pr.state = 'Active'; pr.why = `${o.d.cfg.hostname} ist aus`; continue; }
+        const route = baseLookup(net, r.d, n.ip, igp); if (!route) { pr.state = 'Active'; pr.why = `Keine Route zu ${n.ip}`; continue; }
+        if (!pr.ibgp && !route.direct && n.multihop <= 1) { pr.state = 'Active'; pr.why = 'eBGP-Nachbar ist nicht direkt verbunden (ebgp-multihop fehlt)'; continue; }
+        const srcIf = n.upd ? r.ifs.find(i => i.ifn.toLowerCase() === (N.normIf(n.upd) || n.upd).toLowerCase()) : r.ifs.find(i => i.ifn === route.ifn); if (!srcIf) { pr.state = 'Active'; pr.why = 'Quell-Interface (update-source) hat keine IP oder ist down'; continue; }
+        pr.src = srcIf.ip;
+        if (o.c.as !== n.as) { pr.state = 'Idle'; pr.why = `remote-as stimmt nicht: konfiguriert ${n.as}, der Nachbar ist AS ${o.c.as}`; continue; }
+        const back = Object.values(o.c.nbrs).find(x => x.ip === pr.src); if (!back) { pr.state = 'Active'; pr.why = `${o.d.cfg.hostname} hat keinen neighbor ${pr.src} (Gegenstelle erwartet diese Quelladresse)`; continue; }
+        if (back.as !== r.c.as) { pr.state = 'Idle'; pr.why = `${o.d.cfg.hostname} erwartet für ${pr.src} die AS ${back.as}, hier ist AS ${r.c.as}`; continue; }
+        if (back.shut) { pr.state = 'Idle'; pr.why = `${o.d.cfg.hostname}: Nachbar ist dort abgeschaltet`; continue; }
+        const back2 = baseLookup(net, o.d, pr.src, igp); if (!back2) { pr.state = 'Active'; pr.why = `${o.d.cfg.hostname} hat keine Route zurück zu ${pr.src}`; continue; }
+        if (!pr.ibgp && !back2.direct && back.multihop <= 1) { pr.state = 'Active'; pr.why = `${o.d.cfg.hostname}: eBGP-Nachbar nicht direkt verbunden (ebgp-multihop fehlt)`; continue; }
+        pr.state = 'Established'; pr.backCfg = back;
+      } }
+    // Routen: Ursprung, dann Weitergabe bis zum Fixpunkt
+    const better = (a, b) => !b || a.path.length < b.path.length || (a.path.length === b.path.length && (a.type === 'ebgp' ? 0 : a.type === 'local' ? -1 : 1) < (b.type === 'ebgp' ? 0 : b.type === 'local' ? -1 : 1)) || (a.path.length === b.path.length && a.type === b.type && ip2n(a.from || '0.0.0.0') < ip2n(b.from || '0.0.0.0'));
+    for (const id in R) { const r = R[id];
+      for (const n of r.c.nets) { const has = baseLookup(net, r.d, n.net, igp), exact = r.d.cfg.routes.some(x => x.net === n.net && x.mask === n.mask) || r.ifs.some(i => n2ip(netN(i.ip, i.mask)) === n.net && i.mask === n.mask) || (igp[id] || []).some(x => x.net === n.net && x.mask === n.mask); if (has && exact) r.rib[n.net + '/' + n.mask] = { net: n.net, mask: n.mask, path: [], nh: '0.0.0.0', type: 'local', from: null, valid: true }; }
+      if (r.c.redist.has('connected')) r.ifs.forEach(i => { const nw = n2ip(netN(i.ip, i.mask)); r.rib[nw + '/' + i.mask] = r.rib[nw + '/' + i.mask] || { net: nw, mask: i.mask, path: [], nh: '0.0.0.0', type: 'local', from: null, valid: true }; });
+      if (r.c.redist.has('static')) r.d.cfg.routes.forEach(x => { r.rib[x.net + '/' + x.mask] = r.rib[x.net + '/' + x.mask] || { net: x.net, mask: x.mask, path: [], nh: '0.0.0.0', type: 'local', from: null, valid: true }; }); }
+    for (let round = 0; round < 12; round++) { let changed = false;
+      for (const id in R) { const r = R[id];
+        for (const pr of r.peers) { if (pr.state !== 'Established') continue; const o = pr.peer, send = [];
+          for (const rt of Object.values(r.rib)) { if (!rt.valid) continue; if (rt.type === 'ibgp' && pr.ibgp) continue; send.push(rt); }
+          const list = send.map(rt => ({ net: rt.net, mask: rt.mask, path: pr.ibgp ? rt.path.slice() : [r.c.as, ...rt.path], nh: pr.ibgp ? (rt.type === 'local' || pr.cfg.nhs ? pr.src : rt.nh) : pr.src }));
+          if (pr.cfg.defOrig) list.push({ net: '0.0.0.0', mask: '0.0.0.0', path: pr.ibgp ? [] : [r.c.as], nh: pr.src, def: true });
+          const oPeer = o.peers.find(x => x.ip === pr.src && x.peer && x.peer.d.id === id); if (!oPeer) continue;
+          for (const m of list) { if (m.path.includes(o.c.as)) continue;
+            const ok = m.nh && (o.ifs.some(i => i.ip === m.nh) || baseLookup(net, o.d, m.nh, igp)), key = m.net + '/' + m.mask, cand = { net: m.net, mask: m.mask, path: m.path, nh: m.nh, type: pr.ibgp ? 'ibgp' : 'ebgp', from: pr.src, valid: !!ok, via: id, def: !!m.def }, cur = o.rib[key];
+            if (cur && cur.type === 'local') continue;
+            if (!cur || (cand.valid && !cur.valid) || (cand.valid === cur.valid && better(cand, cur) && JSON.stringify([cand.path, cand.nh, cand.type]) !== JSON.stringify([cur.path, cur.nh, cur.type]))) { if (!cur || JSON.stringify([cur.path, cur.nh, cur.type, cur.valid]) !== JSON.stringify([cand.path, cand.nh, cand.type, cand.valid])) { o.rib[key] = cand; changed = true; } } } } }
+      // zurückgezogene Routen entfernen: Routen, deren Absender sie nicht mehr hat
+      for (const id in R) { const r = R[id]; for (const k of Object.keys(r.rib)) { const x = r.rib[k]; if (x.type === 'local') continue; const src = R[x.via], alive = src && src.peers.some(p => p.state === 'Established' && p.peer && p.peer.d.id === id && (!x.def || p.cfg.defOrig)); if (!src || !alive || (!x.def && !src.rib[k])) { delete r.rib[k]; changed = true; } } }
+      if (!changed) break; }
+    return R;
+  }
+  function bgpRoutes(net, R, igp, rid) {
+    const me = R[rid]; if (!me) return []; const out = [];
+    for (const x of Object.values(me.rib)) { if (x.type === 'local' || !x.valid) continue; const f = me.ifs.find(i => i.ip === x.nh) ? null : baseLookup(net, me.d, x.nh, igp); const ifn = f ? f.ifn : null; if (!ifn) continue; out.push({ proto: 'bgp', net: x.net, mask: x.mask, nh: f.direct ? x.nh : f.nh, ifn, ad: x.type === 'ebgp' ? AD.ebgp : AD.ibgp, metric: 0, ext: '', path: x.path }); }
+    return out;
+  }
+
+  // ---------- Gesamtberechnung (pro Operation zwischengespeichert) ----------
+  let CACHE = null;
+  function compute(net) {
+    if (CACHE && CACHE.net === net && CACHE.tick === N.rtick()) return CACHE;
+    const O = ospfAll(net), E = eigrpAll(net), routes = {}, igp = {};
+    for (const d of Object.values(net.devs)) { if (!isRt(d)) continue; igp[d.id] = [...(O[d.id] ? ospfRoutes(net, O, d.id) : []), ...(E[d.id] ? eigrpRoutes(net, E, d.id) : [])]; }
+    const Bg = bgpAll(net, igp);
+    for (const id in igp) routes[id] = igp[id].concat(Bg[id] ? bgpRoutes(net, Bg, igp, id) : []);
+    CACHE = { net, tick: N.rtick(), O, E, B: Bg, routes, igp }; return CACHE;
+  }
+  const dyn = (net, d) => (isRt(d) && !isDown(d) ? (compute(net).routes[d.id] || []) : []);
+
+  // ---------- show-Befehle ----------
+  function show(net, d, u) {
+    if (!isRt(d)) return undefined; const C = compute(net);
+    if (u[0] === 'ip' && 'ospf'.startsWith(u[1] || '~') && (u[1] || '').length >= 2) {
+      const r = C.O[d.id]; if (!r) return '% OSPF-Routing-Prozess ist nicht konfiguriert (router ospf <Nr>)';
+      if ('neighbor'.startsWith(u[2] || '~')) { const rows = r.adj.map(a => pad(a.rid, 17) + pad('1', 6) + pad('FULL/DR', 12) + pad('00:00:34', 11) + pad(a.ip, 16) + sh(a.ifn)); const bad = r.bad.map(b => `  ✗ ${sh(b.ifn)} zu ${b.peer}: ${b.why}`); return [pad('Neighbor ID', 17) + pad('Pri', 6) + pad('State', 12) + pad('Dead Time', 11) + pad('Address', 16) + 'Interface', ...rows, ...(rows.length ? [] : ['Keine Nachbarn.']), ...bad].join('\n'); }
+      if ('interface'.startsWith(u[2] || '~')) return [pad('Interface', 12) + pad('PID', 5) + pad('Area', 7) + pad('IP Address/Mask', 20) + pad('Cost', 6) + 'Status', ...r.ifs.map(i => pad(sh(i.ifn), 12) + pad(r.c.pid, 5) + pad(i.area, 7) + pad(`${i.ip}/${maskLen(i.mask)}`, 20) + pad(i.cost, 6) + (i.passive ? 'PASSIVE' : r.adj.some(a => a.ifn === i.ifn) ? 'FULL' : 'UP, keine Nachbarn'))].join('\n');
+      return `Routing Process "ospf ${r.c.pid}" with ID ${r.rid}\n Number of areas: ${new Set(r.ifs.map(i => i.area)).size}\n Neighbors in FULL state: ${r.adj.length}`;
+    }
+    if (u[0] === 'ip' && 'eigrp'.startsWith(u[1] || '~') && (u[1] || '').length >= 2) {
+      const r = C.E[d.id]; if (!r) return '% EIGRP-Prozess ist nicht konfiguriert (router eigrp <AS>)';
+      if ('neighbors'.startsWith(u[2] || '~')) { const rows = r.adj.map((a, k) => pad(k, 3) + pad(a.ip, 16) + pad(sh(a.ifn), 12) + 'Up'), bad = r.bad.map(b => `  ✗ ${sh(b.ifn)} zu ${b.peer}: ${b.why}`); return [`EIGRP-IPv4 Neighbors for AS(${r.c.as})`, pad('H', 3) + pad('Address', 16) + pad('Interface', 12) + 'State', ...rows, ...(rows.length ? [] : ['Keine Nachbarn.']), ...bad].join('\n'); }
+      if ('topology'.startsWith(u[2] || '~')) return [`EIGRP-IPv4 Topology Table for AS(${r.c.as})/ID(${r.rid})`, ...C.routes[d.id].filter(x => x.proto === 'eigrp').map(x => `P ${x.net}/${maskLen(x.mask)}, 1 successors, FD is ${x.metric}\n        via ${x.nh} (${x.metric}/0), ${sh(x.ifn)}`)].join('\n');
+      return `Routing Protocol is "eigrp ${r.c.as}"\n  Router-ID: ${r.rid}\n  Neighbors: ${r.adj.length}`;
+    }
+    if (u[0] === 'ip' && 'bgp'.startsWith(u[1] || '~') && (u[1] || '').length >= 1 && u[1] !== 'brief') {
+      const r = C.B[d.id]; if (!r) return '% BGP ist nicht konfiguriert (router bgp <AS>)';
+      if ('summary'.startsWith(u[2] || '~') && u[2]) return [`BGP router identifier ${r.rid}, local AS number ${r.c.as}`, pad('Neighbor', 16) + pad('AS', 8) + pad('State/PfxRcd', 14) + 'Hinweis', ...r.peers.map(p => pad(p.ip, 16) + pad(p.as || '-', 8) + pad(p.state === 'Established' ? Object.values(r.rib).filter(x => x.from === p.src || (x.via === (p.peer && p.peer.d.id))).length : p.state, 14) + (p.why ? '← ' + p.why : ''))].join('\n');
+      const rows = Object.values(r.rib).sort((a, b) => ip2n(a.net) - ip2n(b.net)); return [`BGP table, local router ID is ${r.rid}`, 'Status: * valid, > best, i internal', pad('   Network', 22) + pad('Next Hop', 16) + 'Path', ...rows.map(x => pad((x.valid ? '*>' : '* ') + (x.type === 'ibgp' ? 'i' : ' ') + ' ' + x.net + '/' + maskLen(x.mask), 22) + pad(x.nh, 16) + (x.path.length ? x.path.join(' ') + ' i' : 'i') + (x.valid ? '' : '  (Next Hop nicht erreichbar)'))].join('\n');
+    }
+    if (u[0] === 'ip' && 'protocols'.startsWith(u[1] || '~') && (u[1] || '').length >= 2) {
+      const o = [], O = C.O[d.id], E = C.E[d.id], B = C.B[d.id];
+      if (O) o.push(`Routing Protocol is "ospf ${O.c.pid}"\n  Router ID ${O.rid}\n  Routing for Networks:\n${O.c.nets.map(n => `    ${n.net} ${n.mask} area ${n.area}`).join('\n')}\n  Passive Interface(s): ${O.ifs.filter(i => i.passive).map(i => sh(i.ifn)).join(', ') || '–'}\n  Distance: 110`);
+      if (E) o.push(`Routing Protocol is "eigrp ${E.c.as}"\n  Router-ID ${E.rid}\n  Routing for Networks:\n${E.c.nets.map(n => `    ${n.net} ${n.mask}`).join('\n')}\n  Distance: internal 90`);
+      if (B) o.push(`Routing Protocol is "bgp ${B.c.as}"\n  Router ID ${B.rid}\n  Neighbors: ${B.peers.map(p => p.ip + ' ' + p.state).join(', ') || '–'}\n  Distance: external 20 internal 200`);
+      return o.length ? o.join('\n\n') : 'Es läuft kein dynamisches Routing-Protokoll.';
+    }
+    if (u[0] === 'ip' && 'route'.startsWith(u[1] || '~') && u[2] && ['ospf', 'eigrp', 'bgp'].includes(u[2])) { const rows = dyn(net, d).filter(x => x.proto === u[2]); return rows.length ? rows.map(r => `${{ ospf: r.ext ? 'O E2' : 'O   ', eigrp: 'D   ', bgp: 'B   ' }[r.proto]}  ${r.net}/${maskLen(r.mask)} [${r.ad}/${r.metric}] via ${r.nh}, ${r.ifn}`).join('\n') : 'Keine Routen dieses Protokolls.'; }
+    return undefined;
+  }
+  N.setHooks({ dyn, show });
+  return { compute, dyn, ospfCfg, eigrpCfg, bgpCfg, isRt, AD };
+})();
+if (typeof module !== 'undefined') module.exports = RTG;
 
 </script>
 <script>
@@ -3172,6 +3453,7 @@ const WIKI = (function () {
   art('wlan-grundlagen', 'l2', 'WLAN: Access Point, SSID, Controller und PoE', 'Wie Funk-Clients ins Netz kommen.', `<p>Ein <b>Access Point</b> (AP) verbindet Funk-Clients mit dem kabelgebundenen Netz. Er sendet eine oder mehrere <b>SSIDs</b> (Funknetzwerke). Jede SSID hat einen Namen, eine Sicherheitsart (WPA2-PSK, WPA3-SAE oder offen) und ein <b>VLAN</b>: Die Frames der Clients werden wie bei einer Brücke in dieses VLAN gelegt.</p><p>Der AP hängt mit <b>einem</b> Kabel am Switch. Sein Strom kommt per <b>PoE</b> (Power over Ethernet) vom Switchport oder von einem PoE-Injector. Ein Nicht-PoE-Switch liefert keinen Strom: Der AP bleibt dunkel. Der Uplink-Port verhält sich so:</p>` + tbl(['SSID-VLAN', 'Switchport zum AP'], [['nativ (0)', 'Access-Port im VLAN der Clients oder Trunk mit passendem Native-VLAN'], ['z. B. 20', 'Trunk, der VLAN 20 erlaubt (<code>switchport mode trunk</code>, <code>allowed vlan 1,20</code>). Ein Access-Port nimmt keine getaggten Frames an.']]) + `<p><b>Autonom oder Controller:</b> Ein autonomer AP trägt seine SSIDs selbst. Mit einem <b>WLAN-Controller</b> (z. B. Catalyst 9800) pflegst du die SSIDs einmal zentral. Die APs melden sich per CAPWAP an (<b>Join</b>), dafür brauchen sie die Controller-IP und Erreichbarkeit. Ohne Join sendet ein Lightweight-AP kein WLAN.</p>` + ul(['Client verbindet sich nicht: SSID-Name, Schlüssel und Sicherheitsart prüfen', 'Verbunden, aber kein Netz: VLAN der SSID, Trunk und IP/Gateway prüfen', 'AP leuchtet nicht: PoE-Switch, Port nicht shutdown, Kabel', 'AP erscheint nicht am Controller: Controller-IP, Gateway, VLAN des Management-Netzes']) + plan('Access Point oder Controller im Katalog unter „Netzwerk“, Notebooks, Smartphones und Tablets unter „Endgeräte“. Die Web-GUI von AP und Controller verwaltet die SSIDs; Clients verbindest du im Detailfeld. Zwei Szenarien unter „Aufgaben“.'), ['vlan', 'trunk', 'dhcp-cisco']);
   art('hypermetro', 'storage', 'HyperMetro und Quorum-Server', 'Zwei Storage-Arrays als aktiv-aktiv-Cluster und wer bei Ausfall entscheidet.', `<p><b>HyperMetro</b> (bei Huawei OceanStor) spiegelt eine LUN synchron auf ein zweites Array an einem anderen Standort. Beide Arrays bedienen die Hosts gleichzeitig (<b>aktiv-aktiv</b>): Der Server sieht <b>ein</b> Gerät mit Pfaden zu beiden Arrays und schaltet bei einem Ausfall per Multipath um, ohne neue Platte und ohne Unterbrechung. Zusammengehörige Arrays bilden eine <b>HyperMetro-Domäne</b>, gespiegelte LUNs heißen <b>HyperMetro-Paare</b>.</p><p>Das Risiko ist <b>Split-Brain</b>: Fällt nur die Verbindung zwischen den Arrays aus, denkt jede Seite, die andere sei tot, und beide nehmen weiter Schreibzugriffe an. Die Daten laufen auseinander. Deshalb gibt es einen <b>Quorum-Server</b> an einem dritten Standort als Schiedsrichter. Wer ihn erreicht, darf weiterarbeiten.</p>` + tbl(['Situation', 'Ergebnis'], [['Alles verbunden', 'Beide Arrays aktiv'], ['Verbindung zwischen den Arrays weg, beide erreichen den Quorum-Server', 'Der bevorzugte Standort gewinnt, die andere Seite geht in Standby'], ['Nur ein Array erreicht den Quorum-Server', 'Dieses Array gewinnt'], ['Ein Array fällt aus', 'Das andere übernimmt (Failover), sofern es den Quorum-Server erreicht'], ['Verbindung und Quorum-Server weg', 'Mit <b>statischer Priorität</b> arbeitet der bevorzugte Standort weiter, ohne sie stoppen beide']]) + ul(['Die Arrays brauchen eine <b>Replikationsverbindung</b>: FC-Kabel direkt oder über den FC-Switch mit einer Zone zwischen den Array-Ports', 'Der Quorum-Server wird über das Management-Netz erreicht, nicht über FC', 'Hosts müssen auf beiden Arrays maskiert und gezont sein']) + plan('Storage anklicken → Web-GUI → „HyperMetro“: Domäne erstellen, Replikationszonen anlegen, Paar erstellen. Auf dem Quorum-Server <code>sudo apt install quorum-server</code> und <code>sudo systemctl enable --now quorum-server</code>. Zwei Szenarien unter „Aufgaben“.'), ['lun', 'lun-masking', 'multipath', 'zoning']);
   art('dhcp-cisco', 'l3', 'DHCP auf Switch, Router und Firewall, DHCP-Relay', 'Adressvergabe ohne eigenen Server.', `<p>Nicht nur Server verteilen IP-Adressen: Ein Router, ein Layer-3-Switch und eine ASA können selbst DHCP-Server sein. Die Clients fragen per Broadcast, deshalb muss der Server im <b>selben VLAN</b> antworten, an der Schnittstelle (SVI) des Netzes. Steht der DHCP-Server in einem anderen Netz, leitet ein <b>Relay</b> (<code>ip helper-address</code>) die Anfrage an ihn weiter.</p>` + tbl(['Gerät', 'Konfiguration'], [['Cisco IOS', '<code>ip dhcp excluded-address 10.30.0.1 10.30.0.20</code>, <code>ip dhcp pool CLIENTS</code>, darin <code>network 10.30.0.0 255.255.255.0</code>, <code>default-router 10.30.0.1</code>, <code>dns-server 10.10.0.53</code>'], ['Relay (am SVI)', '<code>interface vlan 30</code>, <code>ip helper-address 10.10.0.11</code>'], ['Cisco ASA', '<code>dhcpd address 10.255.0.100-10.255.0.150 inside</code>, <code>dhcpd dns 10.10.0.53</code>, <code>dhcpd enable inside</code>'], ['Prüfen', '<code>show ip dhcp binding</code>, <code>show ip dhcp pool</code>, <code>show dhcpd binding</code>']]) + ul(['Der Pool muss zum Netz der Schnittstelle passen, sonst bekommt der Client nichts', 'Gateway und feste Server-Adressen mit <code>excluded-address</code> ausnehmen', 'Beim Relay braucht der Server einen Pool für das Netz der Relay-Schnittstelle']) + plan('Switch, Router oder ASA anklicken → Web-GUI → „DHCP-Server“. Auf einem PC im Desktop unter „Netzwerkverbindungen“ DHCP einschalten.'), ['dhcp', 'vlan', 'web-gui']);
+  art('routing-protokolle', 'l3', 'Dynamisches Routing: OSPF, EIGRP und BGP', 'Wie Router Routen automatisch austauschen.', `<p>Statische Routen pflegst du von Hand. In größeren Netzen tauschen Router ihre Netze automatisch aus: ein <b>Routing-Protokoll</b>. Es baut zuerst <b>Nachbarschaften</b> (Neighbors) auf, tauscht dann Routen aus und passt sie an, wenn ein Link ausfällt.</p>` + tbl(['Protokoll', 'Typ', 'Metrik', 'Admin Distance', 'Einsatz'], [['OSPF', 'Link-State, Areas', 'Kosten (Referenz 100 Mbit/s ÷ Bandbreite)', '110', 'Firmennetz, Campus'], ['EIGRP', 'Cisco, Distance-Vector (hybrid)', 'Bandbreite und Delay', '90', 'Cisco-Umgebungen'], ['eBGP', 'Path-Vector zwischen AS', 'AS-Pfad (kürzer ist besser)', '20', 'Internet, Provider'], ['iBGP', 'BGP innerhalb einer AS', 'wie BGP', '200', 'Provider-Backbone'], ['Statisch', 'manuell', '–', '1', 'Default-Routen, kleine Netze']]) + `<p>Bei mehreren Routen zum selben Ziel gewinnt zuerst das <b>längere Präfix</b>, dann die niedrigere <b>Administrative Distance</b>. Deshalb schlägt eine statische Route OSPF, und eine <b>Floating Static</b> (<code>ip route ... 200</code>) wird erst benutzt, wenn die dynamische Route verschwindet.</p><h4>Warum kommt keine Nachbarschaft zustande?</h4>` + ul(['<b>OSPF:</b> gleiche Area, gleiche Maske, gleiche Hello/Dead-Timer, Schnittstelle nicht passive, network-Anweisung vorhanden', '<b>EIGRP:</b> gleiche AS-Nummer, Schnittstelle in einem network-Eintrag, nicht passive', '<b>BGP:</b> remote-as muss zur AS des Nachbarn passen, die Gegenseite braucht den passenden neighbor-Eintrag, eBGP-Nachbarn sind direkt verbunden (sonst ebgp-multihop)', '<b>BGP:</b> ein Netz wird nur angekündigt, wenn es exakt in der Routing-Tabelle steht', '<b>iBGP:</b> gibt gelernte iBGP-Routen nicht an andere iBGP-Nachbarn weiter. Der Next Hop bleibt unverändert, darum braucht der Rand-Router <code>next-hop-self</code>']) + `<p><b>Prüfen:</b> <code>show ip ospf neighbor</code>, <code>show ip eigrp neighbors</code>, <code>show ip bgp summary</code>, <code>show ip protocols</code>, <code>show ip route</code>.</p>` + plan('Router oder Layer-3-Switch → Web-GUI → „Dynamisches Routing“. Drei Szenarien: OSPF, EIGRP und BGP zum Provider.'), ['subnetting', 'web-gui']);
   art('power-boot', 'l3', 'Ein- und Ausschalten, Booten und Startup-Config', 'Warum eine Konfiguration ohne Speichern verloren geht.', `<p>Jedes Gerät im Planer lässt sich ein- und ausschalten (Schalter im Detailfeld oder Werkzeug „Ein- und ausschalten“). Ein ausgeschaltetes Gerät ist nicht erreichbar, und alle Links daran sind down. Nach dem Einschalten <b>bootet</b> es: Der Planer zeigt den Bootvorgang in der Konsole, und das Gerät antwortet erst, wenn er fertig ist. Das dauert bei Switches und Routern etwa 10 Sekunden, bei Servern und Storage-Systemen länger.</p><p>Cisco-Geräte kennen zwei Konfigurationen: die <b>Running-Config</b> im Arbeitsspeicher und die <b>Startup-Config</b> im Flash. Beim Start lädt das Gerät nur die Startup-Config. Was du mit <code>write memory</code> (oder „Konfiguration speichern“ in der Weboberfläche) nicht gespeichert hast, ist nach dem Neustart weg.</p>` + ul(['Switch ausschalten: angeschlossene Geräte verlieren ihr Netz', 'Ohne <code>write memory</code> verschwinden neue VLANs, IP-Adressen und ACLs beim Neustart', 'Server behalten ihre Dateien und Dienste, sie starten nur neu']) + plan('Gerät anklicken → im Detailfeld „Ausschalten“, danach „Einschalten“. Im Tab „Systeme“ gibt es denselben Schalter über der Weboberfläche.'), ['trunk', 'web-gui']);
   art('pc-desktop', 'server', 'Der PC-Desktop', 'Windows-Arbeitsplatz im Planer: Netz einstellen, testen, Weboberflächen aufrufen.', `<p>Ein Doppelklick auf einen PC öffnet seinen <b>Desktop</b>. Er verhält sich wie ein Windows-Arbeitsplatz: Fenster lassen sich verschieben, vergrößern und minimieren, unten gibt es Taskleiste, Startmenü und Uhr. Das Netzwerksymbol rechts zeigt, ob ein Kabel Verbindung hat.</p>` + tbl(['Programm', 'Wofür'], [['Netzwerkverbindungen', 'IP-Adresse, Subnetzmaske, Gateway und DNS setzen oder DHCP einschalten'], ['Eingabeaufforderung', '<code>ipconfig /all</code>, <code>ping</code>, <code>nslookup</code>, <code>tracert</code> und PowerShell-Befehle'], ['Webbrowser', 'Webseiten aufrufen und die Weboberfläche von Switches (<code>https://&lt;IP&gt;/</code>) und Servern (<code>:8443</code>) öffnen'], ['Datei-Explorer und Editor', 'Ordner und Textdateien anlegen, bearbeiten und löschen'], ['Einstellungen', 'Gerät umbenennen und einer Domäne beitreten']]) + `<p>Typischer Ablauf bei einem Fehler: Kabel und Netzwerksymbol prüfen, in den Netzwerkverbindungen die IP-Daten kontrollieren, dann <code>ping</code> zum Gateway, danach zum Ziel, und zuletzt mit dem Browser die Dienste testen.</p>`, ['web-gui', 'win-powershell', 'subnetting']);
   art('web-gui', 'server', 'Web-Verwaltung der Geräte', 'Switches, Router, Server, Storage und FC-Switch im Browser verwalten.', `<p>Wie in der Praxis haben Cisco-Switches und -Router, Server, Storage-Systeme und FC-Switches eine <b>Weboberfläche</b> mit Anmeldung, Menü, Tabellen und Dialogen. Im Planer öffnest du sie über „Web-GUI öffnen“ am Gerät. Alternativ rufst du sie von einem PC aus im Webbrowser auf: <code>https://&lt;IP-Adresse&gt;:8443</code> (Server, Storage, FC-Switch) oder <code>https://&lt;Management-IP&gt;/</code> (Cisco-Switch, -Router und ASA-Firewall, Port 443). Dann muss das Gerät erreichbar sein (IP, Gateway, VLAN).</p>` + tbl(['Gerät', 'Oberfläche', 'Was du dort machst'], [['Cisco-Switch', 'Catalyst Web-Oberfläche', 'Dashboard mit Portansicht, Schnittstellen (mehrere markieren und gemeinsam ändern), VLAN, Layer 3 mit SVI und Routen, ACL, DHCP-Server und Relay, Konfiguration speichern, Konsole, Ping und Traceroute'], ['ASA-Firewall', 'Cisco ASDM', 'Zonen mit Security-Level, Zugriffsregeln und Bindung, NAT, Routen, DHCP-Server, Sicherung, CLI, Ping'], ['Cisco-Router', 'Router Web-Oberfläche', 'Schnittstellen mit IP, statische Routen, ACL, Konfiguration speichern, Konsole, Ping und Traceroute'], ['Linux-Server', 'Server-Web-Konsole', 'Netzwerk, Dienste, Konfigurationsdateien, Speicher, Firewall, Software, Terminal'], ['Hypervisor', 'Virtualisierungs-Manager', 'VMs, virtueller Switch, Datastores, Cluster und HA'], ['Windows-Server', 'Server-Manager', 'Rollen, Active Directory, DNS, DHCP, Freigaben, Dienste, Firewall, PowerShell'], ['Storage', 'Storage-Manager', 'Pools, LUNs, Zuordnung, Ports'], ['FC-Switch', 'Fabric-Manager', 'Ports, Zoning, VSAN']]) + `<p>Jede Aktion in der Oberfläche führt dieselben Schritte aus wie das Terminal (bei Cisco-Geräten sind das IOS-Befehle). Bei Cisco-Geräten gilt: Änderungen landen in der Running-Config und gehen ohne „Konfiguration speichern“ (<code>write memory</code>) beim Neustart verloren. Unten zeigt ein Streifen „Letzte Aktionen“ den gleichwertigen Befehl. So lernst du beides: die Oberfläche für den Alltag und die Befehle für Skripte und Fehlersuche. Anmeldedaten im Simulator: <code>admin</code> und <code>NetLab-2026</code> (vorausgefüllt).</p>`, ['linux-grundlagen', 'win-powershell', 'virt-grundlagen', 'lun']);
@@ -3971,11 +4253,11 @@ const WEBGUI = (function () {
     windows: d => [['dashboard', 'Dashboard'], ['local', 'Lokaler Server'], ['roles', 'Rollen und Features'], ['ad', 'Active Directory'], ['dns', 'DNS'], ['dhcp', 'DHCP'], ['shares', 'Dateidienste'], ['services', 'Dienste'], ['firewall', 'Firewall'], ['terminal', 'PowerShell']],
     storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['hypermetro', 'HyperMetro'], ['ports', 'Ports und Controller']],
     fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']],
-    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['stp', 'Spanning Tree'], ['ec', 'EtherChannel'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
+    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['rproto', 'Dynamisches Routing'], ['stp', 'Spanning Tree'], ['ec', 'EtherChannel'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
     firewall: d => [].concat(...Object.values(FW)),
     ap: d => [['dashboard', 'Übersicht'], ['wlan', 'Funknetzwerke (SSID)'], ['clients', 'Clients'], ['network', 'Netzwerk'], ['controller', 'Controller'], ['cli', 'Konsole']],
     wlc: d => [['dashboard', 'Dashboard'], ['-c', 'Konfiguration'], ['wlan', 'WLANs'], ['aps', 'Access Points'], ['clients', 'Clients'], ['-a', 'Verwaltung'], ['network', 'Netzwerk'], ['cli', 'Konsole']],
-    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
+    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['rproto', 'Dynamisches Routing'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
   };
 
   // ---------- Aktionen ausführen ----------
@@ -4384,6 +4666,36 @@ const WEBGUI = (function () {
       + '<p class="wg-note">Ein EtherChannel fasst mehrere Kabel zu einem logischen Link zusammen: mehr Bandbreite und Ausfallsicherheit, und das Spanning Tree sieht nur einen Link. Beide Seiten müssen passende Modi haben (active mit active oder passive, oder beide <code>on</code>) und gleich konfigurierte Ports.</p>';
   };
 
+  // ---------- Dynamisches Routing (OSPF, EIGRP, BGP) ----------
+  PAGES.switch.rproto = PAGES.router.rproto = (d, G) => {
+    if (d.type === 'switch' && !d.cfg.ipRouting) return '<p class="wg-empty">Dieser Switch routet nicht. Schalte unter „Layer 3“ zuerst <code>ip routing</code> ein, dann kannst du Routing-Protokolle nutzen.</p>';
+    const net = A.net(), C = A.RTG.compute(net), tab = G.tab.rp || 'ospf', tabs = [['ospf', 'OSPF'], ['eigrp', 'EIGRP'], ['bgp', 'BGP']];
+    const head = `<div class="wg-tabs" role="tablist">${tabs.map(x => `<button type="button" role="tab" class="${x[0] === tab ? 'act' : ''}" aria-selected="${x[0] === tab}" data-act="tab" data-t="rp" data-v="${x[0]}">${x[1]}</button>`).join('')}</div>`;
+    const blk = k => A.blocks(d, 'router ' + k)[0], none = k => `<p class="wg-empty">${k.toUpperCase()} läuft auf diesem Gerät nicht.</p><div class="wg-row">${btn(k.toUpperCase() + ' starten', 'dlg', { k: 'rpstart', p: k }, 'primary')}</div>`;
+    const netRows = (b, kind) => b.lines.filter(l => /^network /i.test(l)).map(l => { const t = l.split(/\s+/); return [`<b>${esc(t[1])}</b>`, kind === 'bgp' ? esc(t[3] || '') : esc(t[2] || '–'), kind === 'ospf' ? esc(t[4] || '') : '', btn('Entfernen', 'rpnetdel', { k: kind, l }, 'sm ghost bad')]; });
+    if (tab === 'ospf') {
+      const b = blk('ospf'); if (!b) return head + none('ospf'); const r = C.O[d.id], pid = b.head.split(' ')[2], dflt = b.lines.find(l => /^default-information/i.test(l));
+      return head + `<div class="wg-row">${btn('Netz hinzufügen', 'dlg', { k: 'ospfnet', pid }, 'primary')}${btn(dflt ? 'Default-Route nicht mehr verteilen' : 'Default-Route verteilen', 'ospfdef', { pid, on: dflt ? 0 : 1 }, 'sm')}${btn('Prozess löschen', 'rpdel', { k: 'ospf', n: pid }, 'sm ghost bad')}</div>`
+        + card(`OSPF ${esc(pid)} (Router-ID ${esc(r ? r.rid : '–')})`, tbl(['Netz', 'Wildcard-Maske', 'Area', ''], netRows(b, 'ospf'), 'Keine network-Anweisung. Ohne sie ist keine Schnittstelle in OSPF.'))
+        + card('Schnittstellen in OSPF', tbl(['Schnittstelle', 'IP-Adresse', 'Area', 'Kosten', 'Rolle', ''], (r ? r.ifs : []).map(i => [`<b>${esc(A.SH(i.ifn))}</b>`, esc(i.ip + '/' + maskLen(i.mask)), i.area, i.cost, i.passive ? chip('passiv') : chip('aktiv', 'ok'), btn(i.passive ? 'Aktiv schalten' : 'Passiv schalten', 'rppass', { k: 'ospf', n: pid, i: i.ifn, on: i.passive ? 0 : 1 }, 'sm')]), 'Noch keine Schnittstelle in OSPF.'))
+        + card('Nachbarn', tbl(['Router-ID', 'Adresse', 'Schnittstelle', 'Status'], (r ? r.adj : []).map(a => [`<b>${esc(a.host)}</b> <small class="wg-mut">${esc(a.rid)}</small>`, esc(a.ip), esc(A.SH(a.ifn)), chip('FULL', 'ok')]), 'Keine Nachbarn.') + (r && r.bad.length ? `<div class="wg-msg err">${r.bad.map(x => esc(`${A.SH(x.ifn)} zu ${x.peer}: ${x.why}`)).join('<br>')}</div>` : ''))
+        + card('OSPF-Routen', showBox(d, 'show ip route ospf'));
+    }
+    if (tab === 'eigrp') {
+      const b = blk('eigrp'); if (!b) return head + none('eigrp'); const r = C.E[d.id], as = b.head.split(' ')[2];
+      return head + `<div class="wg-row">${btn('Netz hinzufügen', 'dlg', { k: 'eigrpnet', as }, 'primary')}${btn('Prozess löschen', 'rpdel', { k: 'eigrp', n: as }, 'sm ghost bad')}</div>`
+        + card(`EIGRP AS ${esc(as)} (Router-ID ${esc(r ? r.rid : '–')})`, tbl(['Netz', 'Wildcard-Maske', '', ''], netRows(b, 'eigrp'), 'Keine network-Anweisung.'))
+        + card('Schnittstellen in EIGRP', tbl(['Schnittstelle', 'IP-Adresse', 'Bandbreite (kbit/s)', 'Delay (10 µs)', 'Rolle', ''], (r ? r.ifs : []).map(i => [`<b>${esc(A.SH(i.ifn))}</b>`, esc(i.ip + '/' + maskLen(i.mask)), i.bw, i.delay, i.passive ? chip('passiv') : chip('aktiv', 'ok'), btn(i.passive ? 'Aktiv schalten' : 'Passiv schalten', 'rppass', { k: 'eigrp', n: as, i: i.ifn, on: i.passive ? 0 : 1 }, 'sm')]), 'Noch keine Schnittstelle in EIGRP.'))
+        + card('Nachbarn', tbl(['Gerät', 'Adresse', 'Schnittstelle', 'Status'], (r ? r.adj : []).map(a => [`<b>${esc(a.host)}</b>`, esc(a.ip), esc(A.SH(a.ifn)), chip('Up', 'ok')]), 'Keine Nachbarn.') + (r && r.bad.length ? `<div class="wg-msg err">${r.bad.map(x => esc(`${A.SH(x.ifn)} zu ${x.peer}: ${x.why}`)).join('<br>')}</div>` : ''))
+        + card('EIGRP-Routen', showBox(d, 'show ip route eigrp'));
+    }
+    const b = blk('bgp'); if (!b) return head + none('bgp'); const r = C.B[d.id], as = b.head.split(' ')[2];
+    return head + `<div class="wg-row">${btn('Nachbar hinzufügen', 'dlg', { k: 'bgpnbr', as }, 'primary')}${btn('Netz ankündigen', 'dlg', { k: 'bgpnet', as }, 'sm')}${btn('Prozess löschen', 'rpdel', { k: 'bgp', n: as }, 'sm ghost bad')}</div>`
+      + card(`BGP AS ${esc(as)} (Router-ID ${esc(r ? r.rid : '–')})`, tbl(['Nachbar', 'AS', 'Status', 'Hinweis', ''], (r ? r.peers : []).map(p => [`<b>${esc(p.ip)}</b>${p.ibgp ? ' <small class="wg-mut">iBGP</small>' : ' <small class="wg-mut">eBGP</small>'}`, p.as || '–', p.state === 'Established' ? chip('Established', 'ok') : chip(p.state, 'bad'), esc(p.why || ''), btn('Entfernen', 'bgpnbrdel', { as, ip: p.ip }, 'sm ghost bad')]), 'Kein Nachbar. Lege einen mit „Nachbar hinzufügen“ an.'))
+      + card('Angekündigte Netze', tbl(['Netz', 'Maske', '', ''], netRows(b, 'bgp'), 'Keine. Ohne network-Anweisung kündigt der Router nichts an.') + '<p class="wg-note">Ein Netz wird nur angekündigt, wenn es exakt in der Routing-Tabelle steht (verbunden, statisch oder per IGP gelernt).</p>')
+      + card('BGP-Tabelle', showBox(d, 'show ip bgp'));
+  };
+
   // ---------- Dialoge ----------
   function dlgHtml(d, G) {
     const x = G.dlg, k = x.k, net = A.net(), wrap = (t, body, ok, okLbl) => `<div class="wg-ov" data-act="dlgbg"><form class="wg-dlg" role="dialog" aria-modal="true" aria-label="${esc(t)}" data-act="dlgok"><h2>${t}</h2>${body}<div class="wg-row end">${btn('Abbrechen', 'dlgx', null, 'ghost')}${ok === false ? '' : `<button type="submit" class="wg-b primary" data-act="dlgok">${okLbl || 'OK'}</button>`}</div></form></div>`;
@@ -4404,6 +4716,11 @@ const WEBGUI = (function () {
       case 'ssid': { const L = ssidList(d), cur = x.i === '' ? null : L[+x.i] || null; return wrap(cur ? `SSID ${esc(cur.name)}` : (d.type === 'wlc' ? 'WLAN hinzufügen' : 'SSID hinzufügen'), field('n', 'Name der SSID', cur ? cur.name : '', { ph: 'Firma-WLAN' }) + sel('sec', 'Sicherheit', [['wpa2', 'WPA2-PSK'], ['wpa3', 'WPA3-SAE'], ['open', 'Offen (ohne Passwort)']], cur ? cur.sec : 'wpa2') + field('psk', 'WLAN-Schlüssel (8 bis 63 Zeichen)', cur ? cur.psk : '', { hint: 'Wird bei „Offen“ ignoriert.' }) + field('vlan', 'VLAN (0 = nativ/untagged)', cur ? cur.vlan || 0 : 0, { type: 'number', min: 0, max: 4094 }), true, 'Speichern'); }
       case 'apnet': { const h = hostLn(d); return wrap('IP-Konfiguration', field('ip', 'IP-Adresse', h.ip || '', { ph: '10.0.0.60' }) + field('len', 'Präfixlänge', h.mask ? maskLen(h.mask) : 24, { type: 'number', min: 1, max: 30 }) + field('gw', 'Gateway', d.cfg.gw || '', { ph: '10.0.0.1' }), true, 'Speichern'); }
       case 'ecnew': { const used = new Set(d.ports.filter(p => d.cfg.ifs[p].cg).map(p => d.cfg.ifs[p].cg.n)); let n = 1; while (used.has(n)) n++; const ps = d.ports.filter(p => A.NL.peerOfPort(net, d.id, p) && !d.cfg.ifs[p].cg); return wrap('Port-Channel erstellen', `<div class="wg-2">${field('n', 'Nummer', n, { type: 'number', min: 1, max: 64 })}${sel('md', 'Modus', [['active', 'LACP active (empfohlen)'], ['passive', 'LACP passive'], ['on', 'statisch (on)'], ['desirable', 'PAgP desirable'], ['auto', 'PAgP auto']], 'active')}</div><div class="wg-f"><label>Mitglieder (Ports mit Kabel)</label>${ps.length ? ps.map(p => `<label class="wg-ck2"><input type="checkbox" data-ecp="${esc(p)}"> ${esc(A.SH(p))} → ${esc(net.devs[A.NL.peerOfPort(net, d.id, p).dev].cfg.hostname)}</label>`).join('') : '<small>Keine freien Ports mit Kabel.</small>'}</div><label class="wg-ck2"><input type="checkbox" id="wf-trunk" checked> Als Trunk konfigurieren</label>`, ps.length > 1, 'Erstellen'); }
+      case 'rpstart': return wrap(x.p === 'bgp' ? 'BGP starten' : x.p.toUpperCase() + ' starten', field('n', x.p === 'bgp' ? 'Eigene AS-Nummer' : x.p === 'eigrp' ? 'AS-Nummer (muss bei allen Nachbarn gleich sein)' : 'Prozess-ID', x.p === 'bgp' ? 65001 : x.p === 'eigrp' ? 100 : 1, { type: 'number', min: 1 }), true, 'Starten');
+      case 'ospfnet': return wrap('OSPF-Netz hinzufügen', `<div class="wg-2">${field('net', 'Netz', '', { ph: '10.0.0.0' })}${field('wc', 'Wildcard-Maske', '0.0.0.255')}</div>` + field('area', 'Area', 0, { type: 'number', min: 0 }), true, 'Hinzufügen');
+      case 'eigrpnet': return wrap('EIGRP-Netz hinzufügen', `<div class="wg-2">${field('net', 'Netz', '', { ph: '10.0.0.0' })}${field('wc', 'Wildcard-Maske', '0.0.0.255')}</div>`, true, 'Hinzufügen');
+      case 'bgpnbr': return wrap('BGP-Nachbar hinzufügen', `<div class="wg-2">${field('ip', 'IP-Adresse des Nachbarn', '', { ph: '10.12.0.2' })}${field('as', 'AS des Nachbarn', '', { type: 'number', min: 1 })}</div><label class="wg-ck2"><input type="checkbox" id="wf-nhs"> next-hop-self (für iBGP-Nachbarn)</label><label class="wg-ck2"><input type="checkbox" id="wf-defo"> Default-Route an den Nachbarn senden</label>`, true, 'Hinzufügen');
+      case 'bgpnet': return wrap('Netz ankündigen', `<div class="wg-2">${field('net', 'Netz', '', { ph: '10.1.0.0' })}${field('mask', 'Subnetzmaske', '255.255.255.0')}</div>`, true, 'Ankündigen');
       case 'ifedit': {
         const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
         const vl = Object.keys(d.cfg.vlans || {}).map(Number).sort((a, b) => a - b).map(n => [n, `${n} – ${d.cfg.vlans[n]}`]);
@@ -4492,6 +4809,11 @@ const WEBGUI = (function () {
         }
         case 'apnet': { const ip = v(G, 'ip').trim(), gw = v(G, 'gw').trim(); if (!ip) { ok = false; G.msg = { err: true, t: 'IP-Adresse fehlt.' }; break; } const o = A.exec(dv, `ip ${ip}/${v(G, 'len')}${gw ? ' ' + gw : ''}`); G.log.push({ cmd: `ip ${ip}/${v(G, 'len')}${gw ? ' ' + gw : ''}`, err: false }); if (/ungültig|nicht|invalid/i.test(o)) { G.msg = { err: true, t: String(o).split('\n')[0] }; ok = false; } else { A.act(() => { dv.cfg.dhcp = false; }); G.msg = { t: 'IP-Konfiguration gespeichert.' }; } break; }
         case 'ecnew': { const ps = [...root.querySelectorAll('[data-ecp]')].filter(c => c.checked).map(c => c.dataset.ecp), n = +v(G, 'n'); if (ps.length < 2) { G.msg = { err: true, t: 'Wähle mindestens zwei Ports.' }; ok = false; break; } const L = []; ps.forEach(p => L.push('interface ' + p, `channel-group ${n} mode ${v(G, 'md')}`, 'exit')); if (v(G, 'trunk')) L.push('interface port-channel ' + n, 'switchport mode trunk', 'exit'); ok = ios(G, L, `Port-Channel ${n} erstellt. Richte die Gegenseite mit passendem Modus ein.`); break; }
+        case 'rpstart': ok = ios(G, [`router ${x.p} ${v(G, 'n').trim()}`, 'exit'], x.p.toUpperCase() + ' gestartet. Füge jetzt Netze oder Nachbarn hinzu.'); break;
+        case 'ospfnet': ok = ios(G, [`router ospf ${x.pid}`, `network ${v(G, 'net').trim()} ${v(G, 'wc').trim()} area ${v(G, 'area')}`, 'exit'], 'Netz hinzugefügt.'); break;
+        case 'eigrpnet': ok = ios(G, [`router eigrp ${x.as}`, `network ${v(G, 'net').trim()} ${v(G, 'wc').trim()}`, 'exit'], 'Netz hinzugefügt.'); break;
+        case 'bgpnbr': { const ip = v(G, 'ip').trim(), L = ['router bgp ' + x.as, `neighbor ${ip} remote-as ${v(G, 'as')}`]; if (v(G, 'nhs')) L.push(`neighbor ${ip} next-hop-self`); if (v(G, 'defo')) L.push(`neighbor ${ip} default-originate`); L.push('exit'); ok = ios(G, L, 'Nachbar hinzugefügt. Die Gegenseite braucht einen passenden neighbor-Eintrag.'); break; }
+        case 'bgpnet': ok = ios(G, [`router bgp ${x.as}`, `network ${v(G, 'net').trim()} mask ${v(G, 'mask').trim()}`, 'exit'], 'Netz wird angekündigt, sobald es in der Routing-Tabelle steht.'); break;
         case 'ifedit': {
           const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
           const allow = v(G, 'allow').trim().toLowerCase();
@@ -4585,6 +4907,11 @@ const WEBGUI = (function () {
         case 'stoff': ios(G, D.on === '1' ? `spanning-tree vlan ${D.v}` : `no spanning-tree vlan ${D.v}`, D.on === '1' ? 'Spanning Tree eingeschaltet.' : 'Spanning Tree ausgeschaltet. Achtung: Schleifen führen zu einem Broadcast-Sturm.'); break;
         case 'stmode': ios(G, 'spanning-tree mode ' + v(G, 'stmode'), 'Modus gesetzt.'); break;
         case 'ecdel': { const L = []; dv.ports.filter(p => dv.cfg.ifs[p].cg && dv.cfg.ifs[p].cg.n === +D.n).forEach(p => L.push('interface ' + p, 'no channel-group', 'exit')); L.push('no interface port-channel ' + D.n); ios(G, L, 'Port-Channel aufgelöst.'); break; }
+        case 'rpdel': ios(G, `no router ${D.k} ${D.n}`, 'Prozess gelöscht.'); break;
+        case 'rpnetdel': { const hd0 = A.blocks(dv, 'router ' + D.k)[0]; if (hd0) ios(G, [hd0.head, 'no ' + D.l, 'exit'], 'Entfernt.'); break; }
+        case 'rppass': { const hd0 = A.blocks(dv, 'router ' + D.k)[0]; if (hd0) ios(G, [hd0.head, (D.on === '1' ? '' : 'no ') + 'passive-interface ' + D.i, 'exit'], D.on === '1' ? 'Schnittstelle ist passiv: sie sendet keine Hellos mehr.' : 'Schnittstelle ist aktiv.'); break; }
+        case 'ospfdef': ios(G, [`router ospf ${D.pid}`, (D.on === '1' ? '' : 'no ') + 'default-information originate', 'exit'], D.on === '1' ? 'Default-Route wird verteilt, sofern der Router selbst eine hat.' : 'Nicht mehr verteilt.'); break;
+        case 'bgpnbrdel': ios(G, [`router bgp ${D.as}`, `no neighbor ${D.ip} remote-as ${((A.RTG.bgpCfg(dv) || { nbrs: {} }).nbrs[D.ip] || {}).as}`, 'exit'], 'Nachbar entfernt.'); break;
         case 'dpooldel': ios(G, 'no ip dhcp pool ' + D.n, 'Pool gelöscht.'); break;
         case 'dexcldel': { const a = excluded(dv)[+D.i]; if (a) ios(G, `no ip dhcp excluded-address ${a.join(' ')}`, 'Ausschluss entfernt.'); break; }
         case 'fwacldel': ios(G, 'no access-list ' + D.a, 'Regelliste gelöscht.'); break;
@@ -4907,6 +5234,7 @@ const Sandbox = (function () {
   const WINN = typeof WIN !== 'undefined' ? WIN : require('./windows.js');
   const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
   const GUIN = typeof WEBGUI !== 'undefined' ? WEBGUI : require('./webgui.js');
+  const RTGN = typeof RTG !== 'undefined' ? RTG : require('./routing.js');
   const DESKN = typeof DESKTOP !== 'undefined' ? DESKTOP : require('./desktop.js');
   const SH = NL.sh, MODELS = NL.MODELS, CARDS = NL.CARDS, XCVR = NL.XCVR, KIND = NL.KIND, hip = NL.hip;
   const RU = 42, UH = 30, RX = 46, RW = 470, VW = 1200, VH = 640;
@@ -6247,6 +6575,16 @@ const Sandbox = (function () {
     ['SW-CORE', 'SW-A1', 'SW-A2'].forEach(h => rn(net, h, ['interface range g1/0/1 - 2', 'switchport mode trunk']));
     rn(net, 'PC-A1', ['ip 10.0.0.11/24']); rn(net, 'PC-A2', ['ip 10.0.0.12/24']);
   }
+  // Routing-Lab: R1 – R2 – R3 in einer Reihe, LANs an R1 und R3
+  const RG = 'GigabitEthernet0/0/';
+  function rtBase(net) {
+    mk(net, 'ISR4321', 140, 260, 'R1'); mk(net, 'ISR4321', 420, 260, 'R2'); mk(net, 'ISR4321', 700, 260, 'R3'); mk(net, 'HW-1288H-V5', 140, 460, 'H1'); mk(net, 'HW-1288H-V5', 700, 460, 'H3');
+    lk(net, 'R1', RG + 0, 'R2', RG + 0); lk(net, 'R2', RG + 1, 'R3', RG + 0); lk(net, 'H1', 'eth0', 'R1', RG + 1); lk(net, 'H3', 'eth0', 'R3', RG + 1);
+    rn(net, 'R1', ['interface g0/0/0', 'ip address 10.12.0.1 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.1.0.1 255.255.255.0', 'no shutdown']);
+    rn(net, 'R2', ['interface g0/0/0', 'ip address 10.12.0.2 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.23.0.2 255.255.255.0', 'no shutdown']);
+    rn(net, 'R3', ['interface g0/0/0', 'ip address 10.23.0.3 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.3.0.1 255.255.255.0', 'no shutdown']);
+    rn(net, 'H1', ['ip 10.1.0.10/24 10.1.0.1']); rn(net, 'H3', ['ip 10.3.0.10/24 10.3.0.1']);
+  }
   // WLAN-Lab: PoE-Switch, Gateway, Webserver, Access Point(s), Clients
   function wlBase(net, o = {}) {
     mk(net, 'C9200L-24P-4X', 360, 80, 'SW'); mk(net, 'ISR4331', 700, 80, 'R-GW'); lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24);
@@ -6486,6 +6824,45 @@ const Sandbox = (function () {
         { t: 'Als Absicherung ist „Statische Priorität als Fallback“ eingeschaltet', c: n => !!STORN.hm(hd(n, 'STO-01')).staticFallback }],
       hints: ['Öffne die HyperMetro-Seite von STO-01: Die Domänenübersicht zeigt, ob die Arrays den Quorum-Server erreichen und ob die Replikationsverbindung steht.', 'Der Quorum-Dienst auf QSRV ist gestoppt (<code>sudo systemctl start quorum-server</code>), und die Replikationszone am MDS-A fehlt („Replikationszonen anlegen“).', 'Unter „Einstellungen“ schaltest du die statische Priorität ein: Dann arbeitet der bevorzugte Standort auch weiter, wenn der Quorum-Server ausfällt.'],
       sol(net) { const t1 = hd(net, 'STO-01'); lxr(net, 'QSRV', 'sudo systemctl start quorum-server'); STORN.hmAutoZone(net, t1); STORN.hmSet(net, t1, { staticFallback: true }); } }
+    ,
+    { id: 'sc-ospf-dev', kind: 'Fehlersuche', title: 'OSPF: Nachbarschaft kommt nicht zustande', est: '25 min',
+      intro: 'Drei Router sollen per OSPF (Area 0) alle Netze austauschen, damit <code>H1</code> (10.1.0.10) und <code>H3</code> (10.3.0.10) sich erreichen. Das klappt nicht. Es gibt zwei Fehler an verschiedenen Stellen.',
+      build(net) { rtBase(net); rn(net, 'R1', ['router ospf 1', 'network 10.12.0.0 0.0.0.255 area 0', 'passive-interface g0/0/1']); rn(net, 'R2', ['router ospf 1', 'network 10.12.0.0 0.0.0.255 area 0', 'network 10.23.0.0 0.0.0.255 area 0']); rn(net, 'R3', ['router ospf 1', 'network 10.23.0.0 0.0.0.255 area 1', 'network 10.3.0.0 0.0.0.255 area 1', 'passive-interface g0/0/1']); },
+      goals: [
+        { t: '<code>R2</code> hat zwei OSPF-Nachbarn im Zustand FULL', c: n => { const r = RTGN.compute(n).O[hd(n, 'R2').id]; return !!r && r.adj.length === 2; } },
+        { t: '<code>R3</code> kennt das Netz 10.1.0.0/24 per OSPF', c: n => RTGN.dyn(n, hd(n, 'R3')).some(r => r.proto === 'ospf' && r.net === '10.1.0.0') },
+        { t: '<code>H1</code> erreicht <code>H3</code>', c: n => pg(n, 'H1', '10.3.0.10') },
+        { t: '<code>H3</code> erreicht <code>H1</code>', c: n => pg(n, 'H3', '10.1.0.10') }],
+      hints: ['Prüfe auf R2 <code>show ip ospf neighbor</code>. Unter der Tabelle stehen Gründe, warum eine Nachbarschaft nicht entsteht.', 'R2 und R3 liegen in verschiedenen Areas (0 und 1). Beide Seiten müssen für den gemeinsamen Link dieselbe Area benutzen.', 'Das Netz 10.1.0.0/24 fehlt in OSPF auf R1: Die network-Anweisung für 10.1.0.0 0.0.0.255 area 0 fehlt. Das passive-interface an der LAN-Seite ist dagegen richtig.'],
+      sol(net) { rn(net, 'R3', ['router ospf 1', 'no network 10.23.0.0 0.0.0.255 area 1', 'no network 10.3.0.0 0.0.0.255 area 1', 'network 10.23.0.0 0.0.0.255 area 0', 'network 10.3.0.0 0.0.0.255 area 0']); rn(net, 'R1', ['router ospf 1', 'network 10.1.0.0 0.0.0.255 area 0']); } }
+    ,
+    { id: 'sc-eigrp-dev', kind: 'Fehlersuche', title: 'EIGRP: Router sprechen nicht miteinander', est: '20 min',
+      intro: 'Die drei Router sollen per EIGRP AS 100 Routen austauschen. <code>H1</code> erreicht <code>H3</code> nicht. Prüfe die Nachbarschaften nacheinander: Es gibt zwei Ursachen auf unterschiedlichen Links.',
+      build(net) { rtBase(net); rn(net, 'R1', ['router eigrp 100', 'network 10.12.0.0 0.0.0.255', 'network 10.1.0.0 0.0.0.255', 'passive-interface g0/0/1']); rn(net, 'R2', ['router eigrp 100', 'network 10.12.0.0 0.0.0.255', 'network 10.23.0.0 0.0.0.255', 'passive-interface g0/0/0']); rn(net, 'R3', ['router eigrp 200', 'network 10.23.0.0 0.0.0.255', 'network 10.3.0.0 0.0.0.255', 'passive-interface g0/0/1']); },
+      goals: [
+        { t: '<code>R2</code> hat zwei EIGRP-Nachbarn', c: n => { const r = RTGN.compute(n).E[hd(n, 'R2').id]; return !!r && r.adj.length === 2; } },
+        { t: '<code>R1</code> lernt 10.3.0.0/24 per EIGRP', c: n => RTGN.dyn(n, hd(n, 'R1')).some(r => r.proto === 'eigrp' && r.net === '10.3.0.0') },
+        { t: '<code>H1</code> erreicht <code>H3</code>', c: n => pg(n, 'H1', '10.3.0.10') }],
+      hints: ['<code>show ip eigrp neighbors</code> auf R2 zeigt, welche Nachbarn fehlen und warum.', 'R3 läuft in AS 200, die anderen in AS 100. Die AS-Nummer muss bei allen gleich sein.', 'Auf R2 ist die Schnittstelle zu R1 als passive-interface gesetzt. Passive Schnittstellen bilden keine Nachbarschaft.'],
+      sol(net) { rn(net, 'R3', ['no router eigrp 200', 'router eigrp 100', 'network 10.23.0.0 0.0.0.255', 'network 10.3.0.0 0.0.0.255', 'passive-interface g0/0/1']); rn(net, 'R2', ['router eigrp 100', 'no passive-interface g0/0/0']); } }
+    ,
+    { id: 'sc-bgp-isp', kind: 'Aufbau', title: 'BGP: Anbindung an den Internet-Provider', est: '25 min',
+      intro: 'Dein Router <code>R-EDGE</code> (AS 65001) soll per eBGP mit dem Provider-Router <code>R-ISP</code> (AS 65000, 192.0.2.1) sprechen. Dein Netz 203.0.113.0/24 soll im Internet erreichbar sein, und dein PC soll den Webserver <code>INET-WEB</code> (198.51.100.10) erreichen. Der Provider ist fertig eingerichtet und schickt dir eine Default-Route.',
+      build(net) {
+        mk(net, 'ISR4321', 260, 240, 'R-EDGE'); mk(net, 'ISR4321', 620, 240, 'R-ISP'); mk(net, 'PC', 260, 440, 'PC-C'); mk(net, 'HW-1288H-V5', 620, 440, 'INET-WEB');
+        lk(net, 'R-EDGE', RG + 0, 'R-ISP', RG + 0); lk(net, 'PC-C', 'eth0', 'R-EDGE', RG + 1); lk(net, 'INET-WEB', 'eth0', 'R-ISP', RG + 1);
+        rn(net, 'R-EDGE', ['interface g0/0/0', 'ip address 192.0.2.2 255.255.255.252', 'no shutdown', 'interface g0/0/1', 'ip address 203.0.113.1 255.255.255.0', 'no shutdown']);
+        rn(net, 'R-ISP', ['interface g0/0/0', 'ip address 192.0.2.1 255.255.255.252', 'no shutdown', 'interface g0/0/1', 'ip address 198.51.100.1 255.255.255.0', 'no shutdown', 'router bgp 65000', 'neighbor 192.0.2.2 remote-as 65001', 'neighbor 192.0.2.2 default-originate', 'network 198.51.100.0 mask 255.255.255.0']);
+        rn(net, 'PC-C', ['ip 203.0.113.10/24 203.0.113.1']); rn(net, 'INET-WEB', ['ip 198.51.100.10/24 198.51.100.1']);
+      },
+      goals: [
+        { t: 'Die BGP-Sitzung zwischen R-EDGE und R-ISP steht (Established)', c: n => { const r = RTGN.compute(n).B[hd(n, 'R-EDGE').id]; return !!r && r.peers.some(p => p.ip === '192.0.2.1' && p.state === 'Established'); } },
+        { t: '<code>R-ISP</code> lernt 203.0.113.0/24 von dir', c: n => RTGN.compute(n).B[hd(n, 'R-ISP').id] && Object.values(RTGN.compute(n).B[hd(n, 'R-ISP').id].rib).some(x => x.net === '203.0.113.0' && x.type === 'ebgp') },
+        { t: '<code>R-EDGE</code> lernt die Default-Route per BGP', c: n => RTGN.dyn(n, hd(n, 'R-EDGE')).some(r => r.proto === 'bgp' && r.net === '0.0.0.0') },
+        { t: '<code>PC-C</code> erreicht <code>INET-WEB</code>', c: n => pg(n, 'PC-C', '198.51.100.10') },
+        { t: '<code>INET-WEB</code> erreicht <code>PC-C</code>', c: n => pg(n, 'INET-WEB', '203.0.113.10') }],
+      hints: ['Auf R-EDGE: <code>router bgp 65001</code>, dann <code>neighbor 192.0.2.1 remote-as 65000</code>. Die AS-Nummern müssen auf beiden Seiten zusammenpassen.', 'Damit der Provider dein Netz kennt, kündigst du es an: <code>network 203.0.113.0 mask 255.255.255.0</code>. Es muss exakt in der Routing-Tabelle stehen (hier verbunden).', 'Prüfe mit <code>show ip bgp summary</code> den Zustand und mit <code>show ip route</code> die Default-Route (B*).'],
+      sol(net) { rn(net, 'R-EDGE', ['router bgp 65001', 'neighbor 192.0.2.1 remote-as 65000', 'network 203.0.113.0 mask 255.255.255.0']); } }
     ,
     { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
       intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',
@@ -6911,7 +7288,7 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, NL, dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, NL, RTG: RTGN, dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({

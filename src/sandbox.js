@@ -12,6 +12,7 @@ const Sandbox = (function () {
   const WINN = typeof WIN !== 'undefined' ? WIN : require('./windows.js');
   const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
   const GUIN = typeof WEBGUI !== 'undefined' ? WEBGUI : require('./webgui.js');
+  const RTGN = typeof RTG !== 'undefined' ? RTG : require('./routing.js');
   const DESKN = typeof DESKTOP !== 'undefined' ? DESKTOP : require('./desktop.js');
   const SH = NL.sh, MODELS = NL.MODELS, CARDS = NL.CARDS, XCVR = NL.XCVR, KIND = NL.KIND, hip = NL.hip;
   const RU = 42, UH = 30, RX = 46, RW = 470, VW = 1200, VH = 640;
@@ -1352,6 +1353,16 @@ const Sandbox = (function () {
     ['SW-CORE', 'SW-A1', 'SW-A2'].forEach(h => rn(net, h, ['interface range g1/0/1 - 2', 'switchport mode trunk']));
     rn(net, 'PC-A1', ['ip 10.0.0.11/24']); rn(net, 'PC-A2', ['ip 10.0.0.12/24']);
   }
+  // Routing-Lab: R1 – R2 – R3 in einer Reihe, LANs an R1 und R3
+  const RG = 'GigabitEthernet0/0/';
+  function rtBase(net) {
+    mk(net, 'ISR4321', 140, 260, 'R1'); mk(net, 'ISR4321', 420, 260, 'R2'); mk(net, 'ISR4321', 700, 260, 'R3'); mk(net, 'HW-1288H-V5', 140, 460, 'H1'); mk(net, 'HW-1288H-V5', 700, 460, 'H3');
+    lk(net, 'R1', RG + 0, 'R2', RG + 0); lk(net, 'R2', RG + 1, 'R3', RG + 0); lk(net, 'H1', 'eth0', 'R1', RG + 1); lk(net, 'H3', 'eth0', 'R3', RG + 1);
+    rn(net, 'R1', ['interface g0/0/0', 'ip address 10.12.0.1 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.1.0.1 255.255.255.0', 'no shutdown']);
+    rn(net, 'R2', ['interface g0/0/0', 'ip address 10.12.0.2 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.23.0.2 255.255.255.0', 'no shutdown']);
+    rn(net, 'R3', ['interface g0/0/0', 'ip address 10.23.0.3 255.255.255.0', 'no shutdown', 'interface g0/0/1', 'ip address 10.3.0.1 255.255.255.0', 'no shutdown']);
+    rn(net, 'H1', ['ip 10.1.0.10/24 10.1.0.1']); rn(net, 'H3', ['ip 10.3.0.10/24 10.3.0.1']);
+  }
   // WLAN-Lab: PoE-Switch, Gateway, Webserver, Access Point(s), Clients
   function wlBase(net, o = {}) {
     mk(net, 'C9200L-24P-4X', 360, 80, 'SW'); mk(net, 'ISR4331', 700, 80, 'R-GW'); lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24);
@@ -1591,6 +1602,45 @@ const Sandbox = (function () {
         { t: 'Als Absicherung ist „Statische Priorität als Fallback“ eingeschaltet', c: n => !!STORN.hm(hd(n, 'STO-01')).staticFallback }],
       hints: ['Öffne die HyperMetro-Seite von STO-01: Die Domänenübersicht zeigt, ob die Arrays den Quorum-Server erreichen und ob die Replikationsverbindung steht.', 'Der Quorum-Dienst auf QSRV ist gestoppt (<code>sudo systemctl start quorum-server</code>), und die Replikationszone am MDS-A fehlt („Replikationszonen anlegen“).', 'Unter „Einstellungen“ schaltest du die statische Priorität ein: Dann arbeitet der bevorzugte Standort auch weiter, wenn der Quorum-Server ausfällt.'],
       sol(net) { const t1 = hd(net, 'STO-01'); lxr(net, 'QSRV', 'sudo systemctl start quorum-server'); STORN.hmAutoZone(net, t1); STORN.hmSet(net, t1, { staticFallback: true }); } }
+    ,
+    { id: 'sc-ospf-dev', kind: 'Fehlersuche', title: 'OSPF: Nachbarschaft kommt nicht zustande', est: '25 min',
+      intro: 'Drei Router sollen per OSPF (Area 0) alle Netze austauschen, damit <code>H1</code> (10.1.0.10) und <code>H3</code> (10.3.0.10) sich erreichen. Das klappt nicht. Es gibt zwei Fehler an verschiedenen Stellen.',
+      build(net) { rtBase(net); rn(net, 'R1', ['router ospf 1', 'network 10.12.0.0 0.0.0.255 area 0', 'passive-interface g0/0/1']); rn(net, 'R2', ['router ospf 1', 'network 10.12.0.0 0.0.0.255 area 0', 'network 10.23.0.0 0.0.0.255 area 0']); rn(net, 'R3', ['router ospf 1', 'network 10.23.0.0 0.0.0.255 area 1', 'network 10.3.0.0 0.0.0.255 area 1', 'passive-interface g0/0/1']); },
+      goals: [
+        { t: '<code>R2</code> hat zwei OSPF-Nachbarn im Zustand FULL', c: n => { const r = RTGN.compute(n).O[hd(n, 'R2').id]; return !!r && r.adj.length === 2; } },
+        { t: '<code>R3</code> kennt das Netz 10.1.0.0/24 per OSPF', c: n => RTGN.dyn(n, hd(n, 'R3')).some(r => r.proto === 'ospf' && r.net === '10.1.0.0') },
+        { t: '<code>H1</code> erreicht <code>H3</code>', c: n => pg(n, 'H1', '10.3.0.10') },
+        { t: '<code>H3</code> erreicht <code>H1</code>', c: n => pg(n, 'H3', '10.1.0.10') }],
+      hints: ['Prüfe auf R2 <code>show ip ospf neighbor</code>. Unter der Tabelle stehen Gründe, warum eine Nachbarschaft nicht entsteht.', 'R2 und R3 liegen in verschiedenen Areas (0 und 1). Beide Seiten müssen für den gemeinsamen Link dieselbe Area benutzen.', 'Das Netz 10.1.0.0/24 fehlt in OSPF auf R1: Die network-Anweisung für 10.1.0.0 0.0.0.255 area 0 fehlt. Das passive-interface an der LAN-Seite ist dagegen richtig.'],
+      sol(net) { rn(net, 'R3', ['router ospf 1', 'no network 10.23.0.0 0.0.0.255 area 1', 'no network 10.3.0.0 0.0.0.255 area 1', 'network 10.23.0.0 0.0.0.255 area 0', 'network 10.3.0.0 0.0.0.255 area 0']); rn(net, 'R1', ['router ospf 1', 'network 10.1.0.0 0.0.0.255 area 0']); } }
+    ,
+    { id: 'sc-eigrp-dev', kind: 'Fehlersuche', title: 'EIGRP: Router sprechen nicht miteinander', est: '20 min',
+      intro: 'Die drei Router sollen per EIGRP AS 100 Routen austauschen. <code>H1</code> erreicht <code>H3</code> nicht. Prüfe die Nachbarschaften nacheinander: Es gibt zwei Ursachen auf unterschiedlichen Links.',
+      build(net) { rtBase(net); rn(net, 'R1', ['router eigrp 100', 'network 10.12.0.0 0.0.0.255', 'network 10.1.0.0 0.0.0.255', 'passive-interface g0/0/1']); rn(net, 'R2', ['router eigrp 100', 'network 10.12.0.0 0.0.0.255', 'network 10.23.0.0 0.0.0.255', 'passive-interface g0/0/0']); rn(net, 'R3', ['router eigrp 200', 'network 10.23.0.0 0.0.0.255', 'network 10.3.0.0 0.0.0.255', 'passive-interface g0/0/1']); },
+      goals: [
+        { t: '<code>R2</code> hat zwei EIGRP-Nachbarn', c: n => { const r = RTGN.compute(n).E[hd(n, 'R2').id]; return !!r && r.adj.length === 2; } },
+        { t: '<code>R1</code> lernt 10.3.0.0/24 per EIGRP', c: n => RTGN.dyn(n, hd(n, 'R1')).some(r => r.proto === 'eigrp' && r.net === '10.3.0.0') },
+        { t: '<code>H1</code> erreicht <code>H3</code>', c: n => pg(n, 'H1', '10.3.0.10') }],
+      hints: ['<code>show ip eigrp neighbors</code> auf R2 zeigt, welche Nachbarn fehlen und warum.', 'R3 läuft in AS 200, die anderen in AS 100. Die AS-Nummer muss bei allen gleich sein.', 'Auf R2 ist die Schnittstelle zu R1 als passive-interface gesetzt. Passive Schnittstellen bilden keine Nachbarschaft.'],
+      sol(net) { rn(net, 'R3', ['no router eigrp 200', 'router eigrp 100', 'network 10.23.0.0 0.0.0.255', 'network 10.3.0.0 0.0.0.255', 'passive-interface g0/0/1']); rn(net, 'R2', ['router eigrp 100', 'no passive-interface g0/0/0']); } }
+    ,
+    { id: 'sc-bgp-isp', kind: 'Aufbau', title: 'BGP: Anbindung an den Internet-Provider', est: '25 min',
+      intro: 'Dein Router <code>R-EDGE</code> (AS 65001) soll per eBGP mit dem Provider-Router <code>R-ISP</code> (AS 65000, 192.0.2.1) sprechen. Dein Netz 203.0.113.0/24 soll im Internet erreichbar sein, und dein PC soll den Webserver <code>INET-WEB</code> (198.51.100.10) erreichen. Der Provider ist fertig eingerichtet und schickt dir eine Default-Route.',
+      build(net) {
+        mk(net, 'ISR4321', 260, 240, 'R-EDGE'); mk(net, 'ISR4321', 620, 240, 'R-ISP'); mk(net, 'PC', 260, 440, 'PC-C'); mk(net, 'HW-1288H-V5', 620, 440, 'INET-WEB');
+        lk(net, 'R-EDGE', RG + 0, 'R-ISP', RG + 0); lk(net, 'PC-C', 'eth0', 'R-EDGE', RG + 1); lk(net, 'INET-WEB', 'eth0', 'R-ISP', RG + 1);
+        rn(net, 'R-EDGE', ['interface g0/0/0', 'ip address 192.0.2.2 255.255.255.252', 'no shutdown', 'interface g0/0/1', 'ip address 203.0.113.1 255.255.255.0', 'no shutdown']);
+        rn(net, 'R-ISP', ['interface g0/0/0', 'ip address 192.0.2.1 255.255.255.252', 'no shutdown', 'interface g0/0/1', 'ip address 198.51.100.1 255.255.255.0', 'no shutdown', 'router bgp 65000', 'neighbor 192.0.2.2 remote-as 65001', 'neighbor 192.0.2.2 default-originate', 'network 198.51.100.0 mask 255.255.255.0']);
+        rn(net, 'PC-C', ['ip 203.0.113.10/24 203.0.113.1']); rn(net, 'INET-WEB', ['ip 198.51.100.10/24 198.51.100.1']);
+      },
+      goals: [
+        { t: 'Die BGP-Sitzung zwischen R-EDGE und R-ISP steht (Established)', c: n => { const r = RTGN.compute(n).B[hd(n, 'R-EDGE').id]; return !!r && r.peers.some(p => p.ip === '192.0.2.1' && p.state === 'Established'); } },
+        { t: '<code>R-ISP</code> lernt 203.0.113.0/24 von dir', c: n => RTGN.compute(n).B[hd(n, 'R-ISP').id] && Object.values(RTGN.compute(n).B[hd(n, 'R-ISP').id].rib).some(x => x.net === '203.0.113.0' && x.type === 'ebgp') },
+        { t: '<code>R-EDGE</code> lernt die Default-Route per BGP', c: n => RTGN.dyn(n, hd(n, 'R-EDGE')).some(r => r.proto === 'bgp' && r.net === '0.0.0.0') },
+        { t: '<code>PC-C</code> erreicht <code>INET-WEB</code>', c: n => pg(n, 'PC-C', '198.51.100.10') },
+        { t: '<code>INET-WEB</code> erreicht <code>PC-C</code>', c: n => pg(n, 'INET-WEB', '203.0.113.10') }],
+      hints: ['Auf R-EDGE: <code>router bgp 65001</code>, dann <code>neighbor 192.0.2.1 remote-as 65000</code>. Die AS-Nummern müssen auf beiden Seiten zusammenpassen.', 'Damit der Provider dein Netz kennt, kündigst du es an: <code>network 203.0.113.0 mask 255.255.255.0</code>. Es muss exakt in der Routing-Tabelle stehen (hier verbunden).', 'Prüfe mit <code>show ip bgp summary</code> den Zustand und mit <code>show ip route</code> die Default-Route (B*).'],
+      sol(net) { rn(net, 'R-EDGE', ['router bgp 65001', 'neighbor 192.0.2.1 remote-as 65000', 'network 203.0.113.0 mask 255.255.255.0']); } }
     ,
     { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
       intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',
@@ -2016,7 +2066,7 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, NL, dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, NL, RTG: RTGN, dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
