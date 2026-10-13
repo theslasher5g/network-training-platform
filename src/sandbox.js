@@ -1408,6 +1408,21 @@ const Sandbox = (function () {
     rn(net, 'SRV-MON', ['ip 10.0.0.5/24 10.0.0.1']); rn(net, 'SRV-WEB', ['ip 10.0.0.10/24 10.0.0.1']); rn(net, 'PC-1', ['ip 10.0.0.20/24 10.0.0.1']);
     LXN.init(hd(net, 'SRV-MON')); LXN.init(hd(net, 'SRV-WEB'));
   }
+  // Backup-Lab: Switch, Router, Backup-Server, Webserver, PC
+  function bkpBase(net, o = {}) {
+    mk(net, 'C9200L-24T-4G', 360, 120, 'SW'); mk(net, 'ISR4321', 700, 120, 'R-GW'); lk(net, 'R-GW', RG + 0, 'SW', G + 24);
+    mk(net, 'HW-1288H-V5', 160, 340, 'SRV-BKP'); mk(net, 'HW-1288H-V5', 360, 340, 'SRV-WEB'); mk(net, 'PC', 560, 340, 'PC-1'); lk(net, 'SRV-BKP', 'eth0', 'SW', G + 1); lk(net, 'SRV-WEB', 'eth0', 'SW', G + 2); lk(net, 'PC-1', 'eth0', 'SW', G + 3);
+    rn(net, 'R-GW', ['interface g0/0/0', 'ip address 10.0.0.1 255.255.255.0', 'no shutdown']); rn(net, 'SW', ['interface vlan 1', 'ip address 10.0.0.2 255.255.255.0', 'no shutdown']);
+    rn(net, 'SRV-BKP', ['ip 10.0.0.5/24 10.0.0.1']); rn(net, 'SRV-WEB', ['ip 10.0.0.10/24 10.0.0.1']); rn(net, 'PC-1', ['ip 10.0.0.20/24 10.0.0.1']);
+    LXN.init(hd(net, 'SRV-BKP')); LXN.init(hd(net, 'SRV-WEB'));
+    lxr(net, 'SRV-WEB', ['sudo apt install openssh-server nginx', 'sudo systemctl enable --now ssh', 'sudo systemctl enable --now nginx']);
+    if (o.ready) {
+      lxr(net, 'SRV-BKP', ['sudo apt install backup-server', 'sudo systemctl enable --now backup-server']);
+      rn(net, 'SW', ['username backup privilege 15 secret Backup#2026', 'ip domain-name lab.local', 'crypto key generate rsa modulus 2048']); rn(net, 'R-GW', ['username backup privilege 15 secret Backup#2026', 'ip domain-name lab.local', 'crypto key generate rsa modulus 2048']);
+      const srv = hd(net, 'SRV-BKP'), H = bkH(net); ['SW', 'R-GW', 'SRV-WEB'].forEach(h => BKPN.addJob(net, srv, { name: 'J-' + h, src: hd(net, h).id, keep: 5 }));
+      if (!o.fresh) { net.day = 0; BKPN.advance(net, H); net.day = 1; }
+    }
+  }
   // WLAN-Lab: PoE-Switch, Gateway, Webserver, Access Point(s), Clients
   function wlBase(net, o = {}) {
     mk(net, 'C9200L-24P-4X', 360, 80, 'SW'); mk(net, 'ISR4331', 700, 80, 'R-GW'); lk(net, 'R-GW', 'GigabitEthernet0/0/1', 'SW', G + 24);
@@ -1734,6 +1749,26 @@ const Sandbox = (function () {
         { t: '<code>SW</code> und <code>R-GW</code> senden Syslog an 10.0.0.5', c: n => ['SW', 'R-GW'].every(h => hd(n, h).cfg.lines.some(l => /^logging (host )?10\.0\.0\.5/i.test(l))) }],
       hints: ['Installiere das Paket auf SRV-MON: Web-GUI → „Software“, oder <code>sudo apt install zabbix-server</code>, dann <code>sudo systemctl enable --now zabbix-server</code>.', 'Danach erscheint in der Web-GUI des Servers der Punkt „Monitoring“. Unter „Hosts“ findet „Netz durchsuchen“ alle Geräte mit IP-Adresse.', 'Auf Switch und Router: <code>snmp-server community public RO</code> und <code>logging host 10.0.0.5</code>. Unter „Einrichtung“ siehst du, was noch fehlt.'],
       sol(net) { lxr(net, 'SRV-MON', ['sudo apt install zabbix-server', 'sudo systemctl enable --now zabbix-server']); MONN.discover(net, hd(net, 'SRV-MON')); rn(net, 'SW', ['snmp-server community public RO', 'logging host 10.0.0.5']); rn(net, 'R-GW', ['snmp-server community public RO', 'logging host 10.0.0.5']); } }
+    ,
+    { id: 'sc-bkp-new', kind: 'Aufbau', title: 'Backup: Netz und Server sichern', est: '30 min',
+      intro: 'Auf <code>SRV-BKP</code> (10.0.0.5) soll ein Backup laufen: Switch <code>SW</code>, Router <code>R-GW</code> und der Webserver <code>SRV-WEB</code> werden täglich gesichert, je Gerät bleiben fünf Sicherungen. Richte den Backup-Server ein, schaffe auf den Zielgeräten die Voraussetzungen (SSH und Benutzer), lass einen Tag vergehen („Mehr“ → „Ein Tag vergeht“) und mach einen Restore-Test.',
+      build(net) { bkpBase(net, { }); },
+      goals: [
+        { t: 'Auf <code>SRV-BKP</code> läuft der Dienst <code>backup-server</code>', c: n => BKPN.isBackup(n, hd(n, 'SRV-BKP')) },
+        { t: 'Es gibt drei Jobs mit Aufbewahrung von mindestens 5', c: n => { const j = BKPN.st(hd(n, 'SRV-BKP')).jobs; return j.length >= 3 && j.every(x => x.keep >= 5); } },
+        { t: 'Jeder Job hat mindestens eine erfolgreiche Sicherung', c: n => { const S = BKPN.st(hd(n, 'SRV-BKP')); return S.jobs.length >= 3 && S.jobs.every(j => S.store.some(b => b.job === j.id)); } },
+        { t: 'Mindestens ein Restore-Test war erfolgreich', c: n => BKPN.st(hd(n, 'SRV-BKP')).jobs.some(j => j.tested !== null) }],
+      hints: ['Installiere und starte <code>backup-server</code> auf SRV-BKP. Danach erscheint in der Web-GUI der Punkt „Backup“, wo du Jobs anlegst.', 'Netzwerkgeräte brauchen einen Benutzer und SSH: <code>username backup privilege 15 secret …</code>, <code>ip domain-name lab.local</code>, <code>crypto key generate rsa</code>. Der Webserver braucht <code>openssh-server</code>.', 'Schlägt ein Job fehl, steht der Grund im Protokoll. Mit „Mehr“ → „Ein Tag vergeht“ läuft der nächste Tag, in „Sicherungen“ startest du den Restore-Test.'],
+      sol(net) { const srv = hd(net, 'SRV-BKP'); lxr(net, 'SRV-BKP', ['sudo apt install backup-server', 'sudo systemctl enable --now backup-server']); rn(net, 'SW', ['username backup privilege 15 secret Backup#2026', 'ip domain-name lab.local', 'crypto key generate rsa modulus 2048']); rn(net, 'R-GW', ['username backup privilege 15 secret Backup#2026', 'ip domain-name lab.local', 'crypto key generate rsa modulus 2048']); const H = bkH(net); ['SW', 'R-GW', 'SRV-WEB'].forEach(h => BKPN.addJob(net, srv, { name: 'J-' + h, src: hd(net, h).id, keep: 5 })); net.day = 0; BKPN.advance(net, H); net.day = 1; const j = BKPN.st(srv).jobs[0], b = BKPN.st(srv).store.find(x => x.job === j.id); BKPN.testRestore(net, srv, b.id, H); } }
+    ,
+    { id: 'sc-bkp-restore', kind: 'Fehlersuche', title: 'Restore: Die Webserver-Konfiguration ist kaputt', est: '15 min',
+      intro: 'Ein Kollege hat gestern die <code>nginx.conf</code> auf <code>SRV-WEB</code> (10.0.0.10) „verbessert“, jetzt liefert der Webserver nichts mehr aus. Die nächtliche Sicherung auf <code>SRV-BKP</code> hat die Datei vor der Änderung gespeichert. Spiele den guten Stand zurück, ohne den Server neu aufzusetzen.',
+      build(net) { bkpBase(net, { ready: true }); LXN.saveFile(hd(net, 'SRV-WEB'), '/etc/nginx/nginx.conf', 'server { listen 8081 ssl; ROOT /broken }\n'); BKPN.advance(net, bkH(net)); net.day = 2; LXN.saveFile(hd(net, 'SRV-WEB'), '/etc/nginx/nginx.conf', 'server { listen 8081 ssl; ROOT /broken }\n'); },
+      goals: [
+        { t: 'Die <code>nginx.conf</code> auf <code>SRV-WEB</code> enthält wieder <code>listen 80</code>', c: n => /listen 80\b/.test(LXN.readFile(LXN.init(hd(n, 'SRV-WEB')), '/etc/nginx/nginx.conf') || '') },
+        { t: 'Die Wiederherstellung steht im Protokoll des Backup-Servers', c: n => BKPN.st(hd(n, 'SRV-BKP')).log.some(l => /Wiederhergestellt/.test(l.msg)) }],
+      hints: ['Öffne die Web-GUI von SRV-BKP → „Backup“ → „Sicherungen“. Dort siehst du, welche Stände es gibt.', 'Die Sicherung vom ersten Tag (13.10.2026) hat noch die gute Konfiguration, die vom letzten Tag schon die kaputte.', 'Wähle den älteren Stand und klicke „Wiederherstellen“.'],
+      sol(net) { const srv = hd(net, 'SRV-BKP'), S = BKPN.st(srv), j = S.jobs.find(x => x.name === 'J-SRV-WEB'), b = S.store.filter(x => x.job === j.id).sort((a, c) => a.day - c.day)[0]; BKPN.restore(net, srv, b.id, bkH(net)); } }
     ,
     { id: 'sc-stp-root', kind: 'Fehlersuche', title: 'Spanning Tree: Falsche Root Bridge', est: '20 min',
       intro: 'Drei Switches bilden ein Dreieck, damit es Redundanz gibt. Das Spanning Tree blockiert deshalb genau einen Link. Aktuell ist aber der Access-Switch <code>SW-A1</code> die Root Bridge, und der Verkehr von <code>PC-A2</code> geht über einen Umweg. Der <code>SW-CORE</code> soll Root sein, und der blockierte Port soll auf dem Link zwischen den beiden Access-Switches liegen.',
