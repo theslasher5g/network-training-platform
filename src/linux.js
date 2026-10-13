@@ -12,7 +12,8 @@ const LX = (function () {
     'multipath-tools': { d: 'Multipathing für SAN-LUNs', bins: ['multipath', 'multipathd'] },
     'quorum-server': { d: 'HyperMetro-Quorum-Server (Schiedsrichter für zwei Storage-Arrays)', units: ['quorum-server'], bins: ['quorumd'] },
     'zabbix-server': { d: 'Monitoring-Server (Zabbix): ICMP, SNMP, Trigger, Syslog-Auswertung', units: ['zabbix-server'], bins: ['zabbix_server'] },
-    'zabbix-agent': { d: 'Monitoring-Agent für Server (CPU, RAM, Platte)', units: ['zabbix-agent'], bins: ['zabbix_agentd'] }
+    'zabbix-agent': { d: 'Monitoring-Agent für Server (CPU, RAM, Platte)', units: ['zabbix-agent'], bins: ['zabbix_agentd'] },
+    'backup-server': { d: 'Backup-Server: Jobs, Aufbewahrung und Restore für Geräte und Server', units: ['backup-server'], bins: ['bconsole'] }
   };
   const PRE = ['curl', 'nano', 'ufw', 'openssh-server'];
   const UNITS = {
@@ -22,6 +23,7 @@ const LX = (function () {
     'quorum-server': { d: 'HyperMetro Quorum Server', port: '30002', proto: 'tcp', proc: 'quorumd' },
     'zabbix-server': { d: 'Zabbix Server', port: '10051', proto: 'tcp', proc: 'zabbix_server' },
     'zabbix-agent': { d: 'Zabbix Agent', port: '10050', proto: 'tcp', proc: 'zabbix_agentd' },
+    'backup-server': { d: 'Backup Server', port: '9101', proto: 'tcp', proc: 'bacula-dir' },
     ssh: { d: 'OpenBSD Secure Shell server', port: '22', proto: 'tcp', proc: 'sshd' }, cron: { d: 'Regular background program processing daemon', proc: 'cron' }, rsyslog: { d: 'System Logging Service', proc: 'rsyslogd' }
   };
   const ALIAS = { sshd: 'ssh', named: 'bind9', dhcpd: 'isc-dhcp-server', 'isc-dhcp': 'isc-dhcp-server' };
@@ -33,7 +35,7 @@ const LX = (function () {
 
   // ---------- Zustand ----------
   function init(d) {
-    if (d.lx) { ['quorum-server', 'zabbix-server', 'zabbix-agent'].forEach(u => { if (!d.lx.units[u]) d.lx.units[u] = { enabled: false, active: false, seen: null }; }); return d.lx; }
+    if (d.lx) { ['quorum-server', 'zabbix-server', 'zabbix-agent', 'backup-server'].forEach(u => { if (!d.lx.units[u]) d.lx.units[u] = { enabled: false, active: false, seen: null }; }); return d.lx; }
     const sv = d.svc || {}, name = d.cfg.hostname, fs = {};
     const dir = (p, o) => { fs[p] = { d: 1, o: o || 'root' }; }, file = (p, t, o, m) => { fs[p] = { t, o: o || 'root', m: m || '644' }; };
     ['/', '/bin', '/sys', '/sys/class', '/sys/class/scsi_host', '/sys/class/scsi_host/host0', '/sys/class/scsi_host/host1', '/etc', '/etc/nginx', '/etc/bind', '/etc/dhcp', '/home', '/root', '/tmp', '/usr', '/usr/bin', '/var', '/var/log', '/var/log/nginx', '/var/www', '/var/www/html', '/opt', '/srv', '/dev', '/proc'].forEach(p => dir(p));
@@ -48,7 +50,7 @@ const LX = (function () {
     if (pk.has('bind9')) file('/etc/bind/db.lab', DB_SAMPLE + (sv.dns && sv.dns.records || []).map(r => `${r.name}. IN A ${r.ip === '@' ? (d.cfg.ip || '0.0.0.0') : r.ip}`).join('\n') + '\n');
     if (pk.has('isc-dhcp-server')) { const p = sv.dhcp || {}; file('/etc/dhcp/dhcpd.conf', p.start && p.mask ? dhcpText(d, p) : DHCP_SAMPLE); }
     const units = {}; Object.keys(UNITS).forEach(u => { units[u] = { enabled: true, active: !UNITS[u].svc, seen: null }; });
-    ['quorum-server', 'zabbix-server', 'zabbix-agent'].forEach(u => { units[u].active = false; units[u].enabled = false; });
+    ['quorum-server', 'zabbix-server', 'zabbix-agent', 'backup-server'].forEach(u => { units[u].active = false; units[u].enabled = false; });
     Object.keys(UNITS).forEach(u => { const s = UNITS[u].svc; if (s) { units[u].active = !!(sv[s] && sv[s].on); units[u].seen = units[u].active; units[u].enabled = units[u].active; } });
     d.lx = { user: 'admin', root: false, cwd: '/home/admin', fs, pkgs: [...pk], units, users: ['root', 'admin'], fail: {}, log: [], ufw: { on: false, allow: [] }, pid: 600, scsi: null, fmt: {}, mounts: {} };
     return d.lx;

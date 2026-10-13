@@ -2930,7 +2930,8 @@ const LX = (function () {
     'multipath-tools': { d: 'Multipathing für SAN-LUNs', bins: ['multipath', 'multipathd'] },
     'quorum-server': { d: 'HyperMetro-Quorum-Server (Schiedsrichter für zwei Storage-Arrays)', units: ['quorum-server'], bins: ['quorumd'] },
     'zabbix-server': { d: 'Monitoring-Server (Zabbix): ICMP, SNMP, Trigger, Syslog-Auswertung', units: ['zabbix-server'], bins: ['zabbix_server'] },
-    'zabbix-agent': { d: 'Monitoring-Agent für Server (CPU, RAM, Platte)', units: ['zabbix-agent'], bins: ['zabbix_agentd'] }
+    'zabbix-agent': { d: 'Monitoring-Agent für Server (CPU, RAM, Platte)', units: ['zabbix-agent'], bins: ['zabbix_agentd'] },
+    'backup-server': { d: 'Backup-Server: Jobs, Aufbewahrung und Restore für Geräte und Server', units: ['backup-server'], bins: ['bconsole'] }
   };
   const PRE = ['curl', 'nano', 'ufw', 'openssh-server'];
   const UNITS = {
@@ -2940,6 +2941,7 @@ const LX = (function () {
     'quorum-server': { d: 'HyperMetro Quorum Server', port: '30002', proto: 'tcp', proc: 'quorumd' },
     'zabbix-server': { d: 'Zabbix Server', port: '10051', proto: 'tcp', proc: 'zabbix_server' },
     'zabbix-agent': { d: 'Zabbix Agent', port: '10050', proto: 'tcp', proc: 'zabbix_agentd' },
+    'backup-server': { d: 'Backup Server', port: '9101', proto: 'tcp', proc: 'bacula-dir' },
     ssh: { d: 'OpenBSD Secure Shell server', port: '22', proto: 'tcp', proc: 'sshd' }, cron: { d: 'Regular background program processing daemon', proc: 'cron' }, rsyslog: { d: 'System Logging Service', proc: 'rsyslogd' }
   };
   const ALIAS = { sshd: 'ssh', named: 'bind9', dhcpd: 'isc-dhcp-server', 'isc-dhcp': 'isc-dhcp-server' };
@@ -2951,7 +2953,7 @@ const LX = (function () {
 
   // ---------- Zustand ----------
   function init(d) {
-    if (d.lx) { ['quorum-server', 'zabbix-server', 'zabbix-agent'].forEach(u => { if (!d.lx.units[u]) d.lx.units[u] = { enabled: false, active: false, seen: null }; }); return d.lx; }
+    if (d.lx) { ['quorum-server', 'zabbix-server', 'zabbix-agent', 'backup-server'].forEach(u => { if (!d.lx.units[u]) d.lx.units[u] = { enabled: false, active: false, seen: null }; }); return d.lx; }
     const sv = d.svc || {}, name = d.cfg.hostname, fs = {};
     const dir = (p, o) => { fs[p] = { d: 1, o: o || 'root' }; }, file = (p, t, o, m) => { fs[p] = { t, o: o || 'root', m: m || '644' }; };
     ['/', '/bin', '/sys', '/sys/class', '/sys/class/scsi_host', '/sys/class/scsi_host/host0', '/sys/class/scsi_host/host1', '/etc', '/etc/nginx', '/etc/bind', '/etc/dhcp', '/home', '/root', '/tmp', '/usr', '/usr/bin', '/var', '/var/log', '/var/log/nginx', '/var/www', '/var/www/html', '/opt', '/srv', '/dev', '/proc'].forEach(p => dir(p));
@@ -2966,7 +2968,7 @@ const LX = (function () {
     if (pk.has('bind9')) file('/etc/bind/db.lab', DB_SAMPLE + (sv.dns && sv.dns.records || []).map(r => `${r.name}. IN A ${r.ip === '@' ? (d.cfg.ip || '0.0.0.0') : r.ip}`).join('\n') + '\n');
     if (pk.has('isc-dhcp-server')) { const p = sv.dhcp || {}; file('/etc/dhcp/dhcpd.conf', p.start && p.mask ? dhcpText(d, p) : DHCP_SAMPLE); }
     const units = {}; Object.keys(UNITS).forEach(u => { units[u] = { enabled: true, active: !UNITS[u].svc, seen: null }; });
-    ['quorum-server', 'zabbix-server', 'zabbix-agent'].forEach(u => { units[u].active = false; units[u].enabled = false; });
+    ['quorum-server', 'zabbix-server', 'zabbix-agent', 'backup-server'].forEach(u => { units[u].active = false; units[u].enabled = false; });
     Object.keys(UNITS).forEach(u => { const s = UNITS[u].svc; if (s) { units[u].active = !!(sv[s] && sv[s].on); units[u].seen = units[u].active; units[u].enabled = units[u].active; } });
     d.lx = { user: 'admin', root: false, cwd: '/home/admin', fs, pkgs: [...pk], units, users: ['root', 'admin'], fail: {}, log: [], ufw: { on: false, allow: [] }, pid: 600, scsi: null, fmt: {}, mounts: {} };
     return d.lx;
@@ -3426,6 +3428,90 @@ const MON = (function () {
 })();
 if (typeof module !== 'undefined') module.exports = MON;
 
+// ===================== NetLab Backup und Restore =====================
+// Ein Linux-Server mit dem Paket backup-server sichert Konfigurationen und Dateien anderer Geräte.
+// Aufbewahrung (Retention), Speicherplatz, Zugriffsvoraussetzungen und Restore-Test sind simuliert.
+// Die Simulationszeit zählt in Tagen (net.day); der erste Tag ist der 13.10.2026.
+const BKP = (function () {
+  const N = typeof NL !== 'undefined' ? NL : require('./engine.js');
+  const BASE = Date.UTC(2026, 9, 13);
+  const dateOf = day => new Date(BASE + (day || 0) * 86400000).toISOString().slice(0, 10);
+  const st = d => d.bkp || (d.bkp = { jobs: [], store: [], log: [], seq: 1, quotaMb: 200 });
+  const unitOn = (d, u) => !!(d.lx && d.lx.pkgs && d.lx.pkgs.includes(u) && d.lx.units[u] && d.lx.units[u].active);
+  const isBackup = (net, d) => !!d && d.type === 'server' && !N.isDown(d) && unitOn(d, 'backup-server');
+  const ipOf = d => { if (N.isHost(d)) { for (const p of d.ports) { const h = N.hip(d, p); if (h && h.ip) return h.ip; } return null; } const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip && !k.startsWith('Tunnel')); return n ? d.cfg.ifs[n].ip : null; };
+  const kindOf = d => d.type === 'switch' || d.type === 'router' ? 'net' : d.type === 'wlc' ? 'wlc' : d.type === 'storage' ? 'storage' : d.type === 'server' ? (d.os === 'windows' ? 'windows' : 'linux') : 'other';
+  const KIND = { net: 'Konfiguration (running-config)', wlc: 'Controller-Konfiguration', storage: 'Array-Konfiguration', linux: 'Dateien (/etc, /var/www, /home)', windows: 'Dateien (Benutzer, Inetpub, Freigaben)', other: '–' };
+  const PATHS = ['/etc', '/var/www', '/home', '/srv'];
+  const usedMb = srv => st(srv).store.reduce((s, b) => s + b.size, 0);
+
+  // Zugriff: Erreichbarkeit und die Voraussetzungen des Gerätetyps
+  function access(net, srv, src, H) {
+    if (!src) return { ok: false, why: 'Die Quelle existiert nicht mehr.' }; if (N.isDown(src)) return { ok: false, why: `${src.cfg.hostname} ist ausgeschaltet.` };
+    const ip = ipOf(src); if (!ip) return { ok: false, why: `${src.cfg.hostname} hat keine IP-Adresse.` };
+    const r = N.ping(net, srv.id, ip); if (!r.ok) return { ok: false, why: `Keine Verbindung zu ${src.cfg.hostname} (${ip}): ${r.reason}` };
+    const k = kindOf(src);
+    if (k === 'net') {
+      if (!src.cfg.lines.some(l => /^username \S+/i.test(l))) return { ok: false, why: `${src.cfg.hostname}: Kein Benutzer für den Zugriff (username backup privilege 15 secret …).` };
+      if (!src.cfg.rsa) return { ok: false, why: `${src.cfg.hostname}: SSH ist nicht aktiv (ip domain-name und crypto key generate rsa fehlen).` };
+    }
+    if (k === 'linux') {
+      const L = H.LX.init(src); if (!L.pkgs.includes('openssh-server') || !(L.units.ssh && L.units.ssh.active)) return { ok: false, why: `${src.cfg.hostname}: SSH-Dienst läuft nicht.` };
+      if (L.ufw.on && !L.ufw.allow.some(a => String(a).split('/')[0] === '22')) return { ok: false, why: `${src.cfg.hostname}: Die Firewall (ufw) blockt Port 22.` };
+    }
+    if (k === 'other') return { ok: false, why: `${src.cfg.hostname}: Dieser Gerätetyp lässt sich nicht sichern.` };
+    return { ok: true };
+  }
+  function snapshot(net, src, H) {
+    const k = kindOf(src);
+    if (k === 'net' || k === 'wlc') return { size: 1, data: { cfg: JSON.stringify(src.cfg), text: H.cfgOf ? H.cfgOf(net, src) : '' } };
+    if (k === 'linux') { const fs = H.LX.init(src).fs, sub = {}; let bytes = 0; for (const p of Object.keys(fs)) { if (!PATHS.some(x => p === x || p.startsWith(x + '/'))) continue; sub[p] = JSON.parse(JSON.stringify(fs[p])); bytes += (fs[p].t || '').length; } return { size: 5 + Math.round(bytes / 500), data: { fs: sub } }; }
+    if (k === 'windows') { const f = H.WIN.init(src).files, sub = {}; let bytes = 0; for (const p of Object.keys(f)) { if (/^C:\\(Users|inetpub)/.test(p) || /^D:/.test(p)) { sub[p] = JSON.parse(JSON.stringify(f[p])); bytes += (f[p].t || '').length; } } return { size: 10 + Math.round(bytes / 500), data: { files: sub } }; }
+    if (k === 'storage') return { size: 2, data: { stor: JSON.stringify(src.stor || null) } };
+    return { size: 1, data: {} };
+  }
+  function prune(srv, job) { const S = st(srv), mine = S.store.filter(b => b.job === job.id).sort((a, b) => a.day - b.day || a.id - b.id); while (mine.length > job.keep) { const o = mine.shift(); S.store = S.store.filter(b => b !== o); } }
+  function log(srv, day, job, ok, msg) { const S = st(srv); S.log.push({ day, job: job ? job.name : '–', ok, msg }); if (S.log.length > 200) S.log.splice(0, 50); }
+  function runJob(net, srv, job, H) {
+    const S = st(srv), day = net.day || 0;
+    if (!isBackup(net, srv)) { log(srv, day, job, false, 'Der Backup-Dienst läuft nicht.'); return { err: 'Der Dienst backup-server läuft nicht.' }; }
+    const src = net.devs[job.src], ac = access(net, srv, src, H); if (!ac.ok) { job.last = { day, ok: false, msg: ac.why }; log(srv, day, job, false, ac.why); return { err: ac.why }; }
+    const sn = snapshot(net, src, H); if (usedMb(srv) + sn.size > S.quotaMb) { const m = `Speicherplatz auf dem Backup-Server erschöpft (${usedMb(srv)} von ${S.quotaMb} MB belegt, die Sicherung braucht ${sn.size} MB). Retention senken oder alte Sicherungen löschen.`; job.last = { day, ok: false, msg: m }; log(srv, day, job, false, m); return { err: m }; }
+    S.store = S.store.filter(b => !(b.job === job.id && b.day === day)); S.store.push({ id: S.seq++, job: job.id, src: job.src, day, size: sn.size, data: sn.data, kind: kindOf(src) });
+    prune(srv, job); job.last = { day, ok: true, msg: `${sn.size} MB gesichert` }; log(srv, day, job, true, `${src.cfg.hostname}: ${sn.size} MB gesichert`); return { ok: true, size: sn.size };
+  }
+  function addJob(net, srv, o) {
+    const S = st(srv), name = String(o.name || '').trim(), src = net.devs[o.src], keep = Math.round(+o.keep);
+    if (!/^[A-Za-z0-9][\w-]{0,30}$/.test(name)) return { err: 'Jobname: Buchstaben, Ziffern, - und _ .' }; if (S.jobs.some(j => j.name === name)) return { err: `Einen Job „${name}“ gibt es schon.` };
+    if (!src) return { err: 'Wähle ein Gerät als Quelle.' }; if (kindOf(src) === 'other') return { err: 'Dieser Gerätetyp lässt sich nicht sichern.' };
+    if (!(keep >= 1 && keep <= 60)) return { err: 'Aufbewahrung: 1 bis 60 Sicherungen.' };
+    S.jobs.push({ id: S.seq++, name, src: o.src, keep, tested: null, last: null }); return { ok: true };
+  }
+  function delJob(srv, id) { const S = st(srv); S.jobs = S.jobs.filter(j => j.id !== id); S.store = S.store.filter(b => b.job !== id); return { ok: true }; }
+  function delBackup(srv, id) { const S = st(srv); S.store = S.store.filter(b => b.id !== id); return { ok: true }; }
+  // Wiederherstellung auf das Quellgerät
+  function restore(net, srv, bid, H) {
+    const S = st(srv), b = S.store.find(x => x.id === bid); if (!b) return { err: 'Sicherung nicht gefunden.' };
+    const src = net.devs[b.src]; const ac = access(net, srv, src, H); if (!ac.ok) return { err: 'Wiederherstellung nicht möglich: ' + ac.why };
+    if (b.kind === 'net' || b.kind === 'wlc') { src.cfg = JSON.parse(b.data.cfg); src.saved = true; if (src.type === 'switch' || src.type === 'router') src.startup = b.data.cfg; }
+    else if (b.kind === 'linux') { const fs = H.LX.init(src).fs; Object.keys(fs).forEach(p => { if (PATHS.some(x => p === x || p.startsWith(x + '/')) && !b.data.fs[p]) delete fs[p]; }); Object.assign(fs, JSON.parse(JSON.stringify(b.data.fs))); }
+    else if (b.kind === 'windows') { const f = H.WIN.init(src).files; Object.keys(f).forEach(p => { if ((/^C:\\(Users|inetpub)/.test(p) || /^D:/.test(p)) && !b.data.files[p]) delete f[p]; }); Object.assign(f, JSON.parse(JSON.stringify(b.data.files))); if (H.WIN.sync && H.ctx) H.WIN.sync(H.ctx, src); }
+    else if (b.kind === 'storage') { src.stor = JSON.parse(b.data.stor); }
+    log(srv, net.day || 0, S.jobs.find(j => j.id === b.job), true, `Wiederhergestellt: ${src.cfg.hostname} auf Stand ${dateOf(b.day)}`); return { ok: true, dev: src.cfg.hostname, day: b.day };
+  }
+  // Restore-Test: prüft, ob sich die Sicherung lesen und zuordnen lässt, ohne das Gerät zu verändern
+  function testRestore(net, srv, bid, H) {
+    const S = st(srv), b = S.store.find(x => x.id === bid); if (!b) return { err: 'Sicherung nicht gefunden.' }; const job = S.jobs.find(j => j.id === b.job);
+    const src = net.devs[b.src]; if (!src) return { err: 'Die Quelle existiert nicht mehr.' }; const ac = access(net, srv, src, H); if (!ac.ok) return { err: 'Restore-Test fehlgeschlagen: ' + ac.why };
+    const okData = b.kind === 'net' || b.kind === 'wlc' ? (() => { try { return !!JSON.parse(b.data.cfg).hostname; } catch (e) { return false; } })() : b.kind === 'linux' ? Object.keys(b.data.fs).length > 0 : b.kind === 'windows' ? Object.keys(b.data.files).length > 0 : true;
+    if (!okData) return { err: 'Die Sicherung ist leer oder beschädigt.' }; if (job) job.tested = net.day || 0; log(srv, net.day || 0, job, true, `Restore-Test bestanden (Sicherung vom ${dateOf(b.day)})`); return { ok: true };
+  }
+  // Ein Tag vergeht: alle Jobs laufen (Zeitplan täglich)
+  function advance(net, H) { const out = []; for (const srv of Object.values(net.devs)) { if (srv.type !== 'server' || !srv.bkp || !srv.bkp.jobs.length) continue; for (const j of srv.bkp.jobs) { const r = runJob(net, srv, j, H); out.push({ srv: srv.cfg.hostname, job: j.name, ok: !!r.ok, msg: r.err || '' }); } } return out; }
+  return { st, dateOf, isBackup, addJob, delJob, delBackup, runJob, restore, testRestore, advance, access, kindOf, KIND, usedMb, ipOf };
+})();
+if (typeof module !== 'undefined') module.exports = BKP;
+
 </script>
 <script>
 // ===================== NetLab Wiki =====================
@@ -3703,9 +3789,11 @@ const STOR = (function () {
   const poolOf = (d, name) => st(d).pools.find(p => p.name === name);
   const lunSize = l => l.gb;
   const lunAlloc = l => l.thin ? Math.ceil(l.gb * THIN_INITIAL) : l.gb;
+  const snapGb = l => Math.max(1, Math.ceil(l.gb * 0.05));
+  const snapsUsed = l => (l.snaps || []).length * snapGb(l);
   function poolInfo(d, p) {
     const r = RAID[p.raid], raw = p.disks * p.diskGb, usable = r.usable(p.disks) * p.diskGb;
-    const luns = st(d).luns.filter(l => l.pool === p.name), alloc = luns.reduce((s, l) => s + lunAlloc(l), 0), prov = luns.reduce((s, l) => s + l.gb, 0);
+    const luns = st(d).luns.filter(l => l.pool === p.name), alloc = luns.reduce((s, l) => s + lunAlloc(l) + snapsUsed(l), 0), prov = luns.reduce((s, l) => s + l.gb, 0);
     return { raw, usable, alloc, free: usable - alloc, prov, over: prov > usable, fault: r.fault, luns };
   }
   function createPool(d, o) {
@@ -3735,6 +3823,25 @@ const STOR = (function () {
     const l = st(d).luns.find(x => x.id === id); if (!l) return { err: 'LUN nicht gefunden.' }; l.hosts = l.hosts.filter(h => h !== hostId); if (on) l.hosts.push(hostId);
     if (l.hm && net && net.devs[l.hm.peer]) { const r = st(net.devs[l.hm.peer]).luns.find(x => x.id === l.hm.peerLun); if (r) { r.hosts = r.hosts.filter(h => h !== hostId); if (on) r.hosts.push(hostId); } }
     return { ok: true };
+  }
+
+
+  // ----- Snapshots (je Snapshot werden 5 % der LUN-Größe für geänderte Blöcke reserviert) -----
+  function snapCreate(d, id, name, day) {
+    const l = st(d).luns.find(x => x.id === +id); if (!l) return { err: 'LUN nicht gefunden.' }; name = String(name || '').trim();
+    if (!/^[A-Za-z0-9][\w.-]{0,30}$/.test(name)) return { err: 'Snapshot-Name: Buchstaben, Ziffern, - _ und . (max. 31 Zeichen).' };
+    l.snaps = l.snaps || []; if (l.snaps.some(x => x.name === name)) return { err: `Einen Snapshot „${name}“ gibt es schon.` };
+    const p = poolOf(d, l.pool), info = poolInfo(d, p), need = snapGb(l); if (need > info.free) return { err: `Im Pool „${p.name}“ sind nur ${info.free} GB frei, der Snapshot braucht ${need} GB. Alte Snapshots löschen oder den Pool erweitern.` };
+    l.snaps.push({ name, day: day || 0, gb: need }); return { ok: true };
+  }
+  function snapDelete(d, id, name) { const l = st(d).luns.find(x => x.id === +id); if (!l) return { err: 'LUN nicht gefunden.' }; l.snaps = (l.snaps || []).filter(x => x.name !== name); return { ok: true }; }
+  // Rollback setzt die LUN auf den Snapshot zurück; neuere Snapshots werden damit ungültig und gelöscht
+  function snapRollback(d, id, name) { const l = st(d).luns.find(x => x.id === +id); if (!l) return { err: 'LUN nicht gefunden.' }; const i = (l.snaps || []).findIndex(x => x.name === name); if (i < 0) return { err: 'Snapshot nicht gefunden.' }; const n = l.snaps.length - 1 - i; l.snaps = l.snaps.slice(0, i + 1); l.rolledBack = { name, day: l.snaps[i].day }; return { ok: true, dropped: n }; }
+  function snapPolicy(d, id, keep) { const l = st(d).luns.find(x => x.id === +id); if (!l) return { err: 'LUN nicht gefunden.' }; keep = Math.round(+keep); if (!(keep >= 0 && keep <= 30)) return { err: 'Aufbewahrung: 0 (aus) bis 30 Snapshots.' }; l.snapKeep = keep; return { ok: true }; }
+  // Ein Tag vergeht: Richtlinien legen Snapshots an und löschen die ältesten
+  function snapAdvance(net, day) {
+    const out = []; for (const d of Object.values(net.devs)) { if (d.type !== 'storage' || !d.stor) continue; for (const l of d.stor.luns) { if (!l.snapKeep) continue; const r = snapCreate(d, l.id, 'auto-' + day, day); out.push({ sto: d.cfg.hostname, lun: l.name, ok: !!r.ok, msg: r.err || '' }); if (!r.ok) { (d.stor.events = d.stor.events || []).push({ day, msg: `Snapshot-Richtlinie ${l.name}: ${r.err}` }); continue; } const auto = (l.snaps || []).filter(x => /^auto-/.test(x.name)); while (auto.length > l.snapKeep) { const o = auto.shift(); l.snaps = l.snaps.filter(x => x !== o); } } }
+    return out;
   }
 
   // ----- Zoning (FC-Switch) -----
@@ -3894,7 +4001,7 @@ const STOR = (function () {
     if (l.hm && !hmActive(net, sto)) { const h = hmState(net, sto); return `HyperMetro: ${sto.cfg.hostname} ist im Standby. ${h.text}`; }
     return null;
   }
-  return { hm: hmOf, hmState, hmActive, hmCreate, hmSet, hmDelete, hmPairCreate, hmPairDelete, hmAutoZone, replLink, quorumState, quorumReach, QPKG, ipOf, RAID, DISKS, st, poolInfo, createPool, deletePool, createLun, deleteLun, maskLun, zs, zoneAdd, zoneDel, zoneActive, autoZones, attached, zoned, paths, hostLuns, why, lunAlloc, lunSize, poolOf };
+  return { snapCreate, snapDelete, snapRollback, snapPolicy, snapAdvance, snapGb, hm: hmOf, hmState, hmActive, hmCreate, hmSet, hmDelete, hmPairCreate, hmPairDelete, hmAutoZone, replLink, quorumState, quorumReach, QPKG, ipOf, RAID, DISKS, st, poolInfo, createPool, deletePool, createLun, deleteLun, maskLun, zs, zoneAdd, zoneDel, zoneActive, autoZones, attached, zoned, paths, hostLuns, why, lunAlloc, lunSize, poolOf };
 })();
 if (typeof module !== 'undefined') module.exports = STOR;
 
@@ -4386,9 +4493,10 @@ const WEBGUI = (function () {
 
   // ---------- Navigation ----------
   const monOn = d => { try { return A.LX.init(d).pkgs.includes('zabbix-server'); } catch (e) { return false; } };
+  const bkpOn = d => { try { return A.LX.init(d).pkgs.includes('backup-server'); } catch (e) { return false; } };
   const NAV = {
-    linux: d => (monOn(d) ? [['mon', 'Monitoring']] : []).concat([['overview', 'Übersicht'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['virt', 'Virtualisierung'], ['terminal', 'Terminal']]),
-    hypervisor: d => (monOn(d) ? [['mon', 'Monitoring']] : []).concat([['overview', 'Übersicht'], ['vms', 'Virtuelle Maschinen'], ['vswitch', 'Virtueller Switch'], ['datastores', 'Datastores'], ['cluster', 'Cluster und HA'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['terminal', 'Terminal']]),
+    linux: d => (monOn(d) ? [['mon', 'Monitoring']] : []).concat(bkpOn(d) ? [['bkp', 'Backup']] : []).concat([['overview', 'Übersicht'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['virt', 'Virtualisierung'], ['terminal', 'Terminal']]),
+    hypervisor: d => (monOn(d) ? [['mon', 'Monitoring']] : []).concat(bkpOn(d) ? [['bkp', 'Backup']] : []).concat([['overview', 'Übersicht'], ['vms', 'Virtuelle Maschinen'], ['vswitch', 'Virtueller Switch'], ['datastores', 'Datastores'], ['cluster', 'Cluster und HA'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['terminal', 'Terminal']]),
     windows: d => [['dashboard', 'Dashboard'], ['local', 'Lokaler Server'], ['roles', 'Rollen und Features'], ['ad', 'Active Directory'], ['dns', 'DNS'], ['dhcp', 'DHCP'], ['shares', 'Dateidienste'], ['services', 'Dienste'], ['firewall', 'Firewall'], ['terminal', 'PowerShell']],
     storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['hypermetro', 'HyperMetro'], ['ports', 'Ports und Controller']],
     fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']],
@@ -4901,6 +5009,17 @@ const WEBGUI = (function () {
       + card('Dieser Server', `<dl class="wg-dl"><dt>zabbix-server</dt><dd>${on ? chip('läuft', 'ok') : chip('gestoppt', 'bad')}</dd><dt>rsyslog (Syslog-Empfang)</dt><dd>${d.lx.units.rsyslog && d.lx.units.rsyslog.active ? chip('läuft', 'ok') : chip('gestoppt', 'bad')}</dd><dt>IP-Adresse</dt><dd>${esc(ip || '–')}</dd></dl>`);
   };
 
+  // ---------- Backup und Restore ----------
+  PAGES.linux.bkp = PAGES.hypervisor.bkp = (d, G) => {
+    const net = A.net(), B = A.BKP, S = B.st(d), tab = G.tab.bk || 'jobs', on = B.isBackup(net, d), used = B.usedMb(d), nm = id => (net.devs[id] || { cfg: { hostname: '(gelöscht)' } }).cfg.hostname, jn = id => (S.jobs.find(j => j.id === id) || { name: '–' }).name, day = net.day || 0;
+    const tabs = [['jobs', 'Jobs'], ['store', 'Sicherungen'], ['log', 'Protokoll']];
+    const head = `<div class="wg-tabs" role="tablist">${tabs.map(x => `<button type="button" role="tab" class="${x[0] === tab ? 'act' : ''}" aria-selected="${x[0] === tab}" data-act="tab" data-t="bk" data-v="${x[0]}">${x[1]}</button>`).join('')}</div>` + (on ? '' : '<div class="wg-msg err">Der Dienst backup-server läuft nicht. Starte ihn unter „Dienste“.</div>');
+    const top = card('Zeit und Speicher', `<div class="wg-row"><b>Heute: ${B.dateOf(day)}</b>${btn('+1 Tag', 'bkday', { n: 1 }, 'sm')}${btn('+7 Tage', 'bkday', { n: 7 }, 'sm')}<span class="wg-note">Mit jedem Tag laufen alle Jobs einmal (Zeitplan: täglich).</span></div><p>Belegt: <b>${used} von ${S.quotaMb} MB</b></p>${bar(used, S.quotaMb, 85)}`);
+    if (tab === 'jobs') return head + top + `<div class="wg-row">${btn('Job hinzufügen', 'dlg', { k: 'bkjob' }, 'primary')}</div>` + tbl(['Job', 'Quelle', 'Art', 'Aufbewahrung', 'Letzte Sicherung', 'Restore-Test', ''], S.jobs.map(j => { const s0 = net.devs[j.src], l = j.last; return [`<b>${esc(j.name)}</b>`, esc(nm(j.src)), esc(s0 ? B.KIND[B.kindOf(s0)] : '–'), `${j.keep} Sicherungen`, l ? (l.ok ? chip(B.dateOf(l.day) + ' ok', 'ok') : chip('fehlgeschlagen', 'bad') + `<br><small class="wg-mut">${esc(l.msg)}</small>`) : '<span class="wg-mut">noch nie</span>', j.tested !== null ? chip('bestanden ' + B.dateOf(j.tested), 'ok') : chip('nie getestet', 'bad'), `<div class="wg-row">${btn('Jetzt sichern', 'bkrun', { j: j.id }, 'sm primary')}${btn('Löschen', 'bkjdel', { j: j.id }, 'sm ghost bad')}</div>`]; }), 'Noch kein Job. Lege einen an und wähle das Gerät, das gesichert werden soll.') + '<p class="wg-note">Eine Sicherung ist erst etwas wert, wenn du die Wiederherstellung getestet hast. Mache unter „Sicherungen“ einen Restore-Test.</p>';
+    if (tab === 'store') return head + tbl(['Datum', 'Job', 'Quelle', 'Größe', ''], S.store.slice().sort((a, b) => b.day - a.day || b.id - a.id).map(b => [B.dateOf(b.day), `<b>${esc(jn(b.job))}</b>`, esc(nm(b.src)), b.size + ' MB', `<div class="wg-row">${btn('Restore-Test', 'bktest', { b: b.id }, 'sm')}${btn('Wiederherstellen', 'bkrestore', { b: b.id }, 'sm')}${btn('Löschen', 'bkdel', { b: b.id }, 'sm ghost bad')}</div>`]), 'Noch keine Sicherung. Starte einen Job oder lass einen Tag vergehen.') + '<p class="wg-note">„Wiederherstellen“ überschreibt den aktuellen Stand des Geräts mit dem Stand der Sicherung. Dienste lesen Konfigurationsdateien erst beim Neustart.</p>';
+    return head + tbl(['Datum', 'Job', 'Ergebnis'], S.log.slice(-40).reverse().map(l => [B.dateOf(l.day), `<b>${esc(l.job)}</b>`, l.ok ? chip('ok', 'ok') + ' ' + esc(l.msg) : chip('Fehler', 'bad') + ' ' + esc(l.msg)]), 'Noch keine Einträge.');
+  };
+
   // ---------- Dialoge ----------
   function dlgHtml(d, G) {
     const x = G.dlg, k = x.k, net = A.net(), wrap = (t, body, ok, okLbl) => `<div class="wg-ov" data-act="dlgbg"><form class="wg-dlg" role="dialog" aria-modal="true" aria-label="${esc(t)}" data-act="dlgok"><h2>${t}</h2>${body}<div class="wg-row end">${btn('Abbrechen', 'dlgx', null, 'ghost')}${ok === false ? '' : `<button type="submit" class="wg-b primary" data-act="dlgok">${okLbl || 'OK'}</button>`}</div></form></div>`;
@@ -4932,6 +5051,7 @@ const WEBGUI = (function () {
       case 'vpnnew': { const ifs = Object.keys(d.cfg.ifs).filter(n => d.cfg.ifs[n].ip && !n.startsWith('Tunnel')); const used = new Set(Object.keys(d.cfg.ifs).filter(n => n.startsWith('Tunnel')).map(n => +n.slice(6))); let t = 0; while (used.has(t)) t++; return wrap('VPN-Assistent', `<div class="wg-2">${field('tn', 'Tunnel-Nummer', t, { type: 'number', min: 0 })}${sel('wan', 'WAN-Schnittstelle (Quelle)', ifs.map(n => [n, `${A.SH(n)} (${d.cfg.ifs[n].ip})`]))}</div>` + field('peer', 'WAN-Adresse der Gegenstelle', '', { ph: '198.51.100.1' }) + `<div class="wg-2">${field('tip', 'Tunnel-Adresse (eigene, /30)', '', { ph: '172.16.0.1' })}${field('psk', 'Pre-Shared Key', 'Vpn!Lab2026')}</div><div class="wg-2">${field('rnet', 'Netz der Gegenseite', '', { ph: '10.2.0.0' })}${field('rmask', 'Maske', '255.255.255.0')}</div><h4>Algorithmen (müssen auf beiden Seiten gleich sein)</h4><div class="wg-2">${sel('enc', 'Verschlüsselung', [['aes-cbc-256', 'AES-256'], ['aes-cbc-128', 'AES-128']])}${sel('int', 'Integrität', [['sha256', 'SHA-256'], ['sha1', 'SHA-1']])}</div>${sel('grp', 'DH-Gruppe', [['14', 'Gruppe 14 (2048 Bit)'], ['19', 'Gruppe 19 (ECP-256)'], ['5', 'Gruppe 5 (1536 Bit, veraltet)']])}`, ifs.length > 0, 'Einrichten'); }
       case 'zhost': { const z = A.MON.zbx(d), cand = Object.values(net.devs).filter(y => y.id !== d.id && !y.vm && !(y.model && A.NL.MODELS[y.model] && A.NL.MODELS[y.model].cloud) && A.MON.devIp(y) && !z.hosts.some(h => h.dev === y.id)); return wrap('Host hinzufügen', cand.length ? sel('dev', 'Gerät', cand.map(y => [y.id, `${y.cfg.hostname} (${A.MON.devIp(y)})`])) + field('snmp', 'SNMP-Community (leer = nur Ping)', 'public') + `<label class="wg-ck2"><input type="checkbox" id="wf-agent" checked> Zabbix-Agent abfragen (nur Server)</label>` : '<p class="wg-empty">Alle Geräte mit IP-Adresse werden schon überwacht.</p>', cand.length > 0, 'Hinzufügen'); }
       case 'zhedit': { const h = A.MON.zbx(d).hosts.find(y => y.dev === x.h); return wrap('Host bearbeiten', field('snmp', 'SNMP-Community (leer = nur Ping)', h.snmp) + `<label class="wg-ck2"><input type="checkbox" id="wf-agent" ${h.agent ? 'checked' : ''}> Zabbix-Agent abfragen</label>`, true, 'Speichern'); }
+      case 'bkjob': { const cand = Object.values(net.devs).filter(y => y.id !== d.id && !y.vm && A.BKP.kindOf(y) !== 'other' && !(y.model && A.NL.MODELS[y.model] && A.NL.MODELS[y.model].cloud)); return wrap('Backup-Job hinzufügen', field('n', 'Name', '') + sel('src', 'Quelle', cand.map(y => [y.id, `${y.cfg.hostname} – ${A.BKP.KIND[A.BKP.kindOf(y)]}`])) + field('keep', 'Aufbewahrung (Anzahl Sicherungen)', 7, { type: 'number', min: 1, max: 60 }), cand.length > 0, 'Anlegen'); }
       case 'ifedit': {
         const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
         const vl = Object.keys(d.cfg.vlans || {}).map(Number).sort((a, b) => a - b).map(n => [n, `${n} – ${d.cfg.vlans[n]}`]);
@@ -5040,6 +5160,7 @@ const WEBGUI = (function () {
         }
         case 'zhost': A.act(() => { ok = res(G, A.MON.addHost(net, dv, v(G, 'dev'), { snmp: v(G, 'snmp').trim(), agent: v(G, 'agent') }), 'Host hinzugefügt. Der erste Messwert kommt in wenigen Sekunden.'); }); break;
         case 'zhedit': A.act(() => { const h = A.MON.zbx(dv).hosts.find(y => y.dev === x.h); if (h) { h.snmp = v(G, 'snmp').trim(); h.agent = !!v(G, 'agent'); } }); G.msg = { t: 'Gespeichert.' }; break;
+        case 'bkjob': A.act(() => { ok = res(G, A.BKP.addJob(net, dv, { name: v(G, 'n'), src: v(G, 'src'), keep: v(G, 'keep') }), 'Job angelegt. Starte ihn mit „Jetzt sichern“.'); }); break;
         case 'ifedit': {
           const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
           const allow = v(G, 'allow').trim().toLowerCase();
@@ -5147,6 +5268,12 @@ const WEBGUI = (function () {
         case 'vpndel': { const sfx = 'T' + D.n.slice(6); ios(G, [`no interface ${D.n}`, `no crypto ipsec profile IPS-${sfx}`, `no crypto ikev2 profile IKE-${sfx}`, `no crypto ikev2 keyring KR-${sfx}`, `no crypto ikev2 policy POL-${sfx}`, `no crypto ikev2 proposal PROP-${sfx}`, `no crypto ipsec transform-set TS-${sfx}`].slice(0, 1), 'Tunnel gelöscht.'); break; }
         case 'zdisc': { let n = 0; A.act(() => { n = A.MON.discover(net, dv); }); G.msg = { t: n ? `${n} Gerät${n > 1 ? 'e' : ''} hinzugefügt.` : 'Keine neuen Geräte mit IP-Adresse gefunden.' }; A.monTickNow(); break; }
         case 'zhdel': A.act(() => { const z = A.MON.zbx(dv); z.hosts = z.hosts.filter(y => y.dev !== D.h); }); G.msg = { t: 'Host entfernt.' }; break;
+        case 'bkday': A.advanceDays(+D.n); G.msg = { t: 'Datum: ' + A.BKP.dateOf(net.day || 0) }; break;
+        case 'bkrun': { let r; A.act(() => { r = A.BKP.runJob(net, dv, A.BKP.st(dv).jobs.find(y => y.id === +D.j), A.bkH()); }); res(G, r, `Gesichert (${r && r.size} MB).`); break; }
+        case 'bkjdel': A.act(() => { A.BKP.delJob(dv, +D.j); }); G.msg = { t: 'Job und seine Sicherungen gelöscht.' }; break;
+        case 'bkdel': A.act(() => { A.BKP.delBackup(dv, +D.b); }); G.msg = { t: 'Sicherung gelöscht.' }; break;
+        case 'bktest': { let r; A.act(() => { r = A.BKP.testRestore(net, dv, +D.b, A.bkH()); }); res(G, r, 'Restore-Test bestanden: Die Sicherung ist lesbar und passt zum Gerät.'); break; }
+        case 'bkrestore': { if (!confirm('Den aktuellen Stand des Geräts mit dieser Sicherung überschreiben?')) break; let r; A.act(() => { r = A.BKP.restore(net, dv, +D.b, A.bkH()); }); res(G, r, `Wiederhergestellt: Stand ${r && A.BKP.dateOf(r.day)} auf ${r && r.dev}.`); break; }
         case 'dpooldel': ios(G, 'no ip dhcp pool ' + D.n, 'Pool gelöscht.'); break;
         case 'dexcldel': { const a = excluded(dv)[+D.i]; if (a) ios(G, `no ip dhcp excluded-address ${a.join(' ')}`, 'Ausschluss entfernt.'); break; }
         case 'fwacldel': ios(G, 'no access-list ' + D.a, 'Regelliste gelöscht.'); break;
@@ -5470,6 +5597,7 @@ const Sandbox = (function () {
   const WINN = typeof WIN !== 'undefined' ? WIN : require('./windows.js');
   const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
   const GUIN = typeof WEBGUI !== 'undefined' ? WEBGUI : require('./webgui.js');
+  const BKPN = typeof BKP !== 'undefined' ? BKP : require('./backup.js');
   const MONN = typeof MON !== 'undefined' ? MON : require('./monitor.js');
   const RTGN = typeof RTG !== 'undefined' ? RTG : require('./routing.js');
   const DESKN = typeof DESKTOP !== 'undefined' ? DESKTOP : require('./desktop.js');
@@ -5598,7 +5726,7 @@ const Sandbox = (function () {
         <button class="pill" id="scenpill" hidden></button>
         <button class="ibtn" id="inspBtn" title="Details ein- oder ausblenden" aria-label="Details ein- oder ausblenden" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
         <div class="sp"></div>
-        <details class="menu"><summary class="btn">Mehr</summary><div class="mlist"><button data-m="png">Plan als Bild (PNG)</button><button data-m="svg">Plan als SVG</button><button data-m="desc">Ports automatisch beschriften</button><button data-m="example">Beispielnetz laden</button><button data-m="empty">Leeres Projekt</button><button data-m="json">Projekt als JSON</button><button data-m="import">Projekt importieren</button></div></details>
+        <details class="menu"><summary class="btn">Mehr</summary><div class="mlist"><button data-m="day">Simulationszeit: +1 Tag</button><button data-m="week">Simulationszeit: +7 Tage</button><button data-m="png">Plan als Bild (PNG)</button><button data-m="svg">Plan als SVG</button><button data-m="desc">Ports automatisch beschriften</button><button data-m="example">Beispielnetz laden</button><button data-m="empty">Leeres Projekt</button><button data-m="json">Projekt als JSON</button><button data-m="import">Projekt importieren</button></div></details>
         <button class="btn primary" id="xBtn">Prüfen &amp; exportieren</button>
       </header>
       <nav class="rail" id="rail" aria-label="Werkzeuge und Geräte"></nav>
@@ -5651,6 +5779,8 @@ const Sandbox = (function () {
   function undo() { if (!S.undo.length) return; S.redo.push(JSON.stringify(S.net)); S.net = JSON.parse(S.undo.pop()); migrate(S.net); S.pend = null; S.sim = null; save(); render(); }
   function redo() { if (!S.redo.length) return; S.undo.push(JSON.stringify(S.net)); S.net = JSON.parse(S.redo.pop()); migrate(S.net); S.pend = null; S.sim = null; save(); render(); }
   function menu(m) {
+    if (m === 'day') { advanceDays(1); render(); }
+    if (m === 'week') { advanceDays(7); render(); }
     if (m === 'png' || m === 'svg') exportPlan(m);
     if (m === 'desc') autoDesc();
     if (m === 'example') { if (confirm('Beispielnetz laden? Dein aktuelles Projekt wird ersetzt.')) { store.set('sbxscen', null); store.set('sandbox', example()); open(app); } }
@@ -6132,6 +6262,13 @@ const Sandbox = (function () {
     for (const id in S.net.devs) { const d = S.net.devs[id]; if (!d.boot || S._bt[id]) continue; const rest = d.boot.t0 + d.boot.ms - Date.now(); if (rest <= 0) { d.boot = null; continue; } S._bt[id] = setTimeout(() => { delete S._bt[id]; finishBoot(id); }, rest + 40); }
   }
   const downMsg = d => d.off ? `${d.cfg.hostname} ist ausgeschaltet. Schalte das Gerät ein, dann startet es.` : NL.booting(d) ? `${d.cfg.hostname} startet noch (Bootvorgang läuft).` : '';
+  // Simulationszeit: ein Tag vergeht (Backup-Jobs und Snapshot-Richtlinien laufen)
+  const bkH = net => ({ LX: LXN, WIN: WINN, cfgOf: NL.cfgOf, ctx: lxCtx(net) });
+  function advanceDays(n) {
+    const sum = [];
+    act(() => { for (let i = 0; i < n; i++) { S.net.day = (S.net.day || 0) + 1; BKPN.advance(S.net, bkH(S.net)).forEach(r => sum.push(r)); STORN.snapAdvance(S.net, S.net.day).forEach(r => sum.push(r)); } });
+    const bad = sum.filter(r => !r.ok).length; toast(`Datum: <b>${BKPN.dateOf(S.net.day)}</b>${sum.length ? `. Zeitgesteuerte Aufgaben: ${sum.length - bad} ok${bad ? ', <span class="neg">' + bad + ' fehlgeschlagen</span>' : ''}.` : '.'}`);
+  }
   // Monitoring und Syslog
   const monH = () => ({ diskPct: d => { const u = LXN.diskUse(d); return u && u.total ? Math.round(u.used / u.total * 100) : null; }, unitCount: d => LXN.unitList(d).filter(u => u.active).length, vmCount: d => VIRTN.vmsOf(S.net, d.id).length });
   function collectSyslog(id, text) {
@@ -7607,7 +7744,7 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, BKP: BKPN, bkH: () => bkH(S.net), advanceDays, day: () => S.net.day || 0, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
@@ -7629,7 +7766,7 @@ const Sandbox = (function () {
 
   function close() { if (S) clearInterval(S._monT); document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, BKP: BKPN, bkH: () => bkH(net), advanceDays: n => { for (let i = 0; i < n; i++) { net.day = (net.day || 0) + 1; BKPN.advance(net, bkH(net)); STORN.snapAdvance(net, net.day); } }, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;

@@ -16,9 +16,11 @@ const STOR = (function () {
   const poolOf = (d, name) => st(d).pools.find(p => p.name === name);
   const lunSize = l => l.gb;
   const lunAlloc = l => l.thin ? Math.ceil(l.gb * THIN_INITIAL) : l.gb;
+  const snapGb = l => Math.max(1, Math.ceil(l.gb * 0.05));
+  const snapsUsed = l => (l.snaps || []).length * snapGb(l);
   function poolInfo(d, p) {
     const r = RAID[p.raid], raw = p.disks * p.diskGb, usable = r.usable(p.disks) * p.diskGb;
-    const luns = st(d).luns.filter(l => l.pool === p.name), alloc = luns.reduce((s, l) => s + lunAlloc(l), 0), prov = luns.reduce((s, l) => s + l.gb, 0);
+    const luns = st(d).luns.filter(l => l.pool === p.name), alloc = luns.reduce((s, l) => s + lunAlloc(l) + snapsUsed(l), 0), prov = luns.reduce((s, l) => s + l.gb, 0);
     return { raw, usable, alloc, free: usable - alloc, prov, over: prov > usable, fault: r.fault, luns };
   }
   function createPool(d, o) {
@@ -48,6 +50,25 @@ const STOR = (function () {
     const l = st(d).luns.find(x => x.id === id); if (!l) return { err: 'LUN nicht gefunden.' }; l.hosts = l.hosts.filter(h => h !== hostId); if (on) l.hosts.push(hostId);
     if (l.hm && net && net.devs[l.hm.peer]) { const r = st(net.devs[l.hm.peer]).luns.find(x => x.id === l.hm.peerLun); if (r) { r.hosts = r.hosts.filter(h => h !== hostId); if (on) r.hosts.push(hostId); } }
     return { ok: true };
+  }
+
+
+  // ----- Snapshots (je Snapshot werden 5 % der LUN-Größe für geänderte Blöcke reserviert) -----
+  function snapCreate(d, id, name, day) {
+    const l = st(d).luns.find(x => x.id === +id); if (!l) return { err: 'LUN nicht gefunden.' }; name = String(name || '').trim();
+    if (!/^[A-Za-z0-9][\w.-]{0,30}$/.test(name)) return { err: 'Snapshot-Name: Buchstaben, Ziffern, - _ und . (max. 31 Zeichen).' };
+    l.snaps = l.snaps || []; if (l.snaps.some(x => x.name === name)) return { err: `Einen Snapshot „${name}“ gibt es schon.` };
+    const p = poolOf(d, l.pool), info = poolInfo(d, p), need = snapGb(l); if (need > info.free) return { err: `Im Pool „${p.name}“ sind nur ${info.free} GB frei, der Snapshot braucht ${need} GB. Alte Snapshots löschen oder den Pool erweitern.` };
+    l.snaps.push({ name, day: day || 0, gb: need }); return { ok: true };
+  }
+  function snapDelete(d, id, name) { const l = st(d).luns.find(x => x.id === +id); if (!l) return { err: 'LUN nicht gefunden.' }; l.snaps = (l.snaps || []).filter(x => x.name !== name); return { ok: true }; }
+  // Rollback setzt die LUN auf den Snapshot zurück; neuere Snapshots werden damit ungültig und gelöscht
+  function snapRollback(d, id, name) { const l = st(d).luns.find(x => x.id === +id); if (!l) return { err: 'LUN nicht gefunden.' }; const i = (l.snaps || []).findIndex(x => x.name === name); if (i < 0) return { err: 'Snapshot nicht gefunden.' }; const n = l.snaps.length - 1 - i; l.snaps = l.snaps.slice(0, i + 1); l.rolledBack = { name, day: l.snaps[i].day }; return { ok: true, dropped: n }; }
+  function snapPolicy(d, id, keep) { const l = st(d).luns.find(x => x.id === +id); if (!l) return { err: 'LUN nicht gefunden.' }; keep = Math.round(+keep); if (!(keep >= 0 && keep <= 30)) return { err: 'Aufbewahrung: 0 (aus) bis 30 Snapshots.' }; l.snapKeep = keep; return { ok: true }; }
+  // Ein Tag vergeht: Richtlinien legen Snapshots an und löschen die ältesten
+  function snapAdvance(net, day) {
+    const out = []; for (const d of Object.values(net.devs)) { if (d.type !== 'storage' || !d.stor) continue; for (const l of d.stor.luns) { if (!l.snapKeep) continue; const r = snapCreate(d, l.id, 'auto-' + day, day); out.push({ sto: d.cfg.hostname, lun: l.name, ok: !!r.ok, msg: r.err || '' }); if (!r.ok) { (d.stor.events = d.stor.events || []).push({ day, msg: `Snapshot-Richtlinie ${l.name}: ${r.err}` }); continue; } const auto = (l.snaps || []).filter(x => /^auto-/.test(x.name)); while (auto.length > l.snapKeep) { const o = auto.shift(); l.snaps = l.snaps.filter(x => x !== o); } } }
+    return out;
   }
 
   // ----- Zoning (FC-Switch) -----
@@ -207,6 +228,6 @@ const STOR = (function () {
     if (l.hm && !hmActive(net, sto)) { const h = hmState(net, sto); return `HyperMetro: ${sto.cfg.hostname} ist im Standby. ${h.text}`; }
     return null;
   }
-  return { hm: hmOf, hmState, hmActive, hmCreate, hmSet, hmDelete, hmPairCreate, hmPairDelete, hmAutoZone, replLink, quorumState, quorumReach, QPKG, ipOf, RAID, DISKS, st, poolInfo, createPool, deletePool, createLun, deleteLun, maskLun, zs, zoneAdd, zoneDel, zoneActive, autoZones, attached, zoned, paths, hostLuns, why, lunAlloc, lunSize, poolOf };
+  return { snapCreate, snapDelete, snapRollback, snapPolicy, snapAdvance, snapGb, hm: hmOf, hmState, hmActive, hmCreate, hmSet, hmDelete, hmPairCreate, hmPairDelete, hmAutoZone, replLink, quorumState, quorumReach, QPKG, ipOf, RAID, DISKS, st, poolInfo, createPool, deletePool, createLun, deleteLun, maskLun, zs, zoneAdd, zoneDel, zoneActive, autoZones, attached, zoned, paths, hostLuns, why, lunAlloc, lunSize, poolOf };
 })();
 if (typeof module !== 'undefined') module.exports = STOR;

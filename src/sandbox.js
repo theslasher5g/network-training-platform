@@ -12,6 +12,7 @@ const Sandbox = (function () {
   const WINN = typeof WIN !== 'undefined' ? WIN : require('./windows.js');
   const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
   const GUIN = typeof WEBGUI !== 'undefined' ? WEBGUI : require('./webgui.js');
+  const BKPN = typeof BKP !== 'undefined' ? BKP : require('./backup.js');
   const MONN = typeof MON !== 'undefined' ? MON : require('./monitor.js');
   const RTGN = typeof RTG !== 'undefined' ? RTG : require('./routing.js');
   const DESKN = typeof DESKTOP !== 'undefined' ? DESKTOP : require('./desktop.js');
@@ -140,7 +141,7 @@ const Sandbox = (function () {
         <button class="pill" id="scenpill" hidden></button>
         <button class="ibtn" id="inspBtn" title="Details ein- oder ausblenden" aria-label="Details ein- oder ausblenden" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
         <div class="sp"></div>
-        <details class="menu"><summary class="btn">Mehr</summary><div class="mlist"><button data-m="png">Plan als Bild (PNG)</button><button data-m="svg">Plan als SVG</button><button data-m="desc">Ports automatisch beschriften</button><button data-m="example">Beispielnetz laden</button><button data-m="empty">Leeres Projekt</button><button data-m="json">Projekt als JSON</button><button data-m="import">Projekt importieren</button></div></details>
+        <details class="menu"><summary class="btn">Mehr</summary><div class="mlist"><button data-m="day">Simulationszeit: +1 Tag</button><button data-m="week">Simulationszeit: +7 Tage</button><button data-m="png">Plan als Bild (PNG)</button><button data-m="svg">Plan als SVG</button><button data-m="desc">Ports automatisch beschriften</button><button data-m="example">Beispielnetz laden</button><button data-m="empty">Leeres Projekt</button><button data-m="json">Projekt als JSON</button><button data-m="import">Projekt importieren</button></div></details>
         <button class="btn primary" id="xBtn">Prüfen &amp; exportieren</button>
       </header>
       <nav class="rail" id="rail" aria-label="Werkzeuge und Geräte"></nav>
@@ -193,6 +194,8 @@ const Sandbox = (function () {
   function undo() { if (!S.undo.length) return; S.redo.push(JSON.stringify(S.net)); S.net = JSON.parse(S.undo.pop()); migrate(S.net); S.pend = null; S.sim = null; save(); render(); }
   function redo() { if (!S.redo.length) return; S.undo.push(JSON.stringify(S.net)); S.net = JSON.parse(S.redo.pop()); migrate(S.net); S.pend = null; S.sim = null; save(); render(); }
   function menu(m) {
+    if (m === 'day') { advanceDays(1); render(); }
+    if (m === 'week') { advanceDays(7); render(); }
     if (m === 'png' || m === 'svg') exportPlan(m);
     if (m === 'desc') autoDesc();
     if (m === 'example') { if (confirm('Beispielnetz laden? Dein aktuelles Projekt wird ersetzt.')) { store.set('sbxscen', null); store.set('sandbox', example()); open(app); } }
@@ -674,6 +677,13 @@ const Sandbox = (function () {
     for (const id in S.net.devs) { const d = S.net.devs[id]; if (!d.boot || S._bt[id]) continue; const rest = d.boot.t0 + d.boot.ms - Date.now(); if (rest <= 0) { d.boot = null; continue; } S._bt[id] = setTimeout(() => { delete S._bt[id]; finishBoot(id); }, rest + 40); }
   }
   const downMsg = d => d.off ? `${d.cfg.hostname} ist ausgeschaltet. Schalte das Gerät ein, dann startet es.` : NL.booting(d) ? `${d.cfg.hostname} startet noch (Bootvorgang läuft).` : '';
+  // Simulationszeit: ein Tag vergeht (Backup-Jobs und Snapshot-Richtlinien laufen)
+  const bkH = net => ({ LX: LXN, WIN: WINN, cfgOf: NL.cfgOf, ctx: lxCtx(net) });
+  function advanceDays(n) {
+    const sum = [];
+    act(() => { for (let i = 0; i < n; i++) { S.net.day = (S.net.day || 0) + 1; BKPN.advance(S.net, bkH(S.net)).forEach(r => sum.push(r)); STORN.snapAdvance(S.net, S.net.day).forEach(r => sum.push(r)); } });
+    const bad = sum.filter(r => !r.ok).length; toast(`Datum: <b>${BKPN.dateOf(S.net.day)}</b>${sum.length ? `. Zeitgesteuerte Aufgaben: ${sum.length - bad} ok${bad ? ', <span class="neg">' + bad + ' fehlgeschlagen</span>' : ''}.` : '.'}`);
+  }
   // Monitoring und Syslog
   const monH = () => ({ diskPct: d => { const u = LXN.diskUse(d); return u && u.total ? Math.round(u.used / u.total * 100) : null; }, unitCount: d => LXN.unitList(d).filter(u => u.active).length, vmCount: d => VIRTN.vmsOf(S.net, d.id).length });
   function collectSyslog(id, text) {
@@ -2149,7 +2159,7 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, NL, RTG: RTGN, MON: MONN, BKP: BKPN, bkH: () => bkH(S.net), advanceDays, day: () => S.net.day || 0, mon: () => S.mon, monTickNow: () => monTick(), dhcp: d => dhcpRequest(d), blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
@@ -2171,7 +2181,7 @@ const Sandbox = (function () {
 
   function close() { if (S) clearInterval(S._monT); document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set(), mon: {} }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, BKP: BKPN, bkH: () => bkH(net), advanceDays: n => { for (let i = 0; i < n; i++) { net.day = (net.day || 0) + 1; BKPN.advance(net, bkH(net)); STORN.snapAdvance(net, net.day); } }, monTick: () => monTick(), mon: () => S.mon, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;
