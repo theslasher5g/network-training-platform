@@ -1126,20 +1126,65 @@ const Sandbox = (function () {
     if (!sv || !((port === 80 && sv.http.on) || (port === 443 && sv.http.on && sv.http.https))) return { err: `Verbindung abgelehnt: Auf ${srv ? srv.cfg.hostname : ip} lauscht kein ${port === 443 ? 'HTTPS' : 'HTTP'}-Server auf Port ${port}.` };
     return { ok: true, ip, host, scheme, port, title: sv.http.title || srv.cfg.hostname, body: sv.http.body };
   }
+  // DHCP: Server im selben Segment (Linux/Windows-Server, Cisco-Router/L3-Switch, ASA) oder über ein Relay (ip helper-address)
+  function leaseIp(srv, key, c, net, mask, from, to, skip, taken) {
+    srv.leases = srv.leases || {}; const L = srv.leases[key] = srv.leases[key] || {};
+    const ok = ip => ip && NL.inNet(ip, net, mask) && !skip(ip) && !taken.has(ip); if (ok(L[c.id])) return L[c.id];
+    Object.entries(L).forEach(([k, v]) => { if (k !== c.id) taken.add(v); });
+    for (let n = from; n <= to; n++) { const cand = NL.n2ip(n); if (ok(cand)) { L[c.id] = cand; return cand; } }
+    return null;
+  }
+  function offerFrom(sv, gi, c) {
+    const ips = allIps(), taken = new Set(Object.keys(ips).filter(k => ips[k] !== c));
+    if (NL.isHost(sv)) {
+      if (sv.type !== 'server' || !sv.svc || !sv.svc.dhcp.on) return {};
+      const pool = sv.svc.dhcp;
+      if (!NL.validIp(pool.start) || NL.maskLen(pool.mask) === null) return { why: `DHCP auf ${sv.cfg.hostname}: Pool nicht fertig konfiguriert (Startadresse/Maske).` };
+      if (!NL.inNet(pool.start, gi.ip, pool.mask) || NL.maskLen(pool.mask) !== NL.maskLen(gi.mask)) return { why: `DHCP auf ${sv.cfg.hostname}: Pool ${pool.start}/${NL.maskLen(pool.mask)} liegt nicht im Subnetz ${gi.ip}/${NL.maskLen(gi.mask)} (Schnittstelle bzw. Relay).` };
+      pool.leases = pool.leases || {}; let ip = pool.leases[c.id];
+      if (!ip) { Object.entries(pool.leases).forEach(([k, v]) => { if (k !== c.id) taken.add(v); }); for (let k = 0; k < pool.max; k++) { const cand = NL.n2ip(NL.ip2n(pool.start) + k); if (!NL.inNet(cand, gi.ip, pool.mask)) break; if (!taken.has(cand)) { ip = cand; break; } } }
+      if (!ip) return { why: `Der DHCP-Pool auf ${sv.cfg.hostname} ist erschöpft.` };
+      pool.leases[c.id] = ip; return { ok: true, ip, mask: pool.mask, gw: pool.gw, dns: pool.dns, server: sv.cfg.hostname };
+    }
+    if (sv.fw) {
+      const dd = sv.cfg.dhcpd; if (!dd) return {};
+      const nm = Object.keys(sv.cfg.ifs).find(n => sv.cfg.ifs[n].nameif && sv.cfg.ifs[n].ip && NL.inNet(gi.ip, sv.cfg.ifs[n].ip, sv.cfg.ifs[n].mask)), q = nm && dd.pools[sv.cfg.ifs[nm].nameif];
+      if (!q || !q.on) return {}; const ic = sv.cfg.ifs[nm];
+      if (!q.start || !NL.inNet(q.start, ic.ip, ic.mask) || !NL.inNet(q.end, ic.ip, ic.mask)) return { why: `DHCP auf ${sv.cfg.hostname}: Bereich ${q.start || '–'}-${q.end || '–'} liegt nicht im Subnetz ${ic.ip}/${NL.maskLen(ic.mask)}.` };
+      const ip = leaseIp(sv, ic.nameif, c, ic.ip, ic.mask, NL.ip2n(q.start), NL.ip2n(q.end), x => x === ic.ip, taken);
+      return ip ? { ok: true, ip, mask: ic.mask, gw: ic.ip, dns: dd.dns, server: sv.cfg.hostname } : { why: `Der DHCP-Bereich auf ${sv.cfg.hostname} (${ic.nameif}) ist erschöpft.` };
+    }
+    const pools = NL.blocks(sv, 'ip dhcp pool'); if (!pools.length) return {};
+    const val = (b, k) => { const l = b.lines.find(x => x.toLowerCase().startsWith(k + ' ')); return l ? l.slice(k.length + 1).trim() : null; };
+    let cfgd = false;
+    for (const b of pools) {
+      const nw = (val(b, 'network') || '').split(' '); if (!NL.validIp(nw[0]) || NL.maskLen(nw[1] || '') === null) { cfgd = true; continue; }
+      if (!NL.inNet(gi.ip, nw[0], nw[1])) continue;
+      const ex = sv.cfg.lines.filter(l => /^ip dhcp excluded-address /i.test(l)).map(l => l.split(' ').slice(3)).filter(a => NL.validIp(a[0])).map(a => [NL.ip2n(a[0]), NL.ip2n(a[1] || a[0])]);
+      const n0 = NL.netN(nw[0], nw[1]), bc = (n0 | (~NL.ip2n(nw[1]) >>> 0)) >>> 0, name = b.head.split(' ')[3];
+      const ip = leaseIp(sv, name, c, nw[0], nw[1], n0 + 1, bc - 1, x => { const n = NL.ip2n(x); return x === gi.ip || ex.some(r => n >= r[0] && n <= r[1]); }, taken);
+      return ip ? { ok: true, ip, mask: nw[1], gw: val(b, 'default-router'), dns: val(b, 'dns-server'), server: sv.cfg.hostname } : { why: `Der DHCP-Pool „${name}“ auf ${sv.cfg.hostname} ist erschöpft (oder alle Adressen sind ausgeschlossen).` };
+    }
+    return cfgd ? { why: `DHCP-Pool auf ${sv.cfg.hostname}: „network <Netz> <Maske>“ fehlt oder ist ungültig.` } : { why: `${sv.cfg.hostname} hat DHCP-Pools, aber keiner passt zum Netz ${gi.ip}/${NL.maskLen(gi.mask)} (network im Pool prüfen).` };
+  }
   function dhcpRequest(c) {
     const p = c.ports[0]; if (NL.portStatus(S.net, c.id, p).st !== 'connected') return { err: 'Kein Link – Kabel und Port prüfen.' };
-    const seg = NL.l2(S.net, c.id, p), ips = allIps(); let why = 'Kein DHCP-Server im selben Layer-2-Segment gefunden – VLAN, Trunk und Kabel prüfen (kein DHCP-Relay in diesem Lab).';
+    const seg = NL.l2(S.net, c.id, p), ips = allIps(); let why = 'Kein DHCP-Server im selben Layer-2-Segment gefunden und kein Relay (ip helper-address) an einem Router oder SVI – VLAN, Trunk, Kabel und DHCP-Dienst prüfen.';
     if (seg.notes && seg.notes.length) why += ' ' + seg.notes[0];
+    const fin = (o) => { setHostIp(c, p, o.ip, o.mask); c.cfg.gw = o.gw || null; c.cfg.dns = o.dns || null; return { ok: true, ip: o.ip, mask: o.mask, gw: o.gw, dns: o.dns, server: o.server }; };
     for (const ep of seg.eps) {
-      const sv = S.net.devs[ep.dev]; if (!sv || sv.id === c.id || sv.type !== 'server' || !sv.svc || !sv.svc.dhcp.on) continue;
-      const h = hip(sv, ep.ifn), pool = sv.svc.dhcp; if (!h || !h.ip) continue;
-      if (!NL.validIp(pool.start) || NL.maskLen(pool.mask) === null) { why = `DHCP auf ${sv.cfg.hostname}: Pool nicht fertig konfiguriert (Startadresse/Maske).`; continue; }
-      if (!NL.inNet(pool.start, h.ip, pool.mask) || NL.maskLen(pool.mask) !== NL.maskLen(h.mask)) { why = `DHCP auf ${sv.cfg.hostname}: Pool ${pool.start}/${NL.maskLen(pool.mask)} liegt nicht im Subnetz der Server-Schnittstelle ${h.ip}/${NL.maskLen(h.mask)}.`; continue; }
-      pool.leases = pool.leases || {}; let ip = pool.leases[c.id];
-      if (!ip) { const used = new Set(Object.keys(ips).filter(k => ips[k] !== c)); Object.entries(pool.leases).forEach(([k, v]) => { if (k !== c.id) used.add(v); }); for (let i = 0; i < pool.max; i++) { const cand = NL.n2ip(NL.ip2n(pool.start) + i); if (!NL.inNet(cand, h.ip, pool.mask)) break; if (!used.has(cand)) { ip = cand; break; } } }
-      if (!ip) { why = `Der DHCP-Pool auf ${sv.cfg.hostname} ist erschöpft.`; continue; }
-      pool.leases[c.id] = ip; setHostIp(c, p, ip, pool.mask); c.cfg.gw = pool.gw || null; c.cfg.dns = pool.dns || null;
-      return { ok: true, ip, mask: pool.mask, gw: pool.gw, dns: pool.dns, server: sv.cfg.hostname };
+      const nd = S.net.devs[ep.dev]; if (!nd || nd.id === c.id || NL.isDown(nd)) continue;
+      let gi, srv = nd;
+      if (NL.isHost(nd)) { const h = hip(nd, ep.ifn); if (!h || !h.ip) continue; gi = h; }
+      else {
+        const i = nd.cfg.ifs[ep.ifn]; if (!i || !i.ip) continue; gi = { ip: i.ip, mask: i.mask };
+        const lo = offerFrom(nd, gi, c); if (lo.ok) return fin(lo); if (lo.why) why = lo.why;
+        if (!i.helper) continue;
+        const sv = ips[i.helper]; if (!sv) { why = `Relay auf ${nd.cfg.hostname}: ip helper-address ${i.helper} – unter dieser Adresse antwortet kein Gerät.`; continue; }
+        const r = NL.ping(S.net, nd.id, i.helper); if (!r.ok) { why = `Relay auf ${nd.cfg.hostname} erreicht den DHCP-Server ${i.helper} nicht: ${r.reason}`; continue; }
+        srv = sv; if (NL.isDown(sv)) { why = `Der DHCP-Server ${sv.cfg.hostname} ist nicht erreichbar.`; continue; }
+      }
+      const o = offerFrom(srv, gi, c); if (o.ok) return fin(o); if (o.why) why = o.why;
     }
     return { err: why };
   }
@@ -1251,6 +1296,18 @@ const Sandbox = (function () {
       LXN.init(sd).scsi = [];
     });
     if (!o.noStorage) { const t = hd(net, 'STO-01'); [['A-slot2/1', 'fc1/9'], ['B-slot2/1', 'fc1/10']].forEach(([q, w]) => { lk(net, 'STO-01', q, 'MDS-A', w, 'mmf'); t.xcvr[q] = FCX; hd(net, 'MDS-A').xcvr[w] = FCX; }); }
+  }
+  // HyperMetro-Lab: zwei Arrays am selben FC-Switch, Quorum-Server am Management-Switch
+  function hmBase(net, o = {}) {
+    stBase(net, ['SRV-DB']); const t1 = hd(net, 'STO-01'), srv = hd(net, 'SRV-DB'), m = hd(net, 'MDS-A');
+    mk(net, 'HW-Dorado-5000V6', 1040, 520, 'STO-02'); NL.setCard(net, hd(net, 'STO-02').id, 1, 'IO-4x32G-FC'); const t2 = hd(net, 'STO-02');
+    [['A-slot2/1', 'fc1/11'], ['B-slot2/1', 'fc1/12']].forEach(([q, w]) => { lk(net, 'STO-02', q, 'MDS-A', w, 'mmf'); t2.xcvr[q] = FCX; m.xcvr[w] = FCX; });
+    mk(net, 'HW-2288H-V5', 520, 200, 'QSRV'); lk(net, 'QSRV', 'eth0', 'SW', G + 10); lk(net, 'STO-01', 'A-mgmt', 'SW', G + 11); lk(net, 'STO-02', 'A-mgmt', 'SW', G + 12);
+    rn(net, 'QSRV', ['ip 10.0.0.50/24 10.0.0.1']); rn(net, 'STO-01', ['ip A-mgmt 10.0.0.21/24 10.0.0.1']); rn(net, 'STO-02', ['ip A-mgmt 10.0.0.22/24 10.0.0.1']); LXN.init(hd(net, 'QSRV'));
+    STORN.createPool(t1, { name: 'POOL1', raid: 'raid5', disks: 6, diskGb: 600 }); STORN.createPool(t2, { name: 'POOL2', raid: 'raid5', disks: 6, diskGb: 600 }); STORN.createLun(t1, { name: 'DB01', pool: 'POOL1', gb: 200 }); STORN.maskLun(t1, 0, srv.id, true, net);
+    STORN.autoZones(net, m); STORN.zoneActive(m, true);
+    if (o.domain) { lxr(net, 'QSRV', ['sudo apt install quorum-server', 'sudo systemctl enable --now quorum-server']); STORN.hmCreate(net, t1, t2, { name: 'DOM1', quorum: hd(net, 'QSRV').id, preferred: 'local', staticFallback: false }); STORN.hmPairCreate(net, t1, { lun: 0, pool: 'POOL2' }); STORN.hmAutoZone(net, t1); STORN.autoZones(net, m); lxr(net, 'SRV-DB', ['sudo rescan-scsi-bus.sh']); }
+    else LXN.init(srv).scsi = [];
   }
   // Windows-Grundaufbau: Switch, Router-Gateway, Windows-Server und Client im 10.0.0.0/24
   function winBase(net, servers, o = {}) {
@@ -1439,6 +1496,29 @@ const Sandbox = (function () {
         { t: 'SRV-DB hat vier Pfade und <code>multipath -ll</code> zeigt nach dem Rescan vier aktive Pfade', c: n => STORN.paths(n, hd(n, 'SRV-DB')).length === 4 && hd(n, 'SRV-DB').lx.scsi[0].paths.length === 4 }],
       hints: ['Zwei HBA-Ports × zwei Controller = 4 Pfade. Klicke SRV-DB an → Port-Reiter: Ein HBA-Port hat keinen Link (rot). Welcher Transceiver fehlt?', 'Der zweite Fehler liegt im Zoning: Web-GUI von MDS-A → „Zoning“. Eine Zone ist weggefallen. „Auto-Zoning aus Verkabelung“ ergänzt sie.', 'Danach auf SRV-DB: <code>sudo rescan-scsi-bus.sh</code> und <code>multipath -ll</code>.'],
       sol(net) { const srv = hd(net, 'SRV-DB'), m = hd(net, 'MDS-A'); srv.xcvr['slot2/2'] = FCX; STORN.autoZones(net, m); lxr(net, 'SRV-DB', 'sudo rescan-scsi-bus.sh'); } }
+    ,
+    { id: 'sc-st-hm', kind: 'Aufbau', title: 'Storage: HyperMetro mit Quorum-Server', est: '25 min',
+      intro: 'Die Datenbank-LUN <code>DB01</code> liegt nur auf <code>STO-01</code>. Fällt dieses Array aus, steht die Datenbank. Baue einen <b>HyperMetro</b>-Cluster mit <code>STO-02</code>: Beide Arrays bedienen SRV-DB gleichzeitig, und der Server <code>QSRV</code> entscheidet als Quorum-Server, wer bei einer Trennung weiterarbeiten darf.',
+      build(net) { hmBase(net); },
+      goals: [
+        { t: 'Auf <code>QSRV</code> läuft der Dienst <code>quorum-server</code>', c: n => STORN.quorumState(n, hd(n, 'QSRV')).ok },
+        { t: 'Eine HyperMetro-Domäne verbindet STO-01 und STO-02 mit QSRV als Quorum-Server', c: n => { const d = STORN.hm(hd(n, 'STO-01')); return !!d && d.peer === hd(n, 'STO-02').id && d.quorum === hd(n, 'QSRV').id; } },
+        { t: 'Beide Arrays erreichen den Quorum-Server', c: n => { const a = hd(n, 'STO-01'), d = STORN.hm(a); return !!d && STORN.quorumReach(n, a, d).ok && STORN.quorumReach(n, hd(n, 'STO-02'), STORN.hm(hd(n, 'STO-02'))).ok; } },
+        { t: 'Die Replikationsverbindung zwischen den Arrays steht (Zone am MDS-A, Zoneset aktiv)', c: n => { const s = STORN.hmState(n, hd(n, 'STO-01')); return !!s && s.link.ok; } },
+        { t: '<code>DB01</code> ist ein HyperMetro-Paar, und SRV-DB erreicht sie über beide Arrays', c: n => { const r = STORN.hostLuns(n, hd(n, 'SRV-DB')).find(x => x.name === 'DB01'); return !!r && new Set(r.paths.map(p => p.sto)).size === 2; } },
+        { t: '<code>STO-01</code> ist der bevorzugte Standort', c: n => { const d = STORN.hm(hd(n, 'STO-01')); return !!d && d.preferred === hd(n, 'STO-01').id; } }],
+      hints: ['Starte mit dem Quorum-Server: Web-GUI von QSRV → „Software“ (Paket <code>quorum-server</code>) und „Dienste“. Oder im Terminal <code>sudo apt install quorum-server</code> und <code>sudo systemctl enable --now quorum-server</code>.', 'Web-GUI von STO-01 → „HyperMetro“ → Domäne erstellen: Partner STO-02, Quorum-Server QSRV. Danach „Replikationszonen anlegen“ und das Zoneset am MDS-A aktiv lassen.', 'Ein Paar erstellst du ebenfalls auf der HyperMetro-Seite. SRV-DB braucht außerdem Zonen zu STO-02: Auto-Zoning am MDS-A. Dann am Server <code>sudo rescan-scsi-bus.sh</code>.'],
+      sol(net) { const t1 = hd(net, 'STO-01'), t2 = hd(net, 'STO-02'), m = hd(net, 'MDS-A'); lxr(net, 'QSRV', ['sudo apt install quorum-server', 'sudo systemctl enable --now quorum-server']); STORN.hmCreate(net, t1, t2, { name: 'DOM1', quorum: hd(net, 'QSRV').id, preferred: 'local', staticFallback: true }); STORN.hmPairCreate(net, t1, { lun: 0, pool: 'POOL2' }); STORN.hmAutoZone(net, t1); STORN.autoZones(net, m); lxr(net, 'SRV-DB', 'sudo rescan-scsi-bus.sh'); } },
+    { id: 'sc-st-hm2', kind: 'Fehlersuche', title: 'Storage: HyperMetro verliert bei Ausfall den Zugriff', est: '20 min',
+      intro: 'Der HyperMetro-Cluster aus <code>STO-01</code> und <code>STO-02</code> lief im Test. Beim Ausfall der Verbindung zwischen den Arrays hat SRV-DB aber den Zugriff auf <code>DB01</code> verloren, obwohl ein Array noch lief. Finde heraus, warum die Arbitrierung keinen Gewinner bestimmen konnte.',
+      build(net) { hmBase(net, { domain: true }); lxr(net, 'QSRV', 'sudo systemctl stop quorum-server'); const m = hd(net, 'MDS-A'); m.zset.zones = m.zset.zones.filter(z => !z.name.startsWith('REPL_')); },
+      goals: [
+        { t: 'Der Dienst <code>quorum-server</code> läuft wieder auf QSRV', c: n => STORN.quorumState(n, hd(n, 'QSRV')).ok },
+        { t: 'Beide Arrays erreichen den Quorum-Server', c: n => { const a = hd(n, 'STO-01'), d = STORN.hm(a); return !!d && STORN.quorumReach(n, a, d).ok && STORN.quorumReach(n, hd(n, 'STO-02'), STORN.hm(hd(n, 'STO-02'))).ok; } },
+        { t: 'Die Replikationsverbindung ist wieder da (Replikationszone)', c: n => { const s = STORN.hmState(n, hd(n, 'STO-01')); return !!s && s.link.ok && s.mode === 'normal'; } },
+        { t: 'Als Absicherung ist „Statische Priorität als Fallback“ eingeschaltet', c: n => !!STORN.hm(hd(n, 'STO-01')).staticFallback }],
+      hints: ['Öffne die HyperMetro-Seite von STO-01: Die Domänenübersicht zeigt, ob die Arrays den Quorum-Server erreichen und ob die Replikationsverbindung steht.', 'Der Quorum-Dienst auf QSRV ist gestoppt (<code>sudo systemctl start quorum-server</code>), und die Replikationszone am MDS-A fehlt („Replikationszonen anlegen“).', 'Unter „Einstellungen“ schaltest du die statische Priorität ein: Dann arbeitet der bevorzugte Standort auch weiter, wenn der Quorum-Server ausfällt.'],
+      sol(net) { const t1 = hd(net, 'STO-01'); lxr(net, 'QSRV', 'sudo systemctl start quorum-server'); STORN.hmAutoZone(net, t1); STORN.hmSet(net, t1, { staticFallback: true }); } }
     ,
     // ---- System Engineer: Windows Server und Active Directory ----
     { id: 'sc-win-ad', kind: 'Aufbau', title: 'Windows: Active Directory aufbauen', est: '25 min',
@@ -1815,7 +1895,7 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
@@ -1837,7 +1917,7 @@ const Sandbox = (function () {
 
   function close() { document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;

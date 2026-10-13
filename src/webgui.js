@@ -13,7 +13,7 @@ const WEBGUI = (function () {
     if (d.type !== 'server' || A.isCloud(d)) return null;
     return d.os === 'windows' ? 'windows' : (A.VIRT.isHost(d) ? 'hypervisor' : 'linux');
   };
-  const PRODUCT = { linux: ['Server-Web-Konsole', 'Linux'], hypervisor: ['Virtualisierungs-Manager', 'Hypervisor'], windows: ['Server-Manager', 'Windows Server 2022'], storage: ['Storage-Manager', 'Speichersystem'], fabric: ['Fabric-Manager', 'FC-Switch'], switch: ['Catalyst Web-Oberfläche', 'Cisco IOS XE Switch'], router: ['Router Web-Oberfläche', 'Cisco IOS XE Router'], firewall: ['Firewall', 'Stateful Firewall (Oberfläche im OPNsense-Stil)'] };
+  const PRODUCT = { linux: ['Server-Web-Konsole', 'Linux'], hypervisor: ['Virtualisierungs-Manager', 'Hypervisor'], windows: ['Server-Manager', 'Windows Server 2022'], storage: ['Storage-Manager', 'Speichersystem'], fabric: ['Fabric-Manager', 'FC-Switch'], switch: ['Catalyst Web-Oberfläche', 'Cisco IOS XE Switch'], router: ['Router Web-Oberfläche', 'Cisco IOS XE Router'], firewall: ['Cisco ASDM', 'Adaptive Security Device Manager'] };
   const isNet = k => k === 'switch' || k === 'router' || k === 'firewall';
   const portOf = d => { const k = kindOf(d); return isNet(k) ? NETPORT : PORT; };
   const hasGui = d => !!kindOf(d);
@@ -47,10 +47,11 @@ const WEBGUI = (function () {
       }
       const url = `https://${ip || d.cfg.hostname.toLowerCase()}${isNet(k) ? '' : ':' + PORT}/`;
       const chrome = G.chrome ? `<div class="wg-chrome"><span class="wg-dots"><i></i><i></i><i></i></span><div class="wg-url" title="${esc(url)}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>${esc(url)}</span>${ip ? '' : '<em>Direktzugriff (keine IP-Adresse)</em>'}</div><button class="wg-x" data-act="close" aria-label="Fenster schließen">✕</button></div>` : '';
+      if (!G.auth && k === 'firewall') { root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-login wg-firewall"><form class="as-login" data-act="login"><div class="as-lh"><svg class="as-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/></svg><b>Cisco ASDM-IDM Launcher</b></div><div class="as-lb"><p>Geben Sie die Zugangsdaten für die ASA ein.</p><div class="wg-f"><label for="wf-dev">Gerät/IP-Adresse</label><input id="wf-dev" value="${esc(ip || d.cfg.hostname)}" readonly></div>${field('user', 'Benutzername', 'admin')}${field('pw', 'Kennwort', 'NetLab-2026', { type: 'password' })}<div class="wg-row end"><button type="submit" class="wg-b primary" data-act="login">OK</button></div><small>Simulator-Zugangsdaten sind vorausgefüllt.</small></div></form></div></div>`; return; }
       if (!G.auth) { root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-login wg-${k}"><form class="wg-lc" data-act="login"><div class="wg-logo">${logo(k)}</div><h2>${PRODUCT[k][0]}</h2><p>${esc(d.cfg.hostname)} · ${PRODUCT[k][1]}</p>${field('user', 'Benutzername', k === 'windows' ? 'Administrator' : 'admin')}${field('pw', 'Kennwort', 'NetLab-2026', { type: 'password' })}<button type="submit" class="wg-b primary wide" data-act="login">Anmelden</button><small>Simulator-Zugangsdaten sind vorausgefüllt.</small></form></div></div>`; return; }
       const nav = NAV[k](d), flat = nav.filter(n => n[0][0] !== '-'), pg = G.page && flat.some(n => n[0] === G.page) ? G.page : flat[0][0]; G.page = pg;
       let body = ''; try { body = PAGES[k][pg](d, G) } catch (e) { body = `<p class="wg-empty">Fehler beim Laden der Seite: ${esc(e.message)}</p>`; console.error(e); }
-      root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-app wg-${k}">
+      if (k === 'firewall') root.innerHTML = asdmHtml(d, G, chrome, nav, pg, body); else root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-app wg-${k}">
         <header class="wg-top"><div class="wg-brand">${logo(k)}<b>${PRODUCT[k][0]}</b><span>${esc(d.cfg.hostname)}</span></div><div class="wg-user">${isNet(k) ? (d.saved ? '' : `<span class="wg-unsaved" title="Running-Config unterscheidet sich von der Startup-Config">● nicht gespeichert</span>`) + btn('Konfiguration speichern', 'iosave', null, 'sm') : ''}<span>${k === 'windows' ? 'Administrator' : 'admin'}</span>${btn('Abmelden', 'logout', null, 'ghost sm')}</div></header>
         <div class="wg-body"><nav class="wg-nav" aria-label="Navigation">${nav.map(([id, lbl]) => id[0] === '-' ? `<h4 class="wg-grp">${lbl}</h4>` : `<button type="button" class="${id === pg ? 'act' : ''}" data-act="nav" data-p="${id}" ${id === pg ? 'aria-current="page"' : ''}>${lbl}</button>`).join('')}</nav>
         <div class="wg-main" role="main" tabindex="-1"><div class="wg-ph"><h1>${flat.find(n => n[0] === pg)[1]}</h1></div>${G.msg ? `<div class="wg-msg ${G.msg.err ? 'err' : 'ok'}" role="status">${esc(G.msg.t)}</div>` : ''}${body}</div></div>
@@ -65,16 +66,37 @@ const WEBGUI = (function () {
   const logo = k => `<svg class="wg-ico" viewBox="0 0 24 24" aria-hidden="true">${{ linux: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>', hypervisor: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/>', windows: '<path d="M3 5l8-1.2V11H3zM13 3.6L21 2v9h-8zM3 13h8v7.2L3 19zM13 13h8v9l-8-1.6z"/>', storage: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>', firewall: '<path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/>', switch: '<rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/>', router: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16M8 8l-2-2M16 8l2-2M8 16l-2 2M16 16l2 2"/>', fabric: '<circle cx="12" cy="12" r="3"/><circle cx="4" cy="5" r="2"/><circle cx="20" cy="5" r="2"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="19" r="2"/><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>' }[k]}</svg>`;
   const hostIp = d => { if (d.type === 'switch' || d.type === 'router') { const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip); return n ? d.cfg.ifs[n].ip : ''; } const h = d.ports.map(p => A.hip(d, p)).find(x => x && x.ip); return h ? h.ip : ''; };
 
+  // ASDM: vier Bereiche (Startseite, Konfiguration, Überwachung, Werkzeuge) mit eigener Navigation
+  const FW = {
+    home: [['dashboard', 'Geräteinformationen']],
+    cfg: [['-a', 'Geräteeinrichtung'], ['interfaces', 'Schnittstellen'], ['routes', 'Routing'], ['-b', 'Firewall'], ['rules', 'Zugriffsregeln'], ['nat', 'NAT-Regeln'], ['-c', 'Geräteverwaltung'], ['dhcp', 'DHCP-Server'], ['general', 'System'], ['config', 'Konfiguration sichern']],
+    mon: [['-m', 'Überwachung'], ['monitor', 'Status und Tabellen']],
+    tools: [['-t', 'Werkzeuge'], ['cli', 'Befehlszeile (CLI)'], ['ping', 'Ping und Traceroute']]
+  };
+  const FWTABS = [['home', 'Startseite'], ['cfg', 'Konfiguration'], ['mon', 'Überwachung'], ['tools', 'Werkzeuge']];
+  const fwMode = pg => (FWTABS.find(([m]) => FW[m].some(n => n[0] === pg)) || FWTABS[0])[0];
+  function asdmHtml(d, G, chrome, nav, pg, body) {
+    const mode = fwMode(pg), items = FW[mode], url = hostIp(d) || d.cfg.hostname.toLowerCase();
+    return `<div class="wg-win">${chrome}<div class="as">
+      <div class="as-cap"><svg class="as-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/></svg>Cisco ASDM 7.18 für ASA – ${esc(url)}</div>
+      <div class="as-tb" role="tablist">${FWTABS.map(([m, l]) => `<button type="button" role="tab" class="as-tab ${m === mode ? 'act' : ''}" aria-selected="${m === mode}" data-act="mode" data-m="${m}">${l}</button>`).join('')}<span class="as-sp"></span>${btn('Speichern', 'iosave', null, 'as-b')}${btn('Aktualisieren', 'refresh', null, 'as-b')}${btn('Abmelden', 'logout', null, 'as-b')}</div>
+      <div class="as-body"><nav class="as-nav" aria-label="Navigation">${items.map(([id, lbl]) => id[0] === '-' ? `<h4>${lbl}</h4>` : `<button type="button" class="${id === pg ? 'act' : ''}" data-act="nav" data-p="${id}" ${id === pg ? 'aria-current="page"' : ''}>${lbl}</button>`).join('')}</nav>
+        <div class="as-main wg-main" role="main" tabindex="-1"><div class="as-pt">${nav.find(n => n[0] === pg)[1]}</div>${G.msg ? `<div class="wg-msg ${G.msg.err ? 'err' : 'ok'}" role="status">${esc(G.msg.t)}</div>` : ''}${body}</div></div>
+      ${G.log.length ? `<footer class="wg-log"><b>Letzte Aktionen (gleichwertig in der CLI)</b>${G.log.slice(-3).map(l => `<code class="${l.err ? 'err' : ''}">${esc(l.cmd)}</code>`).join('')}</footer>` : ''}
+      <div class="as-st"><span>${esc(d.cfg.hostname)}</span><span>admin (15)</span><span class="${d.saved ? 'ok' : 'warn'}">${d.saved ? 'Konfiguration gespeichert' : 'Änderungen nicht gespeichert'}</span></div>
+      ${G.dlg ? dlgHtml(d, G) : ''}</div></div>`;
+  }
+
   // ---------- Navigation ----------
   const NAV = {
     linux: d => [['overview', 'Übersicht'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['virt', 'Virtualisierung'], ['terminal', 'Terminal']],
     hypervisor: d => [['overview', 'Übersicht'], ['vms', 'Virtuelle Maschinen'], ['vswitch', 'Virtueller Switch'], ['datastores', 'Datastores'], ['cluster', 'Cluster und HA'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['terminal', 'Terminal']],
     windows: d => [['dashboard', 'Dashboard'], ['local', 'Lokaler Server'], ['roles', 'Rollen und Features'], ['ad', 'Active Directory'], ['dns', 'DNS'], ['dhcp', 'DHCP'], ['shares', 'Dateidienste'], ['services', 'Dienste'], ['firewall', 'Firewall'], ['terminal', 'PowerShell']],
-    storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['ports', 'Ports und Controller']],
+    storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['hypermetro', 'HyperMetro'], ['ports', 'Ports und Controller']],
     fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']],
-    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['acl', 'Zugriffslisten (ACL)'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
-    firewall: d => [['dashboard', 'Dashboard'], ['-i', 'Schnittstellen'], ['interfaces', 'Zuweisungen und Zonen'], ['-f', 'Firewall'], ['rules', 'Regeln'], ['nat', 'NAT'], ['-r', 'System'], ['routes', 'Gateways und Routen'], ['general', 'Einstellungen'], ['config', 'Sicherung und Konfiguration'], ['-t', 'Werkzeuge'], ['monitor', 'Status'], ['cli', 'Konsole (CLI)'], ['ping', 'Ping und Traceroute']],
-    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['acl', 'Zugriffslisten (ACL)'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
+    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
+    firewall: d => [].concat(...Object.values(FW)),
+    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
   };
 
   // ---------- Aktionen ausführen ----------
@@ -236,7 +258,7 @@ const WEBGUI = (function () {
   PAGES.windows.terminal = LX.terminal;
 
   // --- Storage ---
-  const ST = () => A.STOR;
+  const ST = () => A.STOR, S0 = ST;
   PAGES.storage.dashboard = (d, G) => {
     const T = ST().st(d), pools = T.pools.map(p => ({ p, i: ST().poolInfo(d, p) })), ports = d.ports.filter(p => d.pk[p] === 'fc'), up = ports.filter(p => A.status(d, p) === 'connected');
     return `<div class="wg-grid">${card('Kapazität', pools.length ? pools.map(x => `<p class="wg-k">${esc(x.p.name)} (${ST().RAID[x.p.raid].name})</p>${bar(x.i.alloc, x.i.usable, 85)}<p class="wg-s">${gb(x.i.alloc)} von ${gb(x.i.usable)} belegt${x.i.over ? ' – <b class="wg-bad">überprovisioniert</b>' : ''}</p>`).join('') : '<p class="wg-empty">Noch kein Pool.</p>' + btn('Pool erstellen', 'nav', { p: 'pools' }, 'sm primary'))}
@@ -349,6 +371,25 @@ const WEBGUI = (function () {
   };
   PAGES.switch.ping = PAGES.router.ping = (d, G) => `<form class="wg-row end" data-act="pingf">${field('pdst', 'Ziel-IP-Adresse', G.pdst || '', { ph: '192.168.1.10' })}<button type="submit" class="wg-b primary" data-act="pingf" data-m="ping">Ping</button><button type="submit" class="wg-b" data-act="pingf" data-m="traceroute">Traceroute</button></form>` + (G.pout ? card(G.pout.t, `<pre class="wg-pre">${esc(G.pout.o)}</pre>`) : '<p class="wg-empty">Gib eine Ziel-IP ein. Der Test läuft vom Gerät aus, mit der Quelladresse der Ausgangsschnittstelle.</p>');
 
+  // ---------- DHCP (Cisco IOS und ASA) ----------
+  const dhcpPools = d => A.blocks(d, 'ip dhcp pool').map(b => { const g = k => { const l = b.lines.find(x => x.toLowerCase().startsWith(k + ' ')); return l ? l.slice(k.length + 1).trim() : ''; }, nm = b.head.split(' ')[3], nw = g('network').split(' '); return { name: nm, net: nw[0] || '', mask: nw[1] || '', gw: g('default-router'), dns: g('dns-server'), leases: d.leases && d.leases[nm] ? Object.keys(d.leases[nm]).length : 0 }; });
+  const excluded = d => d.cfg.lines.filter(l => /^ip dhcp excluded-address /i.test(l)).map(l => l.split(' ').slice(3));
+  PAGES.switch.dhcp = PAGES.router.dhcp = (d, G) => {
+    const ps = dhcpPools(d), ifs = Object.keys(d.cfg.ifs).filter(n => d.cfg.ifs[n].ip), has = p => ifs.find(n => A.inNet(d.cfg.ifs[n].ip, p.net, p.mask));
+    return `<p class="wg-note">Ein Switch mit <code>ip routing</code> oder ein Router kann DHCP-Server sein. Der Pool wird für das Netz benutzt, in dem die Schnittstelle (SVI) liegt, an der die Clients hängen. Clients in anderen Netzen brauchen ein Relay (<code>ip helper-address</code>).</p>`
+      + card('DHCP-Pools', `<div class="wg-row">${btn('Pool hinzufügen', 'dlg', { k: 'dpool' }, 'primary')}</div>` + tbl(['Name', 'Netz', 'Default-Router', 'DNS', 'Schnittstelle', 'Leases', ''], ps.map(p => [`<b>${esc(p.name)}</b>`, p.net ? esc(p.net + '/' + maskLen(p.mask)) : '<span class="wg-mut">fehlt</span>', esc(p.gw || '–'), esc(p.dns || '–'), has(p) ? esc(A.SH(has(p))) : chip('keine Schnittstelle im Netz', 'bad'), p.leases, btn('Löschen', 'dpooldel', { n: p.name }, 'sm ghost bad')]), 'Noch kein Pool. Ohne Pool vergibt das Gerät keine Adressen.'))
+      + card('Ausgeschlossene Adressen', `<div class="wg-row">${btn('Bereich ausschließen', 'dlg', { k: 'dexcl' }, 'primary')}</div>` + tbl(['Von', 'Bis', ''], excluded(d).map((a, i) => [`<b>${esc(a[0])}</b>`, esc(a[1] || a[0]), btn('Entfernen', 'dexcldel', { i }, 'sm ghost')]), 'Keine. Schließe Gateway und feste Server-Adressen aus dem Pool aus.'))
+      + card('DHCP-Relay (ip helper-address)', tbl(['Schnittstelle', 'IP-Adresse', 'Relay zu', ''], ifs.map(n => [`<b>${esc(A.SH(n))}</b>`, esc(d.cfg.ifs[n].ip), d.cfg.ifs[n].helper ? esc(d.cfg.ifs[n].helper) : '<span class="wg-mut">–</span>', btn('Ändern', 'dlg', { k: 'dhelp', n }, 'sm')]), 'Keine Schnittstelle mit IP-Adresse.'))
+      + card('Vergebene Adressen', showBox(d, 'show ip dhcp binding'));
+  };
+  PAGES.firewall.dhcp = (d, G) => {
+    const dd = d.cfg.dhcpd || { pools: {}, dns: null }, ifs = Object.keys(d.cfg.ifs).filter(n => d.cfg.ifs[n].nameif && d.cfg.ifs[n].ip);
+    return `<p class="wg-note">Die ASA kann pro Zone einen DHCP-Server betreiben. Der Bereich muss im Subnetz der Schnittstelle liegen; die Schnittstelle selbst ist Gateway der Clients.</p>`
+      + card('DHCP-Server je Schnittstelle', tbl(['Schnittstelle', 'Zone', 'Subnetz', 'Adressbereich', 'Status', ''], ifs.map(n => { const i = d.cfg.ifs[n], q = dd.pools[i.nameif] || {}; return [`<b>${esc(A.SH(n))}</b>`, esc(i.nameif), esc(i.ip + '/' + maskLen(i.mask)), q.start ? esc(q.start + ' – ' + q.end) : '<span class="wg-mut">nicht festgelegt</span>', q.on ? chip('aktiviert', 'ok') : chip('aus'), btn('Bearbeiten', 'dlg', { k: 'fwdhcp', n }, 'sm')]; }), 'Keine Schnittstelle mit Zone und IP-Adresse. Lege sie unter „Schnittstellen“ an.'))
+      + card('Gemeinsame Einstellungen', `<dl class="wg-dl"><dt>DNS-Server für Clients</dt><dd>${esc(dd.dns || '–')}</dd></dl>`)
+      + card('Bindings', showBox(d, 'show dhcpd binding'));
+  };
+
   // ---------- Firewall (ASA, Oberfläche im OPNsense-Stil) ----------
   const zoneOf = (d, n) => d.cfg.ifs[n].nameif;
   const fwIfs = d => d.ports.filter(p => d.cfg.ifs[p]);
@@ -364,8 +405,8 @@ const WEBGUI = (function () {
     if (rules && !bound) hint.push('Es gibt Regeln, aber keine ist an eine Schnittstelle gebunden. Erst die Bindung („eingehend“) macht sie wirksam.');
     return `<div class="wg-cards">
       ${card('System', `<dl class="wg-dl"><dt>Hostname</dt><dd>${esc(d.cfg.hostname)}</dd><dt>Modell</dt><dd>${esc(d.model || 'ASA')}</dd><dt>Konfiguration</dt><dd>${d.saved ? chip('gespeichert', 'ok') : chip('nicht gespeichert', 'bad')}</dd><dt>Verkehr zwischen gleichen Levels</dt><dd>${d.cfg.sameSec ? chip('erlaubt', 'ok') : chip('gesperrt')}</dd></dl>`)}
-      ${card('Schnittstellen', `<p class="wg-big">${up}<small> von ${ps.length} verbunden</small></p>${bar(up, ps.length, 101)}${btn('Zuweisungen und Zonen', 'nav', { p: 'interfaces' }, 'sm')}`)}
-      ${card('Regeln und NAT', `<p class="wg-big">${rules}<small> Regeln · ${bound} Bindungen</small></p><p class="wg-note">${d.cfg.nat.length} NAT-Regel${d.cfg.nat.length === 1 ? '' : 'n'}, ${d.cfg.routes.length} statische Route${d.cfg.routes.length === 1 ? '' : 'n'}</p>${btn('Zu den Regeln', 'nav', { p: 'rules' }, 'sm')}`)}
+      ${card('Schnittstellen', `<p class="wg-big">${up}<small> von ${ps.length} verbunden</small></p>${bar(up, ps.length, 101)}${btn('Zu den Schnittstellen', 'nav', { p: 'interfaces' }, 'sm')}`)}
+      ${card('Regeln und NAT', `<p class="wg-big">${rules}<small> Regeln · ${bound} Bindungen</small></p><p class="wg-note">${d.cfg.nat.length} NAT-Regel${d.cfg.nat.length === 1 ? '' : 'n'}, ${d.cfg.routes.length} statische Route${d.cfg.routes.length === 1 ? '' : 'n'}</p>${btn('Zu den Zugriffsregeln', 'nav', { p: 'rules' }, 'sm')}`)}
     </div>${hint.length ? `<div class="wg-msg err" role="status">${hint.map(esc).join('<br>')}</div>` : ''}
     ${card('Zonen', tbl(['Schnittstelle', 'Zone', 'Security-Level', 'IP-Adresse', 'Status'], ps.filter(p => zoneOf(d, p) || d.cfg.ifs[p].ip).map(p => { const i = d.cfg.ifs[p]; return [`<b>${esc(A.SH(p))}</b>`, i.nameif ? esc(i.nameif) : '<span class="wg-mut">–</span>', i.sl === null ? '–' : i.sl, i.ip ? esc(i.ip + '/' + maskLen(i.mask)) : '–', stChip(d, p)]; }), 'Noch keine Zonen. Weise einer Schnittstelle einen Namen zu.'))}
     <p class="wg-note">Regel: Verkehr von hohem zu niedrigem Security-Level (inside → outside) ist erlaubt, der umgekehrte Weg wird ohne ACL verworfen. Antworten auf erlaubte Verbindungen lässt die Firewall zustandsbehaftet durch.</p>`;
@@ -384,6 +425,23 @@ const WEBGUI = (function () {
   PAGES.firewall.general = (d, G) => card('Hostname', `<div class="wg-row end">${field('hn', 'Hostname', d.cfg.hostname)}${btn('Speichern', 'hostname', null, 'primary')}</div>`)
     + card('Verkehr zwischen Zonen gleichen Levels', `<p>${d.cfg.sameSec ? chip('erlaubt', 'ok') : chip('gesperrt')} Standardmäßig lässt die ASA keinen Verkehr zwischen Zonen mit demselben Security-Level zu.</p><div class="wg-row">${btn(d.cfg.sameSec ? 'Sperren' : 'Erlauben', 'fwsame', null, d.cfg.sameSec ? '' : 'primary')}</div><p class="wg-note"><code>same-security-traffic permit inter-interface</code></p>`);
 
+  // ---------- HyperMetro (aktiv-aktiv mit Quorum-Server) ----------
+  PAGES.storage.hypermetro = (d, G) => {
+    const net = A.net(), S = ST(), dm = S.hm(d), others = Object.values(net.devs).filter(x => x.type === 'storage' && x.id !== d.id), srvs = Object.values(net.devs).filter(x => x.type === 'server' && !A.isCloud(x) && !x.vm);
+    const intro = `<p class="wg-note">HyperMetro verbindet zwei Storage-Arrays zu einem aktiv-aktiv-Cluster: Die Hosts sehen eine LUN mit Pfaden zu <b>beiden</b> Arrays. Fällt ein Array oder die Verbindung zwischen ihnen aus, entscheidet ein <b>Quorum-Server</b> an einem dritten Standort, welche Seite weiterarbeiten darf. Ohne diesen Schiedsrichter könnten beide Seiten gleichzeitig schreiben (Split-Brain) und die Daten zerstören.</p>`;
+    if (!dm) return intro + card('HyperMetro-Domäne', `<p>${chip('nicht eingerichtet')} Dieses Array gehört noch zu keiner Domäne.</p><div class="wg-row">${btn('Domäne erstellen', 'dlg', { k: 'hmnew' }, 'primary' + (others.length && srvs.length ? '' : ' disabled'))}</div>${!others.length ? '<p class="wg-warn">Es gibt kein zweites Storage-System im Plan.</p>' : ''}${!srvs.length ? '<p class="wg-warn">Für den Quorum-Server brauchst du einen Server (dritter Standort).</p>' : ''}`);
+    const b = net.devs[dm.peer], q = net.devs[dm.quorum], st = S.hmState(net, d), me = st.a.id === d.id ? st.a : st.b, peer = st.a.id === d.id ? st.b : st.a, qs = S.quorumState(net, q), qip = q ? S.ipOf(q) : null;
+    const modes = { normal: [chip('normal: aktiv-aktiv', 'ok')], split: [chip('Verbindung getrennt: ein Array arbeitet', 'bad')], failover: [chip('Failover: ein Array arbeitet', 'bad')], stopped: [chip('gestoppt: kein Zugriff', 'bad')] };
+    const side = (x, dev) => [`<b>${esc(dev.cfg.hostname)}</b>${dm.preferred === dev.id ? ' <small class="wg-mut">(bevorzugt)</small>' : ''}`, x.up ? chip('läuft', 'ok') : chip('aus', 'bad'), x.q.ok ? chip('erreichbar', 'ok') : `${chip('nicht erreichbar', 'bad')}<br><small class="wg-mut">${esc(x.q.why || '')}</small>`, x.active ? chip('aktiv', 'ok') : chip('Standby', 'bad')];
+    const pairs = S.st(d).luns.filter(l => l.hm);
+    return intro
+      + card(`Domäne ${esc(dm.name)}`, `<p>${modes[st.mode][0]}</p><p>${esc(st.text)}</p>` + tbl(['Array', 'Zustand', 'Quorum-Server', 'Rolle'], [side(me, d), side(peer, b)])
+        + `<dl class="wg-dl"><dt>Replikationsverbindung</dt><dd>${st.link.ok ? chip('verbunden', 'ok') + ' über ' + esc(st.link.via) : chip('unterbrochen', 'bad') + ' <small class="wg-mut">' + esc(st.link.why) + '</small>'}</dd><dt>Bevorzugter Standort</dt><dd>${esc(net.devs[dm.preferred].cfg.hostname)}</dd><dt>Statische Priorität als Fallback</dt><dd>${dm.staticFallback ? chip('an', 'ok') : chip('aus')}</dd></dl>`
+        + `<div class="wg-row">${btn('Einstellungen', 'dlg', { k: 'hmset' }, 'sm')}${btn('Replikationszonen anlegen', 'hmzone', null, 'sm')}${btn('Domäne löschen', 'hmdel', null, 'sm ghost bad')}</div>`)
+      + card('Quorum-Server', `<dl class="wg-dl"><dt>Server</dt><dd>${q ? '<b>' + esc(q.cfg.hostname) + '</b>' : '–'}${qip ? ' (' + esc(qip) + ')' : ''}</dd><dt>Dienst</dt><dd>${qs.ok ? chip('läuft', 'ok') : chip('nicht bereit', 'bad') + ' <small class="wg-mut">' + esc(qs.why) + '</small>'}</dd></dl><p class="wg-note">Auf dem Server installierst du das Paket <code>quorum-server</code> und startest den Dienst: <code>sudo apt install quorum-server</code>, dann <code>sudo systemctl enable --now quorum-server</code>. Er muss von beiden Arrays über deren Management-Netz erreichbar sein, am besten an einem dritten Standort.</p>`)
+      + card('HyperMetro-Paare', `<div class="wg-row">${btn('Paar erstellen', 'dlg', { k: 'hmpair' }, 'primary')}</div>` + tbl(['LUN', 'Größe', `Pool auf ${esc(d.cfg.hostname)}`, `Partner-LUN auf ${esc(b.cfg.hostname)}`, 'Status', ''], pairs.map(l => { const r = S.st(b).luns.find(x => x.id === l.hm.peerLun), both = me.active && peer.active; return [`<b>${esc(l.name)}</b>`, gb(l.gb), esc(l.pool), r ? esc(r.name + ' (' + r.pool + ')') : '–', both ? chip('aktiv-aktiv', 'ok') : me.active || peer.active ? chip('nur ' + esc((me.active ? d : b).cfg.hostname), 'bad') : chip('gestoppt', 'bad'), btn('Auflösen', 'hmpairdel', { l: l.id }, 'sm ghost bad')]; }), 'Noch kein Paar. Ein Paar spiegelt eine LUN synchron auf das Partner-Array; Hosts bekommen sie mit Pfaden zu beiden Arrays.'));
+  };
+
   // ---------- Dialoge ----------
   function dlgHtml(d, G) {
     const x = G.dlg, k = x.k, net = A.net(), wrap = (t, body, ok, okLbl) => `<div class="wg-ov" data-act="dlgbg"><form class="wg-dlg" role="dialog" aria-modal="true" aria-label="${esc(t)}" data-act="dlgok"><h2>${t}</h2>${body}<div class="wg-row end">${btn('Abbrechen', 'dlgx', null, 'ghost')}${ok === false ? '' : `<button type="submit" class="wg-b primary" data-act="dlgok">${okLbl || 'OK'}</button>`}</div></form></div>`;
@@ -394,6 +452,13 @@ const WEBGUI = (function () {
       case 'fwbind': return wrap('Regelliste an Zone binden', sel('acl', 'Regelliste', Object.keys(d.cfg.acls).map(a => [a, a])) + sel('z', 'Zone (eingehend)', Object.values(d.cfg.ifs).filter(i => i.nameif).map(i => [i.nameif, i.nameif])), true, 'Binden');
       case 'fwnat': { const z = Object.values(d.cfg.ifs).filter(i => i.nameif).map(i => [i.nameif, i.nameif]); return wrap('NAT-Regel (dynamisches PAT)', sel('from', 'Von Zone (intern)', z, 'inside') + sel('to', 'Nach Zone (extern)', z, 'outside'), z.length > 1, 'Hinzufügen'); }
       case 'fwroute': return wrap('Statische Route', sel('z', 'Über Zone', Object.values(d.cfg.ifs).filter(i => i.nameif).map(i => [i.nameif, i.nameif]), 'outside') + `<div class="wg-2">${field('net', 'Zielnetz', '0.0.0.0')}${field('mask', 'Subnetzmaske', '0.0.0.0')}</div>` + field('gw', 'Gateway', '', { ph: '203.0.113.1' }), true, 'Hinzufügen');
+      case 'dpool': return wrap('DHCP-Pool hinzufügen', field('n', 'Name', '', { ph: 'CLIENTS' }) + `<div class="wg-2">${field('net', 'Netz', '', { ph: '10.30.0.0' })}${field('mask', 'Subnetzmaske', '255.255.255.0')}</div><div class="wg-2">${field('gw', 'Default-Router', '', { ph: '10.30.0.1' })}${field('dns', 'DNS-Server', '', { ph: '10.10.0.53' })}</div>`, true, 'Anlegen');
+      case 'dexcl': return wrap('Adressen ausschließen', `<div class="wg-2">${field('a', 'Von', '', { ph: '10.30.0.1' })}${field('b', 'Bis (optional)', '', { ph: '10.30.0.20' })}</div>`, true, 'Ausschließen');
+      case 'dhelp': return wrap(`Relay auf ${esc(A.SH(x.n))}`, field('h', 'DHCP-Server (leer = kein Relay)', d.cfg.ifs[x.n].helper || '', { ph: '10.10.0.11' }), true, 'Speichern');
+      case 'fwdhcp': { const i = d.cfg.ifs[x.n], q = (d.cfg.dhcpd && d.cfg.dhcpd.pools[i.nameif]) || {}; return wrap(`DHCP-Server auf ${esc(i.nameif)}`, `<div class="wg-2">${field('s', 'Erste Adresse', q.start || '', { ph: '10.255.0.100' })}${field('e', 'Letzte Adresse', q.end || '', { ph: '10.255.0.150' })}</div>` + field('dns', 'DNS-Server für Clients', (d.cfg.dhcpd && d.cfg.dhcpd.dns) || '') + sel('on', 'Status', [['1', 'aktiviert'], ['0', 'aus']], q.on ? '1' : '0'), true, 'Anwenden'); }
+      case 'hmnew': { const others = Object.values(net.devs).filter(y => y.type === 'storage' && y.id !== d.id), fcn = y => y.ports.filter(p => y.pk[p] === 'fc').length, srvs = Object.values(net.devs).filter(y => y.type === 'server' && !A.isCloud(y) && !y.vm).sort((a, b) => fcn(a) - fcn(b)); return wrap('HyperMetro-Domäne erstellen', field('n', 'Name der Domäne', 'DOM1') + sel('peer', 'Partner-Array', others.map(y => [y.id, y.cfg.hostname])) + sel('q', 'Quorum-Server (dritter Standort)', srvs.map(y => [y.id, y.cfg.hostname + (S0().ipOf(y) ? ' (' + S0().ipOf(y) + ')' : '')])) + sel('pref', 'Bevorzugter Standort', [['local', d.cfg.hostname + ' (dieses Array)'], ['remote', 'Partner-Array']], 'local', 'Bei einer Trennung gewinnt dieser Standort, wenn beide den Quorum-Server erreichen.') + `<label class="wg-ck2"><input type="checkbox" id="wf-sf" checked> Statische Priorität als Fallback, wenn der Quorum-Server nicht erreichbar ist</label>`, true, 'Erstellen'); }
+      case 'hmset': { const dm = S0().hm(d), b = net.devs[dm.peer], srvs = Object.values(net.devs).filter(y => y.type === 'server' && !A.isCloud(y) && !y.vm); return wrap('Domäne bearbeiten', sel('pref', 'Bevorzugter Standort', [[d.id, d.cfg.hostname], [b.id, b.cfg.hostname]], dm.preferred) + sel('q', 'Quorum-Server', srvs.map(y => [y.id, y.cfg.hostname]), dm.quorum) + `<label class="wg-ck2"><input type="checkbox" id="wf-sf" ${dm.staticFallback ? 'checked' : ''}> Statische Priorität als Fallback</label>`, true, 'Speichern'); }
+      case 'hmpair': { const dm = S0().hm(d), b = net.devs[dm.peer], free = S0().st(d).luns.filter(l => !l.hm); return wrap('HyperMetro-Paar erstellen', free.length ? sel('lun', 'LUN auf diesem Array', free.map(l => [l.id, `${l.name} (${gb(l.gb)})`])) + sel('pool', `Pool auf ${esc(b.cfg.hostname)} für die Partner-LUN`, S0().st(b).pools.map(p => [p.name, `${p.name} (${gb(S0().poolInfo(b, p).free)} frei)`]), '', 'Die Partner-LUN bekommt dieselbe Größe und dieselbe Host-Zuordnung.') : '<p class="wg-empty">Lege zuerst eine LUN an, die gespiegelt werden soll.</p>', free.length > 0, 'Paar erstellen'); }
       case 'ifedit': {
         const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
         const vl = Object.keys(d.cfg.vlans || {}).map(Number).sort((a, b) => a - b).map(n => [n, `${n} – ${d.cfg.vlans[n]}`]);
@@ -463,6 +528,13 @@ const WEBGUI = (function () {
         case 'fwbind': ok = ios(G, `access-group ${v(G, 'acl')} in interface ${v(G, 'z')}`, 'Regelliste gebunden.'); break;
         case 'fwnat': ok = ios(G, `nat (${v(G, 'from')},${v(G, 'to')}) source dynamic any interface`, 'NAT-Regel hinzugefügt.'); break;
         case 'fwroute': ok = ios(G, `route ${v(G, 'z')} ${v(G, 'net').trim()} ${v(G, 'mask').trim()} ${v(G, 'gw').trim()}`, 'Route hinzugefügt.'); break;
+        case 'dpool': { const n = v(G, 'n').trim().replace(/\s+/g, '_'), L = ['ip dhcp pool ' + n, `network ${v(G, 'net').trim()} ${v(G, 'mask').trim()}`]; if (!n) { ok = false; break; } if (v(G, 'gw').trim()) L.push('default-router ' + v(G, 'gw').trim()); if (v(G, 'dns').trim()) L.push('dns-server ' + v(G, 'dns').trim()); L.push('exit'); ok = ios(G, L, 'Pool angelegt. Die Clients bekommen ab jetzt Adressen aus diesem Netz.'); break; }
+        case 'dexcl': { const a = v(G, 'a').trim(), b = v(G, 'b').trim(); ok = ios(G, `ip dhcp excluded-address ${a}${b ? ' ' + b : ''}`, 'Bereich ausgeschlossen.'); break; }
+        case 'dhelp': { const h = v(G, 'h').trim(); ok = ios(G, ['interface ' + x.n, h ? 'ip helper-address ' + h : 'no ip helper-address', 'exit'], h ? 'Relay eingerichtet.' : 'Relay entfernt.'); break; }
+        case 'fwdhcp': { const i = dv.cfg.ifs[x.n], s0 = v(G, 's').trim(), e0 = v(G, 'e').trim(), dn = v(G, 'dns').trim(), L = []; if (s0 || e0) L.push(`dhcpd address ${s0}-${e0} ${i.nameif}`); if (dn) L.push('dhcpd dns ' + dn); L.push(v(G, 'on') === '1' ? 'dhcpd enable ' + i.nameif : 'no dhcpd enable ' + i.nameif); ok = ios(G, L, 'DHCP-Server gespeichert.'); break; }
+        case 'hmnew': A.act(() => { ok = res(G, A.STOR.hmCreate(net, dv, net.devs[v(G, 'peer')], { name: v(G, 'n'), quorum: v(G, 'q'), preferred: v(G, 'pref'), staticFallback: v(G, 'sf') }), 'HyperMetro-Domäne erstellt. Lege Replikationszonen an und richte den Quorum-Server ein.'); }); break;
+        case 'hmset': A.act(() => { ok = res(G, A.STOR.hmSet(net, dv, { preferred: v(G, 'pref'), quorum: v(G, 'q'), staticFallback: v(G, 'sf') }), 'Gespeichert.'); }); break;
+        case 'hmpair': A.act(() => { ok = res(G, A.STOR.hmPairCreate(net, dv, { lun: v(G, 'lun'), pool: v(G, 'pool') }), 'Paar erstellt. Hosts sehen die LUN jetzt mit Pfaden zu beiden Arrays (nach einem Rescan).'); }); break;
         case 'ifedit': {
           const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
           const allow = v(G, 'allow').trim().toLowerCase();
@@ -518,7 +590,7 @@ const WEBGUI = (function () {
         case 'newfw': E(`New-NetFirewallRule -DisplayName "${v(G, 'n')}" -Direction Inbound -LocalPort ${v(G, 'p')} -Protocol ${v(G, 'pr')} -Action Allow`, 'Regel erstellt.'); break;
         case 'newpool': A.act(() => { ok = res(G, A.STOR.createPool(dv, { name: v(G, 'n'), raid: v(G, 'r'), disks: v(G, 'c'), diskGb: v(G, 'g') }), 'Pool erstellt.'); }); break;
         case 'newlun': A.act(() => { ok = res(G, A.STOR.createLun(dv, { name: v(G, 'n'), pool: v(G, 'p'), gb: v(G, 'g'), thin: v(G, 'thin') }), 'LUN erstellt. Ordne sie jetzt einem Host zu.'); }); break;
-        case 'maplun': A.act(() => { root.querySelectorAll('[data-host]').forEach(c => A.STOR.maskLun(dv, +x.l, c.dataset.host, c.checked)); G.msg = { t: 'Zuordnung gespeichert.' }; }); break;
+        case 'maplun': A.act(() => { root.querySelectorAll('[data-host]').forEach(c => A.STOR.maskLun(dv, +x.l, c.dataset.host, c.checked, A.net())); G.msg = { t: 'Zuordnung gespeichert.' }; }); break;
         case 'newzone2': A.act(() => { ok = res(G, A.STOR.zoneAdd(dv, v(G, 'n'), [v(G, 'i'), v(G, 't')]), 'Zone erstellt. Aktiviere das Zoneset, damit sie gilt.'); }); break;
       }
       if (ok) G.dlg = null; done();
@@ -542,6 +614,11 @@ const WEBGUI = (function () {
       if (b.disabled || b.classList.contains('disabled')) return;
       G.msg = a === 'nav' || a === 'tab' ? null : G.msg;
       switch (a) {
+        case 'hmzone': A.act(() => { const r = A.STOR.hmAutoZone(net, dv); G.msg = { t: r.n ? `${r.n} Replikationszone${r.n > 1 ? 'n' : ''} angelegt. Aktiviere das Zoneset am FC-Switch.` : 'Keine neuen Replikationszonen nötig (oder die Arrays hängen nicht am selben FC-Switch).' }; }); break;
+        case 'hmdel': A.act(() => { res(G, A.STOR.hmDelete(net, dv), 'Domäne gelöscht.'); }); break;
+        case 'hmpairdel': A.act(() => { res(G, A.STOR.hmPairDelete(net, dv, D.l), 'Paar aufgelöst, die Partner-LUN wurde gelöscht.'); }); break;
+        case 'dpooldel': ios(G, 'no ip dhcp pool ' + D.n, 'Pool gelöscht.'); break;
+        case 'dexcldel': { const a = excluded(dv)[+D.i]; if (a) ios(G, `no ip dhcp excluded-address ${a.join(' ')}`, 'Ausschluss entfernt.'); break; }
         case 'fwacldel': ios(G, 'no access-list ' + D.a, 'Regelliste gelöscht.'); break;
         case 'fwunbind': ios(G, `no access-group x in interface ${D.z}`, 'Bindung gelöst.'); break;
         case 'fwnatdel': { const n = dv.cfg.nat[+D.i]; if (n) ios(G, `no nat (${n.from},${n.to}) source dynamic any interface`, 'NAT-Regel gelöscht.'); break; }
@@ -561,6 +638,8 @@ const WEBGUI = (function () {
         case 'iosave': { const o = A.ios(dv, ['write memory'], { conf: false }); G.log.push({ cmd: 'write memory', err: false }); G.msg = /OK/.test(o) ? { t: 'Konfiguration gespeichert (Startup-Config).' } : { err: true, t: o }; break; }
         case 'close': if (G.onClose) G.onClose(); return;
         case 'pwron': A.powerOn(G.id); break;
+        case 'mode': G.page = FW[D.m].find(n => n[0][0] !== '-')[0]; G.dlg = null; G.msg = null; break;
+        case 'refresh': G.msg = { t: 'Aktualisiert.' }; break;
         case 'logout': SESS[G.id] = false; G.auth = false; G.msg = null; break;
         case 'nav': G.page = D.p; G.dlg = null; break;
         case 'tab': G.tab[D.t] = D.v; break;
@@ -576,7 +655,7 @@ const WEBGUI = (function () {
         case 'vmdel': if (!confirm('VM löschen?')) break; A.act(() => { A.VIRT.del(net, net.devs[D.v]); }); G.msg = { t: 'VM gelöscht.' }; break;
         case 'cluster': A.act(() => { dv.hv.cluster = v(G, 'cl').trim(); }); G.msg = { t: 'Cluster gespeichert.' }; break;
         case 'delpool': { let r; A.act(() => { r = A.STOR.deletePool(dv, D.n); }); res(G, r, 'Pool gelöscht.'); break; }
-        case 'dellun': A.act(() => { A.STOR.deleteLun(dv, +D.l); }); G.msg = { t: 'LUN gelöscht.' }; break;
+        case 'dellun': { let r; A.act(() => { r = A.STOR.deleteLun(dv, +D.l); }); res(G, r, 'LUN gelöscht.'); break; }
         case 'autozone': A.act(() => { const r = A.STOR.autoZones(net, dv); G.msg = { t: r.n ? `${r.n} Zone${r.n > 1 ? 'n' : ''} angelegt. Aktiviere das Zoneset.` : 'Keine neuen Zonen nötig.' }; }); break;
         case 'zset': A.act(() => { const r = A.STOR.zoneActive(dv, !A.STOR.zs(dv).active); res(G, r, A.STOR.zs(dv).active ? 'Zoneset aktiviert.' : 'Zoneset deaktiviert: keine Verbindungen mehr.'); }); break;
         case 'delzone': A.act(() => { A.STOR.zoneDel(dv, D.n); }); G.msg = { t: 'Zone gelöscht.' }; break;

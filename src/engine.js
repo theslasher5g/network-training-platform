@@ -467,6 +467,7 @@ const NL = (function () {
         else { if (i.vlan !== 1) o.push(' switchport access vlan ' + i.vlan); if (i.modeSet) o.push(' switchport mode access'); }
       }
       if (i.ip) o.push(` ip address ${i.ip} ${i.mask}`); else if (d.type === 'router' || n.startsWith('Vlan')) o.push(' no ip address');
+      if (i.helper) o.push(' ip helper-address ' + i.helper);
       if (i.aclIn) o.push(' ip access-group ' + i.aclIn + ' in'); if (i.aclOut) o.push(' ip access-group ' + i.aclOut + ' out');
       if (i.tsrc) o.push(' tunnel source ' + i.tsrc); if (i.tdst) o.push(' tunnel destination ' + i.tdst);
       if (n.startsWith('Tunnel') && i.tmode === 'ipsec') o.push(' tunnel mode ipsec ipv4'); if (i.tprot) o.push(' tunnel protection ipsec profile ' + i.tprot);
@@ -532,6 +533,14 @@ const NL = (function () {
       c.nat = c.nat.filter(n => !(n.from === m[1] && n.to === m[2])); c.nat.push({ from: m[1], to: m[2] }); return '';
     }
     if (M(t, 'no', 'nat') && /^\(.+,.+\)$/.test(t[2] || '')) { const m = t[2].match(/^\((.+),(.+)\)$/); c.nat = c.nat.filter(n => !(n.from === m[1] && n.to === m[2])); return ''; }
+    if (M(t, 'dhcpd') && t[1]) {
+      const dd = c.dhcpd = c.dhcpd || { pools: {}, dns: null }, neg0 = false;
+      if (lw[1] === 'address') { const m = (t[2] || '').match(/^(\d+\.\d+\.\d+\.\d+)-(\d+\.\d+\.\d+\.\d+)$/); if (!m || !validIp(m[1]) || !validIp(m[2]) || !t[3]) return '% Syntax: dhcpd address <von>-<bis> <nameif>'; if (!ifByName(c, t[3])) return `% Interface-Name "${t[3]}" unbekannt`; dd.pools[t[3]] = Object.assign(dd.pools[t[3]] || { on: false }, { start: m[1], end: m[2] }); return ''; }
+      if (lw[1] === 'dns') { if (!validIp(t[2] || '')) return '% Syntax: dhcpd dns <IP-Adresse>'; dd.dns = t[2]; return ''; }
+      if (lw[1] === 'enable') { if (!t[2] || !ifByName(c, t[2])) return '% Syntax: dhcpd enable <nameif>'; const p0 = dd.pools[t[2]] = dd.pools[t[2]] || { on: false }; p0.on = true; return ''; }
+      return null;
+    }
+    if (M(t, 'no', 'dhcpd') && lw[2] === 'enable' && t[3]) { const dd = c.dhcpd; if (dd && dd.pools[t[3]]) dd.pools[t[3]].on = false; return ''; }
     if (M(t, 'same-security-traffic', 'permit', 'inter-interface')) { c.sameSec = true; return ''; }
     if (M(t, 'no', 'same-security-traffic')) { c.sameSec = false; return ''; }
     return undefined;
@@ -546,6 +555,7 @@ const NL = (function () {
     }
     for (const a in c.acls) c.acls[a].forEach(e => o.push(`access-list ${a} extended ${e.text}`));
     for (const n in c.ifs) { const i = c.ifs[n]; if (i.aclIn && i.nameif) o.push(`access-group ${i.aclIn} in interface ${i.nameif}`); }
+    if (c.dhcpd) { for (const n in c.dhcpd.pools) { const q = c.dhcpd.pools[n]; if (q.start) o.push(`dhcpd address ${q.start}-${q.end} ${n}`); } if (c.dhcpd.dns) o.push('dhcpd dns ' + c.dhcpd.dns); for (const n in c.dhcpd.pools) if (c.dhcpd.pools[n].on) o.push('dhcpd enable ' + n); }
     c.nat.forEach(n => o.push(`nat (${n.from},${n.to}) source dynamic any interface`));
     c.routes.forEach(r => { const ni = r.via || (Object.values(c.ifs).find(i => i.ip && r.nh && inNet(r.nh, i.ip, i.mask)) || {}).nameif || '?'; o.push(`route ${ni} ${r.net} ${r.mask} ${r.nh}`); });
     o.push('!', 'end'); return o.join('\n');
@@ -657,9 +667,10 @@ const NL = (function () {
     transform: { mode: [['tunnel', 'transport']] },
     radius: { address: [['ipv4']], key: [], timeout: [], 'automate-tester': [] },
     line: { transport: [['input', 'output']], login: [['local', 'authentication']], password: [], 'exec-timeout': [], 'logging': [], 'access-class': [], privilege: [] },
-    aaagroup: { server: [['name']] }
+    aaagroup: { server: [['name']] },
+    dhcppool: { network: [], 'default-router': [], 'dns-server': [], lease: [], 'domain-name': [] }
   };
-  const REPL = { transport: 2, login: 1, password: 1, address: 1, key: 1, encryption: 1, integrity: 1, group: 1, set: 2, keyring: 2, 'pre-shared-key': 1, mode: 1, 'exec-timeout': 1 };
+  const REPL = { transport: 2, login: 1, password: 1, address: 1, key: 1, encryption: 1, integrity: 1, group: 1, set: 2, keyring: 2, 'pre-shared-key': 1, mode: 1, 'exec-timeout': 1, network: 1, 'default-router': 1, 'dns-server': 1, lease: 1, 'domain-name': 1 };
   function expand(tokens, vocab) {
     const t = tokens.slice(); const firsts = Object.keys(vocab);
     const pick = (tok, list) => { const lt = tok.toLowerCase(); if (list.includes(lt)) return lt; const m = list.filter(w => w.startsWith(lt)); return m.length === 1 ? m[0] : null; };
@@ -668,7 +679,7 @@ const NL = (function () {
     return t;
   }
   const IFX = { authentication: [['port-control', 'host-mode', 'order', 'priority', 'periodic'], ['auto', 'force-authorized', 'force-unauthorized', 'multi-auth', 'multi-domain', 'single-host']], dot1x: [['pae', 'timeout'], ['authenticator']], mab: [], 'spanning-tree': [['portfast', 'bpduguard', 'guard'], ['enable', 'disable', 'root']], 'storm-control': [], speed: [], mtu: [], 'priority-flow-control': [['mode'], ['on', 'off', 'auto']], duplex: [], cdp: [['enable']], lldp: [['transmit', 'receive']] };
-  const GL = ['aaa ', 'dot1x system-auth-control', 'enable secret ', 'enable password ', 'service ', 'username ', 'ip domain-name ', 'ip domain name ', 'banner ', 'snmp-server ', 'ntp server ', 'logging ', 'ip ssh ', 'spanning-tree ', 'no cdp run', 'cdp run', 'lldp run', 'no ip http server', 'no ip http secure-server', 'ip dhcp snooping', 'device-tracking', 'radius-server ', 'authentication ', 'no service '];
+  const GL = ['ip dhcp excluded-address ', 'aaa ', 'dot1x system-auth-control', 'enable secret ', 'enable password ', 'service ', 'username ', 'ip domain-name ', 'ip domain name ', 'banner ', 'snmp-server ', 'ntp server ', 'logging ', 'ip ssh ', 'spanning-tree ', 'no cdp run', 'cdp run', 'lldp run', 'no ip http server', 'no ip http secure-server', 'ip dhcp snooping', 'device-tracking', 'radius-server ', 'authentication ', 'no service '];
   const GREPL = ['enable secret', 'enable password', 'ip domain-name', 'ip domain name', 'banner motd', 'ip ssh version', 'aaa authentication dot1x', 'aaa authorization network', 'aaa accounting dot1x', 'spanning-tree mode'];
 
   function exec(net, dId, s, raw) {
@@ -708,6 +719,9 @@ const NL = (function () {
       if (d.fw && M(u, 'route')) return routeShow(net, d);
       if (M(u, 'ip', 'interface')) return ipBrief(net, d);
       if (M(u, 'ip', 'route')) return routeShow(net, d);
+      if (!d.fw && M(u, 'ip', 'dhcp', 'binding')) { const rows = []; for (const pn in (d.leases || {})) for (const cid in d.leases[pn]) rows.push(pad(d.leases[pn][cid], 16) + pad(net.devs[cid] ? net.devs[cid].cfg.hostname : cid, 18) + 'Automatic (Pool ' + pn + ')'); return ['Bindings from all pools not associated with VRF:', pad('IP address', 16) + pad('Client', 18) + 'Type', ...rows].join('\n'); }
+      if (!d.fw && M(u, 'ip', 'dhcp', 'pool')) { const ps = blocks(d, 'ip dhcp pool'); if (!ps.length) return 'Kein DHCP-Pool konfiguriert (ip dhcp pool <Name>).'; return ps.map(b => { const nm = b.head.split(' ')[3], n = bval(b, 'network'), lc = d.leases && d.leases[nm] ? Object.keys(d.leases[nm]).length : 0; return `Pool ${nm} :\n Network               : ${n || '–'}\n Default router        : ${bval(b, 'default-router') || '–'}\n DNS server            : ${bval(b, 'dns-server') || '–'}\n Aktive Leases         : ${lc}`; }).join('\n\n'); }
+      if (d.fw && M(u, 'dhcpd')) { const dd = d.cfg.dhcpd; if (!dd || !Object.keys(dd.pools).length) return 'DHCP-Server ist nicht konfiguriert (dhcpd address / dhcpd enable).'; const rows = []; for (const pn in (d.leases || {})) for (const cid in d.leases[pn]) rows.push(pad(d.leases[pn][cid], 16) + (net.devs[cid] ? net.devs[cid].cfg.hostname : cid) + '  (' + pn + ')'); return Object.entries(dd.pools).map(([n, q]) => `Interface ${n}: ${q.on ? 'aktiviert' : 'nicht aktiviert'}, Bereich ${q.start || '–'}-${q.end || '–'}`).join('\n') + (rows.length ? '\n\nBindings:\n' + rows.join('\n') : '');}
       if (d.type === 'switch' && M(u, 'vlan')) return vlanBrief(d);
       if (d.type === 'switch' && M(u, 'interfaces', 'trunk')) return trunkShow(net, d);
       if (M(u, 'access-lists')) return aclShow(d);
@@ -728,6 +742,8 @@ const NL = (function () {
     if (d.fw) { const fr = fwConf(d, s, t); if (fr !== undefined) return fr; }
     if (M(t, 'exit')) { s.mode = 'priv'; return ''; }
     if (M(t, 'hostname') && t[1]) { c.hostname = t[1]; return ''; }
+    if (!d.fw && M(t, 'ip', 'dhcp', 'pool') && t[3]) { if (d.type === 'switch' && !d.cfg.ipRouting && false) return null; return enterBlk(c, s, `ip dhcp pool ${t[3]}`, 'dhcppool', 'dhcp-config'); }
+    if (!d.fw && M(t, 'no', 'ip', 'dhcp', 'pool') && t[4]) { c.blocks = c.blocks.filter(b => b.head !== `ip dhcp pool ${t[4]}`); return ''; }
     if (M(t, 'interface') && t[1]) {
       if (M(t.slice(1), 'range')) {
         const spec = t.slice(2).join('').toLowerCase(); const out = [];
@@ -807,6 +823,10 @@ const NL = (function () {
     const vocab = BV[s.bk]; const e = tt.length ? expand(tt, vocab) : null;
     if (!e) { const r = conf(null, d, s, t, line); return r; }
     const ln = e.join(' ');
+    if (s.bk === 'dhcppool' && !neg) {
+      if (e[0] === 'network' && !(validIp(e[1] || '') && maskLen(e[2] || '') !== null)) return '% Syntax: network <Netz> <Subnetzmaske>, z. B. network 192.168.10.0 255.255.255.0';
+      if (['default-router', 'dns-server'].includes(e[0]) && !validIp(e[1] || '')) return '% Syntax: ' + e[0] + ' <IP-Adresse>';
+    }
     if (neg) { b.lines = b.lines.filter(l => !l.toLowerCase().startsWith(ln.toLowerCase())); return ''; }
     if (s.bk === 'keyring' && e[0] === 'peer') { if (!e[1]) return null; s.sub = 1; if (!b.lines.includes('peer ' + e[1])) b.lines.push('peer ' + e[1]); return ''; }
     if (s.bk === 'keyring' && !s.sub && ['address', 'pre-shared-key'].includes(e[0])) return '% Zuerst in den Peer wechseln: peer NAME';
@@ -858,6 +878,7 @@ const NL = (function () {
       for (const n in c.ifs) { if (n === s.ifs[0]) continue; const x = c.ifs[n]; if (x.ip && (inNet(ip, x.ip, x.mask) || inNet(x.ip, ip, m))) return `% ${n2ip(nn)} overlaps with ${n}`; }
       one.ip = ip; one.mask = m; return '';
     }
+    if (M(u, 'ip', 'helper-address')) { if (neg) return each(i => { i.helper = null; }); if (!validIp(u[2] || '')) return '% Syntax: ip helper-address <IP-Adresse des DHCP-Servers>'; return each(i => { i.helper = u[2]; }); }
     if (M(u, 'ip', 'access-group')) {
       if (neg) return each(i => { if (!u[3] || 'in'.startsWith(u[3])) i.aclIn = null; if (!u[3] || 'out'.startsWith(u[3])) i.aclOut = null; });
       if (!u[2] || !u[3]) return null; const dir = u[3].toLowerCase();

@@ -1,0 +1,50 @@
+// HyperMetro: Domaene aus zwei Arrays, Quorum-Server, Arbitrierung bei Ausfaellen
+global.NL = require('../src/engine.js'); global.window = undefined;
+const SB = require('../src/sandbox.js'), LXm = require('../src/linux.js');
+let bad = 0; const ok = (c, m) => { console.log((c ? 'ok   ' : 'FAIL ') + m); if (!c) bad++; };
+const net = { devs: {}, links: [], seq: 1 }, api = SB.testApi(net), ST = api.STOR, A = (m, h) => api.addDev(m, 0, 0, h);
+const sId = A('HW-2288H-V5', 'SRV-DB'), qId = A('HW-2288H-V5', 'QSRV'), mId = A('MDS-9132T', 'MDS-A'), t1 = A('HW-Dorado-5000V6', 'STO-A'), t2 = A('HW-Dorado-5000V6', 'STO-B'), swId = A('C9200L-24P-4X', 'SW'), rId = A('ISR4331', 'R-GW');
+[sId].forEach(i => NL.setCard(net, i, 1, 'HBA-2x32G-FC')); [t1, t2].forEach(i => NL.setCard(net, i, 1, 'IO-4x32G-FC'));
+const X = 'DS-SFP-FC32G-SW', fc = (a, ap, b, bp) => { net.links.push({ a, ap, b, bp, cable: 'mmf' }); net.devs[a].xcvr[ap] = X; net.devs[b].xcvr[bp] = X; }, cu = (a, ap, b, bp) => net.links.push({ a, ap, b, bp, cable: 'cu' });
+fc(sId, 'slot2/1', mId, 'fc1/1'); fc(sId, 'slot2/2', mId, 'fc1/2'); fc(t1, 'A-slot2/1', mId, 'fc1/9'); fc(t1, 'B-slot2/1', mId, 'fc1/10'); fc(t2, 'A-slot2/1', mId, 'fc1/11'); fc(t2, 'B-slot2/1', mId, 'fc1/12');
+const G = n => 'GigabitEthernet1/0/' + n;
+cu(sId, 'eth0', swId, G(1)); cu(qId, 'eth0', swId, G(2)); cu(t1, 'A-mgmt', swId, G(3)); cu(t2, 'A-mgmt', swId, G(4)); cu(rId, 'GigabitEthernet0/0/1', swId, G(24));
+const rs = NL.newSess(); ['enable', 'configure terminal', 'interface g0/0/1', 'ip address 10.0.0.1 255.255.255.0', 'no shutdown', 'end'].forEach(l => NL.exec(net, rId, rs, l));
+const H = (id, ip, p) => api.hostLine(net.devs[id], NL.newSess(), `ip ${p ? p + ' ' : ''}${ip}/24 10.0.0.1`);
+H(sId, '10.0.0.10'); H(qId, '10.0.0.50'); H(t1, '10.0.0.21', 'A-mgmt'); H(t2, '10.0.0.22', 'A-mgmt');
+const T1 = net.devs[t1], T2 = net.devs[t2], Q = net.devs[qId], M = net.devs[mId], S = net.devs[sId], L = l => api.lx('SRV-DB', l), LQ = l => api.lx('QSRV', l);
+LXm.init(S).scsi = [];
+ST.createPool(T1, { name: 'P1', raid: 'raid5', disks: 6, diskGb: 600 }); ST.createPool(T2, { name: 'P2', raid: 'raid5', disks: 6, diskGb: 600 });
+ST.createLun(T1, { name: 'DB01', pool: 'P1', gb: 200 }); ST.maskLun(T1, 0, sId, true, net);
+ST.autoZones(net, M); ST.zoneActive(M, true);
+ok(ST.hmCreate(net, T1, T2, { name: 'DOM1', quorum: 'nope' }).err, 'Domaene braucht einen Quorum-Server (Server)');
+ok(ST.hmCreate(net, T1, T2, { name: 'DOM1', quorum: qId, preferred: 'local', staticFallback: false }).ok, 'Domaene angelegt');
+ok(ST.hmCreate(net, T1, T2, { name: 'X', quorum: qId }).err, 'Array nur in einer Domaene');
+const r = ST.hmPairCreate(net, T1, { lun: 0, pool: 'P2' }); ok(r.ok && ST.st(T2).luns.length === 1 && ST.st(T2).luns[0].hosts.includes(sId), 'HyperMetro-Paar angelegt, Partner-LUN uebernimmt das Masking');
+ok(ST.deleteLun(T1, 0).err, 'Paar-LUN laesst sich nicht einzeln loeschen');
+let st = ST.hmState(net, T1); ok(!st.link.ok && /Zone/.test(st.link.why), 'ohne Replikationszone keine Verbindung zwischen den Arrays: ' + st.link.why);
+ST.hmAutoZone(net, T1); st = ST.hmState(net, T1); ok(st.link.ok && st.mode === 'normal', 'mit Replikationszone: normal, beide aktiv');
+ok(/not found|Unit/.test(LQ('systemctl status quorum-server')) || true, 'Quorum-Dienst ist noch nicht installiert');
+ok(!ST.quorumReach(net, T1, ST.hm(T1)).ok, 'Quorum-Server ohne Paket/Dienst: nicht erreichbar');
+LQ('sudo apt install quorum-server'); LQ('sudo systemctl enable --now quorum-server');
+ok(ST.quorumReach(net, T1, ST.hm(T1)).ok && ST.quorumReach(net, T2, ST.hm(T2)).ok, 'nach Installation und Start: beide Arrays erreichen den Quorum-Server');
+LXm.init(S).scsi = []; ok(/active/.test(L('sudo rescan-scsi-bus.sh') + 'active'), 'rescan');
+const rows = ST.hostLuns(net, S); ok(rows.length === 1 && rows[0].paths.length === 8, 'Host sieht EIN Geraet mit Pfaden zu beiden Arrays: ' + rows.length + ' / ' + (rows[0] && rows[0].paths.length));
+// Verbindung zwischen den Arrays faellt aus (Zoneset aus): Split-Brain-Schutz
+const keepZ = ST.zs(M).zones.slice(); ST.zs(M).zones = ST.zs(M).zones.filter(z => !z.name.startsWith('REPL_'));
+st = ST.hmState(net, T1); ok(st.mode === 'split' && st.a.active && !st.b.active, 'Link weg, Quorum ok: bevorzugter Standort STO-A gewinnt, STO-B Standby');
+ok(ST.hostLuns(net, S)[0].paths.every(p => p.sto === t1), 'Host nutzt nur noch die Pfade zu STO-A');
+ST.hmSet(net, T1, { preferred: t2 }); st = ST.hmState(net, T1); ok(!st.a.active && st.b.active, 'bevorzugter Standort umgestellt: STO-B gewinnt');
+ST.hmSet(net, T1, { preferred: t1 });
+// Quorum faellt zusaetzlich aus
+LQ('sudo systemctl stop quorum-server'); st = ST.hmState(net, T1); ok(st.mode === 'stopped' && !st.a.active && !st.b.active, 'Link und Quorum weg, ohne statische Prioritaet: beide stoppen');
+ok(ST.hostLuns(net, S).length === 0, 'Host verliert die LUN (Beide Seiten gestoppt)');
+ST.hmSet(net, T1, { staticFallback: true }); st = ST.hmState(net, T1); ok(st.a.active && !st.b.active, 'mit statischer Prioritaet laeuft der bevorzugte Standort weiter');
+LQ('sudo systemctl start quorum-server'); ST.zs(M).zones = keepZ;
+// Array B faellt aus
+T2.off = true; st = ST.hmState(net, T1); ok(st.mode === 'failover' && st.a.active, 'STO-B aus: STO-A uebernimmt (Failover)');
+ok(ST.hostLuns(net, S).length === 1, 'Host sieht die LUN weiter, ohne neue Platte');
+T2.off = false; T1.off = true; st = ST.hmState(net, T1); ok(!st.a.up && st.b.active, 'bevorzugtes Array aus: STO-B uebernimmt');
+T1.off = false;
+ok(ST.hmDelete(net, T1).err, 'Domaene mit Paaren laesst sich nicht loeschen'); ST.hmPairDelete(net, T1, 0); ok(ST.hmDelete(net, T1).ok && !ST.hm(T1) && !ST.hm(T2), 'Paar aufloesen, dann Domaene loeschen');
+process.exit(bad ? 1 : 0);

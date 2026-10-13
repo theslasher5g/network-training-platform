@@ -647,7 +647,7 @@ table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vert
 .wg-url svg{width:14px;height:14px;fill:none;stroke:#2f7d4f;stroke-width:2;flex:none}.wg-url span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wg-url em{margin-left:auto;font-size:.74rem;color:#7a5a00;font-style:normal;white-space:nowrap}
 .wg-x{border:0;background:transparent;font-size:1rem;width:30px;height:30px;border-radius:8px;cursor:pointer;color:#445}.wg-x:hover{background:#d6dde8}
 .wg-app{--wga:#4f46e5;display:flex;flex-direction:column;flex:1;min-height:0;position:relative}
-.wg-linux{--wga:#0f766e}.wg-hypervisor{--wga:#4f46e5}.wg-windows{--wga:#0067b8}.wg-storage{--wga:#0e7c4a}.wg-fabric{--wga:#b45309}.wg-switch,.wg-router{--wga:#049fd9}.wg-router{--wga:#0b6fa4}.wg-firewall{--wga:#d94f00}
+.wg-linux{--wga:#0f766e}.wg-hypervisor{--wga:#4f46e5}.wg-windows{--wga:#0067b8}.wg-storage{--wga:#0e7c4a}.wg-fabric{--wga:#b45309}.wg-switch,.wg-router{--wga:#049fd9}.wg-router{--wga:#0b6fa4}
 .wg-top{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.55rem 1.1rem;background:var(--wga);color:#fff}
 .wg-brand{display:flex;align-items:center;gap:.6rem}.wg-brand b{font:700 1rem var(--display);letter-spacing:-.01em}.wg-brand span{opacity:.8;font-size:.86rem;padding-left:.6rem;border-left:1px solid rgba(255,255,255,.4)}
 .wg-ico{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}.wg-windows .wg-ico,.wg-top .wg-ico{fill:none}
@@ -667,7 +667,6 @@ table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vert
 .wg-switch .wg-top,.wg-router .wg-top{background:#1d2b3a;border-bottom:3px solid var(--wga)}
 .wg-switch .wg-nav,.wg-router .wg-nav{background:#232f3e;border-right:0}.wg-switch .wg-nav button,.wg-router .wg-nav button{color:#c9d4e2;border-radius:0;padding:.45rem .9rem .45rem 1.3rem;font-size:.88rem}
 .wg-switch .wg-nav button:hover,.wg-router .wg-nav button:hover{background:#2d3d51}.wg-switch .wg-nav button.act,.wg-router .wg-nav button.act{background:#fff;color:#1d2b3a;box-shadow:inset 4px 0 var(--wga)}
-.wg-firewall .wg-top{background:#3a3f44;border-bottom:3px solid var(--wga)}.wg-firewall .wg-nav{background:#2b2f33;border-right:0}.wg-firewall .wg-nav button{color:#c9ced3;border-radius:0;padding:.45rem .9rem .45rem 1.3rem;font-size:.88rem}.wg-firewall .wg-nav button:hover{background:#3a3f44}.wg-firewall .wg-nav button.act{background:#fff;color:#2b2f33;box-shadow:inset 4px 0 var(--wga)}.wg-login.wg-firewall{--wga:#d94f00;background:linear-gradient(160deg,#3a3f44,#15171a)}
 .wg-grp{margin:.8rem 0 .15rem;padding:0 .9rem;font:700 .68rem var(--sans);letter-spacing:.09em;text-transform:uppercase;color:#7f93ab}.wg-grp:first-child{margin-top:.2rem}
 .wg-login.wg-switch,.wg-login.wg-router{--wga:#049fd9;background:linear-gradient(160deg,#1d2b3a,#0b1220)}
 .wg-unsaved{color:#ffd166;font-size:.8rem;font-weight:600}
@@ -680,6 +679,48 @@ table.wk td{padding:.5rem .8rem .5rem 0;border-bottom:1px solid var(--line);vert
 .wg-b.disabled{opacity:.45;pointer-events:none}
 
 
+
+.wg-ck2{display:flex;gap:.5rem;align-items:flex-start;margin:.5rem 0;font-size:.88rem}.wg-ck2 input{margin-top:.25rem}
+/* ---------- Cisco ASDM ---------- */
+.wg-login.wg-firewall{background:#6e8aa8;padding:1rem}
+.as-login{width:min(380px,100%);background:#f0f0f0;border:1px solid #5d6f83;box-shadow:0 8px 28px rgba(0,0,0,.4);font:12.5px/1.45 Tahoma,Verdana,sans-serif;color:#1b1b1b}
+.as-lh{display:flex;align-items:center;gap:.5rem;padding:.35rem .6rem;background:linear-gradient(#4f7db3,#2f5f99);color:#fff}.as-lh b{font-weight:700}
+.as-ic{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round;flex:none}
+.as-lb{padding:.8rem 1rem 1rem}.as-lb p{margin:0 0 .7rem}.as-lb .wg-f label{font-weight:400;font-size:12.5px}.as-lb .wg-f input{border:1px solid #7f9db9;border-radius:0;padding:.25rem .4rem;font:inherit}.as-lb small{color:#555}
+.as-lb .wg-b.primary{background:linear-gradient(#fdfdfd,#dcdcdc);border:1px solid #707070;color:#000;border-radius:3px;padding:.2rem 1.6rem}
+.as{flex:1;display:flex;flex-direction:column;min-height:0;font:12.5px/1.45 Tahoma,Verdana,"Segoe UI",sans-serif;color:#1b1b1b;background:#f0f0f0;position:relative}
+.as-cap{display:flex;align-items:center;gap:.45rem;padding:.25rem .6rem;background:linear-gradient(#4f7db3,#2f5f99);color:#fff;font-weight:700;font-size:12px}
+.as-tb{display:flex;align-items:center;gap:2px;padding:4px 6px 0;background:linear-gradient(#f4f8fc,#d6e2f0);border-bottom:1px solid #8fa7c2}
+.as-tab{border:1px solid transparent;border-bottom:0;background:transparent;padding:.4rem 1.1rem;font:inherit;font-weight:700;color:#2a3f5c;cursor:pointer;border-radius:4px 4px 0 0;margin-bottom:-1px}
+.as-tab:hover{background:#e6eef8}.as-tab.act{background:#f0f0f0;border-color:#8fa7c2;color:#0b2a55}
+.as-sp{flex:1}.as .as-b{border:1px solid #9aa9bb;background:linear-gradient(#fff,#e1e8f1);border-radius:3px;padding:.2rem .7rem;font:inherit;font-size:12px;color:#1b2f4d;cursor:pointer;margin:0 0 4px 3px}.as .as-b:hover{background:linear-gradient(#fff,#cfdcec)}
+.as-body{flex:1;display:grid;grid-template-columns:200px minmax(0,1fr);min-height:0}
+.as-nav{background:#e9eef5;border-right:1px solid #9aa9bb;overflow:auto;padding:.4rem 0}
+.as-nav h4{margin:.6rem 0 .1rem;padding:.2rem .7rem;background:linear-gradient(#fff,#dbe5f1);border-top:1px solid #b4c3d6;border-bottom:1px solid #b4c3d6;font:700 12px Tahoma,Verdana,sans-serif;color:#17345c}.as-nav h4:first-child{margin-top:0}
+.as-nav button{display:block;width:100%;text-align:left;border:0;background:transparent;padding:.28rem .7rem .28rem 1.4rem;font:inherit;color:#1b1b1b;cursor:pointer}.as-nav button:hover{background:#d6e4f5}.as-nav button.act{background:#316ac5;color:#fff}
+.as-main{overflow:auto;padding:0 0 1rem;background:#f0f0f0}
+.as-pt{padding:.35rem .8rem;background:linear-gradient(#fff,#e3ebf5);border-bottom:1px solid #b4c3d6;font-weight:700;font-size:13px;color:#10305c;margin-bottom:.7rem}
+.as-main>*:not(.as-pt){margin-left:.8rem;margin-right:.8rem}
+.as-main .wg-card{background:#f7f7f7;border:1px solid #a9b6c6;border-radius:2px;box-shadow:none;padding:.7rem .8rem .8rem;margin-bottom:.8rem;position:relative}
+.as-main .wg-card>h3{display:inline-block;position:relative;top:-1.15rem;margin:0 0 -.7rem;background:#f0f0f0;padding:0 .35rem;font:700 12px Tahoma,Verdana,sans-serif;color:#17345c}
+.as-main .wg-t{border-collapse:collapse;border:1px solid #a9b6c6;background:#fff}.as-main .wg-t th{background:linear-gradient(#fff,#dde6f1);border:1px solid #b9c5d4;padding:.28rem .5rem;font-weight:700;color:#17345c;text-align:left;font-size:12px}
+.as-main .wg-t td{border:1px solid #dbe2ea;padding:.28rem .5rem;font-size:12px}.as-main .wg-t tbody tr:nth-child(even){background:#f6f9fc}.as-main .wg-t tbody tr:hover{background:#dfeafb}
+.as-main .wg-b,.as .wg-dlg .wg-b{border:1px solid #707070;background:linear-gradient(#fdfdfd,#dcdcdc);border-radius:3px;padding:.2rem .8rem;font:inherit;font-size:12px;color:#000}
+.as-main .wg-b:hover,.as .wg-dlg .wg-b:hover{border-color:#316ac5;color:#000;background:linear-gradient(#fff,#cfe0f7)}
+.as-main .wg-b.primary,.as .wg-dlg .wg-b.primary{background:linear-gradient(#fdfdfd,#d6e4f7);border-color:#316ac5;color:#0b2a55;font-weight:700}
+.as-main .wg-b.ghost{background:transparent;border-color:transparent;color:#1d4fa3}.as-main .wg-b.bad:hover{color:#b00}
+.as-main .wg-b.sm{padding:.1rem .55rem}
+.as-main .wg-chip{border-radius:2px;font-size:11px;padding:.05rem .4rem}
+.as-main .wg-f input,.as-main .wg-f select,.as .wg-dlg input,.as .wg-dlg select{border:1px solid #7f9db9;border-radius:0;padding:.22rem .4rem;font:inherit;font-size:12px;background:#fff}
+.as .wg-dlg{border-radius:2px;border:1px solid #5d6f83;padding:0;box-shadow:0 8px 30px rgba(0,0,0,.45);font:12.5px Tahoma,Verdana,sans-serif;background:#f0f0f0}
+.as .wg-dlg h2{margin:0 0 .6rem;padding:.3rem .7rem;background:linear-gradient(#4f7db3,#2f5f99);color:#fff;font:700 12px Tahoma,Verdana,sans-serif}
+.as .wg-dlg>*:not(h2){margin-left:.9rem;margin-right:.9rem}.as .wg-dlg>.wg-row:last-child{margin-bottom:.8rem}
+.as-main .wg-note{font-size:12px;color:#444}.as-main .wg-msg{border-radius:2px;margin-bottom:.7rem}
+.as-main .wg-big{font:700 1.5rem Tahoma,Verdana,sans-serif}.as-main .wg-pre{border-radius:0;background:#fff;color:#111;border:1px solid #a9b6c6;font-size:12px}
+.as-main .wg-bar i{background:#316ac5}.as-main .wg-tabs button.act{border-bottom-color:#316ac5;color:#0b2a55}
+.as .wg-log{background:#e9eef5;border-top:1px solid #9aa9bb;font-size:11.5px}
+.as-st{display:flex;gap:1.2rem;padding:.2rem .7rem;background:linear-gradient(#e8eef6,#cbd7e6);border-top:1px solid #8fa7c2;font-size:11.5px;color:#10305c}.as-st .ok{color:#116b2d}.as-st .warn{color:#a15c00;font-weight:700}
+@media (max-width:860px){.as-body{grid-template-columns:1fr}.as-nav{display:flex;overflow-x:auto;border-right:0;border-bottom:1px solid #9aa9bb;padding:0}.as-nav h4{display:none}.as-nav button{white-space:nowrap;padding:.4rem .8rem}}
 /* ---------- Strom und Bootvorgang ---------- */
 .wg-off{flex:1;display:grid;place-items:center;text-align:center;background:#12161c;color:#cfd8e6;padding:2rem;min-height:320px}.wg-off .wg-ico{width:44px;height:44px;opacity:.55;margin-bottom:.4rem}.wg-off h2{margin:.2rem 0;font:700 1.25rem var(--display);color:#fff}.wg-off p{margin:.2rem 0 1rem;color:#8d9bb0}
 .wg-boot{width:min(280px,70vw);height:6px;border-radius:99px;background:#27303c;overflow:hidden;margin:1rem auto 0}.wg-boot i,.pbar{display:block;height:100%;width:0;background:linear-gradient(90deg,#2563eb,#60a5fa);animation:bootbar linear forwards}
@@ -1326,6 +1367,7 @@ const NL = (function () {
         else { if (i.vlan !== 1) o.push(' switchport access vlan ' + i.vlan); if (i.modeSet) o.push(' switchport mode access'); }
       }
       if (i.ip) o.push(` ip address ${i.ip} ${i.mask}`); else if (d.type === 'router' || n.startsWith('Vlan')) o.push(' no ip address');
+      if (i.helper) o.push(' ip helper-address ' + i.helper);
       if (i.aclIn) o.push(' ip access-group ' + i.aclIn + ' in'); if (i.aclOut) o.push(' ip access-group ' + i.aclOut + ' out');
       if (i.tsrc) o.push(' tunnel source ' + i.tsrc); if (i.tdst) o.push(' tunnel destination ' + i.tdst);
       if (n.startsWith('Tunnel') && i.tmode === 'ipsec') o.push(' tunnel mode ipsec ipv4'); if (i.tprot) o.push(' tunnel protection ipsec profile ' + i.tprot);
@@ -1391,6 +1433,14 @@ const NL = (function () {
       c.nat = c.nat.filter(n => !(n.from === m[1] && n.to === m[2])); c.nat.push({ from: m[1], to: m[2] }); return '';
     }
     if (M(t, 'no', 'nat') && /^\(.+,.+\)$/.test(t[2] || '')) { const m = t[2].match(/^\((.+),(.+)\)$/); c.nat = c.nat.filter(n => !(n.from === m[1] && n.to === m[2])); return ''; }
+    if (M(t, 'dhcpd') && t[1]) {
+      const dd = c.dhcpd = c.dhcpd || { pools: {}, dns: null }, neg0 = false;
+      if (lw[1] === 'address') { const m = (t[2] || '').match(/^(\d+\.\d+\.\d+\.\d+)-(\d+\.\d+\.\d+\.\d+)$/); if (!m || !validIp(m[1]) || !validIp(m[2]) || !t[3]) return '% Syntax: dhcpd address <von>-<bis> <nameif>'; if (!ifByName(c, t[3])) return `% Interface-Name "${t[3]}" unbekannt`; dd.pools[t[3]] = Object.assign(dd.pools[t[3]] || { on: false }, { start: m[1], end: m[2] }); return ''; }
+      if (lw[1] === 'dns') { if (!validIp(t[2] || '')) return '% Syntax: dhcpd dns <IP-Adresse>'; dd.dns = t[2]; return ''; }
+      if (lw[1] === 'enable') { if (!t[2] || !ifByName(c, t[2])) return '% Syntax: dhcpd enable <nameif>'; const p0 = dd.pools[t[2]] = dd.pools[t[2]] || { on: false }; p0.on = true; return ''; }
+      return null;
+    }
+    if (M(t, 'no', 'dhcpd') && lw[2] === 'enable' && t[3]) { const dd = c.dhcpd; if (dd && dd.pools[t[3]]) dd.pools[t[3]].on = false; return ''; }
     if (M(t, 'same-security-traffic', 'permit', 'inter-interface')) { c.sameSec = true; return ''; }
     if (M(t, 'no', 'same-security-traffic')) { c.sameSec = false; return ''; }
     return undefined;
@@ -1405,6 +1455,7 @@ const NL = (function () {
     }
     for (const a in c.acls) c.acls[a].forEach(e => o.push(`access-list ${a} extended ${e.text}`));
     for (const n in c.ifs) { const i = c.ifs[n]; if (i.aclIn && i.nameif) o.push(`access-group ${i.aclIn} in interface ${i.nameif}`); }
+    if (c.dhcpd) { for (const n in c.dhcpd.pools) { const q = c.dhcpd.pools[n]; if (q.start) o.push(`dhcpd address ${q.start}-${q.end} ${n}`); } if (c.dhcpd.dns) o.push('dhcpd dns ' + c.dhcpd.dns); for (const n in c.dhcpd.pools) if (c.dhcpd.pools[n].on) o.push('dhcpd enable ' + n); }
     c.nat.forEach(n => o.push(`nat (${n.from},${n.to}) source dynamic any interface`));
     c.routes.forEach(r => { const ni = r.via || (Object.values(c.ifs).find(i => i.ip && r.nh && inNet(r.nh, i.ip, i.mask)) || {}).nameif || '?'; o.push(`route ${ni} ${r.net} ${r.mask} ${r.nh}`); });
     o.push('!', 'end'); return o.join('\n');
@@ -1516,9 +1567,10 @@ const NL = (function () {
     transform: { mode: [['tunnel', 'transport']] },
     radius: { address: [['ipv4']], key: [], timeout: [], 'automate-tester': [] },
     line: { transport: [['input', 'output']], login: [['local', 'authentication']], password: [], 'exec-timeout': [], 'logging': [], 'access-class': [], privilege: [] },
-    aaagroup: { server: [['name']] }
+    aaagroup: { server: [['name']] },
+    dhcppool: { network: [], 'default-router': [], 'dns-server': [], lease: [], 'domain-name': [] }
   };
-  const REPL = { transport: 2, login: 1, password: 1, address: 1, key: 1, encryption: 1, integrity: 1, group: 1, set: 2, keyring: 2, 'pre-shared-key': 1, mode: 1, 'exec-timeout': 1 };
+  const REPL = { transport: 2, login: 1, password: 1, address: 1, key: 1, encryption: 1, integrity: 1, group: 1, set: 2, keyring: 2, 'pre-shared-key': 1, mode: 1, 'exec-timeout': 1, network: 1, 'default-router': 1, 'dns-server': 1, lease: 1, 'domain-name': 1 };
   function expand(tokens, vocab) {
     const t = tokens.slice(); const firsts = Object.keys(vocab);
     const pick = (tok, list) => { const lt = tok.toLowerCase(); if (list.includes(lt)) return lt; const m = list.filter(w => w.startsWith(lt)); return m.length === 1 ? m[0] : null; };
@@ -1527,7 +1579,7 @@ const NL = (function () {
     return t;
   }
   const IFX = { authentication: [['port-control', 'host-mode', 'order', 'priority', 'periodic'], ['auto', 'force-authorized', 'force-unauthorized', 'multi-auth', 'multi-domain', 'single-host']], dot1x: [['pae', 'timeout'], ['authenticator']], mab: [], 'spanning-tree': [['portfast', 'bpduguard', 'guard'], ['enable', 'disable', 'root']], 'storm-control': [], speed: [], mtu: [], 'priority-flow-control': [['mode'], ['on', 'off', 'auto']], duplex: [], cdp: [['enable']], lldp: [['transmit', 'receive']] };
-  const GL = ['aaa ', 'dot1x system-auth-control', 'enable secret ', 'enable password ', 'service ', 'username ', 'ip domain-name ', 'ip domain name ', 'banner ', 'snmp-server ', 'ntp server ', 'logging ', 'ip ssh ', 'spanning-tree ', 'no cdp run', 'cdp run', 'lldp run', 'no ip http server', 'no ip http secure-server', 'ip dhcp snooping', 'device-tracking', 'radius-server ', 'authentication ', 'no service '];
+  const GL = ['ip dhcp excluded-address ', 'aaa ', 'dot1x system-auth-control', 'enable secret ', 'enable password ', 'service ', 'username ', 'ip domain-name ', 'ip domain name ', 'banner ', 'snmp-server ', 'ntp server ', 'logging ', 'ip ssh ', 'spanning-tree ', 'no cdp run', 'cdp run', 'lldp run', 'no ip http server', 'no ip http secure-server', 'ip dhcp snooping', 'device-tracking', 'radius-server ', 'authentication ', 'no service '];
   const GREPL = ['enable secret', 'enable password', 'ip domain-name', 'ip domain name', 'banner motd', 'ip ssh version', 'aaa authentication dot1x', 'aaa authorization network', 'aaa accounting dot1x', 'spanning-tree mode'];
 
   function exec(net, dId, s, raw) {
@@ -1567,6 +1619,9 @@ const NL = (function () {
       if (d.fw && M(u, 'route')) return routeShow(net, d);
       if (M(u, 'ip', 'interface')) return ipBrief(net, d);
       if (M(u, 'ip', 'route')) return routeShow(net, d);
+      if (!d.fw && M(u, 'ip', 'dhcp', 'binding')) { const rows = []; for (const pn in (d.leases || {})) for (const cid in d.leases[pn]) rows.push(pad(d.leases[pn][cid], 16) + pad(net.devs[cid] ? net.devs[cid].cfg.hostname : cid, 18) + 'Automatic (Pool ' + pn + ')'); return ['Bindings from all pools not associated with VRF:', pad('IP address', 16) + pad('Client', 18) + 'Type', ...rows].join('\n'); }
+      if (!d.fw && M(u, 'ip', 'dhcp', 'pool')) { const ps = blocks(d, 'ip dhcp pool'); if (!ps.length) return 'Kein DHCP-Pool konfiguriert (ip dhcp pool <Name>).'; return ps.map(b => { const nm = b.head.split(' ')[3], n = bval(b, 'network'), lc = d.leases && d.leases[nm] ? Object.keys(d.leases[nm]).length : 0; return `Pool ${nm} :\n Network               : ${n || '–'}\n Default router        : ${bval(b, 'default-router') || '–'}\n DNS server            : ${bval(b, 'dns-server') || '–'}\n Aktive Leases         : ${lc}`; }).join('\n\n'); }
+      if (d.fw && M(u, 'dhcpd')) { const dd = d.cfg.dhcpd; if (!dd || !Object.keys(dd.pools).length) return 'DHCP-Server ist nicht konfiguriert (dhcpd address / dhcpd enable).'; const rows = []; for (const pn in (d.leases || {})) for (const cid in d.leases[pn]) rows.push(pad(d.leases[pn][cid], 16) + (net.devs[cid] ? net.devs[cid].cfg.hostname : cid) + '  (' + pn + ')'); return Object.entries(dd.pools).map(([n, q]) => `Interface ${n}: ${q.on ? 'aktiviert' : 'nicht aktiviert'}, Bereich ${q.start || '–'}-${q.end || '–'}`).join('\n') + (rows.length ? '\n\nBindings:\n' + rows.join('\n') : '');}
       if (d.type === 'switch' && M(u, 'vlan')) return vlanBrief(d);
       if (d.type === 'switch' && M(u, 'interfaces', 'trunk')) return trunkShow(net, d);
       if (M(u, 'access-lists')) return aclShow(d);
@@ -1587,6 +1642,8 @@ const NL = (function () {
     if (d.fw) { const fr = fwConf(d, s, t); if (fr !== undefined) return fr; }
     if (M(t, 'exit')) { s.mode = 'priv'; return ''; }
     if (M(t, 'hostname') && t[1]) { c.hostname = t[1]; return ''; }
+    if (!d.fw && M(t, 'ip', 'dhcp', 'pool') && t[3]) { if (d.type === 'switch' && !d.cfg.ipRouting && false) return null; return enterBlk(c, s, `ip dhcp pool ${t[3]}`, 'dhcppool', 'dhcp-config'); }
+    if (!d.fw && M(t, 'no', 'ip', 'dhcp', 'pool') && t[4]) { c.blocks = c.blocks.filter(b => b.head !== `ip dhcp pool ${t[4]}`); return ''; }
     if (M(t, 'interface') && t[1]) {
       if (M(t.slice(1), 'range')) {
         const spec = t.slice(2).join('').toLowerCase(); const out = [];
@@ -1666,6 +1723,10 @@ const NL = (function () {
     const vocab = BV[s.bk]; const e = tt.length ? expand(tt, vocab) : null;
     if (!e) { const r = conf(null, d, s, t, line); return r; }
     const ln = e.join(' ');
+    if (s.bk === 'dhcppool' && !neg) {
+      if (e[0] === 'network' && !(validIp(e[1] || '') && maskLen(e[2] || '') !== null)) return '% Syntax: network <Netz> <Subnetzmaske>, z. B. network 192.168.10.0 255.255.255.0';
+      if (['default-router', 'dns-server'].includes(e[0]) && !validIp(e[1] || '')) return '% Syntax: ' + e[0] + ' <IP-Adresse>';
+    }
     if (neg) { b.lines = b.lines.filter(l => !l.toLowerCase().startsWith(ln.toLowerCase())); return ''; }
     if (s.bk === 'keyring' && e[0] === 'peer') { if (!e[1]) return null; s.sub = 1; if (!b.lines.includes('peer ' + e[1])) b.lines.push('peer ' + e[1]); return ''; }
     if (s.bk === 'keyring' && !s.sub && ['address', 'pre-shared-key'].includes(e[0])) return '% Zuerst in den Peer wechseln: peer NAME';
@@ -1717,6 +1778,7 @@ const NL = (function () {
       for (const n in c.ifs) { if (n === s.ifs[0]) continue; const x = c.ifs[n]; if (x.ip && (inNet(ip, x.ip, x.mask) || inNet(x.ip, ip, m))) return `% ${n2ip(nn)} overlaps with ${n}`; }
       one.ip = ip; one.mask = m; return '';
     }
+    if (M(u, 'ip', 'helper-address')) { if (neg) return each(i => { i.helper = null; }); if (!validIp(u[2] || '')) return '% Syntax: ip helper-address <IP-Adresse des DHCP-Servers>'; return each(i => { i.helper = u[2]; }); }
     if (M(u, 'ip', 'access-group')) {
       if (neg) return each(i => { if (!u[3] || 'in'.startsWith(u[3])) i.aclIn = null; if (!u[3] || 'out'.startsWith(u[3])) i.aclOut = null; });
       if (!u[2] || !u[3]) return null; const dir = u[3].toLowerCase();
@@ -2263,13 +2325,15 @@ const LX = (function () {
     curl: { d: 'URL-Werkzeug', bins: ['curl'] }, nano: { d: 'Editor', bins: ['nano'] }, ufw: { d: 'Firewall-Frontend', bins: ['ufw'] },
     htop: { d: 'Prozessanzeige', bins: ['htop'] }, vim: { d: 'Editor', bins: ['vim'] }, tree: { d: 'Verzeichnisbaum', bins: ['tree'] },
     'net-tools': { d: 'ifconfig, netstat', bins: ['ifconfig', 'netstat', 'route', 'arp'] }, dnsutils: { d: 'dig', bins: ['dig'] }, tcpdump: { d: 'Paketmitschnitt', bins: ['tcpdump'] },
-    'multipath-tools': { d: 'Multipathing für SAN-LUNs', bins: ['multipath', 'multipathd'] }
+    'multipath-tools': { d: 'Multipathing für SAN-LUNs', bins: ['multipath', 'multipathd'] },
+    'quorum-server': { d: 'HyperMetro-Quorum-Server (Schiedsrichter für zwei Storage-Arrays)', units: ['quorum-server'], bins: ['quorumd'] }
   };
   const PRE = ['curl', 'nano', 'ufw', 'openssh-server'];
   const UNITS = {
     nginx: { d: 'A high performance web server and a reverse proxy server', svc: 'http', port: '80', proto: 'tcp', proc: 'nginx' },
     bind9: { d: 'BIND Domain Name Server', svc: 'dns', port: '53', proto: 'udp', proc: 'named' },
     'isc-dhcp-server': { d: 'ISC DHCP IPv4 server', svc: 'dhcp', port: '67', proto: 'udp', proc: 'dhcpd' },
+    'quorum-server': { d: 'HyperMetro Quorum Server', port: '30002', proto: 'tcp', proc: 'quorumd' },
     ssh: { d: 'OpenBSD Secure Shell server', port: '22', proto: 'tcp', proc: 'sshd' }, cron: { d: 'Regular background program processing daemon', proc: 'cron' }, rsyslog: { d: 'System Logging Service', proc: 'rsyslogd' }
   };
   const ALIAS = { sshd: 'ssh', named: 'bind9', dhcpd: 'isc-dhcp-server', 'isc-dhcp': 'isc-dhcp-server' };
@@ -2281,7 +2345,7 @@ const LX = (function () {
 
   // ---------- Zustand ----------
   function init(d) {
-    if (d.lx) return d.lx;
+    if (d.lx) { if (!d.lx.units['quorum-server']) d.lx.units['quorum-server'] = { enabled: false, active: false, seen: null }; return d.lx; }
     const sv = d.svc || {}, name = d.cfg.hostname, fs = {};
     const dir = (p, o) => { fs[p] = { d: 1, o: o || 'root' }; }, file = (p, t, o, m) => { fs[p] = { t, o: o || 'root', m: m || '644' }; };
     ['/', '/bin', '/sys', '/sys/class', '/sys/class/scsi_host', '/sys/class/scsi_host/host0', '/sys/class/scsi_host/host1', '/etc', '/etc/nginx', '/etc/bind', '/etc/dhcp', '/home', '/root', '/tmp', '/usr', '/usr/bin', '/var', '/var/log', '/var/log/nginx', '/var/www', '/var/www/html', '/opt', '/srv', '/dev', '/proc'].forEach(p => dir(p));
@@ -2296,6 +2360,7 @@ const LX = (function () {
     if (pk.has('bind9')) file('/etc/bind/db.lab', DB_SAMPLE + (sv.dns && sv.dns.records || []).map(r => `${r.name}. IN A ${r.ip === '@' ? (d.cfg.ip || '0.0.0.0') : r.ip}`).join('\n') + '\n');
     if (pk.has('isc-dhcp-server')) { const p = sv.dhcp || {}; file('/etc/dhcp/dhcpd.conf', p.start && p.mask ? dhcpText(d, p) : DHCP_SAMPLE); }
     const units = {}; Object.keys(UNITS).forEach(u => { units[u] = { enabled: true, active: !UNITS[u].svc, seen: null }; });
+    units['quorum-server'].active = false; units['quorum-server'].enabled = false;
     Object.keys(UNITS).forEach(u => { const s = UNITS[u].svc; if (s) { units[u].active = !!(sv[s] && sv[s].on); units[u].seen = units[u].active; units[u].enabled = units[u].active; } });
     d.lx = { user: 'admin', root: false, cwd: '/home/admin', fs, pkgs: [...pk], units, users: ['root', 'admin'], fail: {}, log: [], ufw: { on: false, allow: [] }, pid: 600, scsi: null, fmt: {}, mounts: {} };
     return d.lx;
@@ -2605,7 +2670,7 @@ const LX = (function () {
       if (act === 'is-active') return x.active ? 'active' : (L.fail[u] ? 'failed' : 'inactive'); if (act === 'is-enabled') return x.enabled ? 'enabled' : 'disabled';
       if (!['start', 'stop', 'restart', 'reload', 'enable', 'disable'].includes(act)) return `Unknown command verb ${act}.`;
       if (!st.root) return '==== AUTHENTICATING FOR org.freedesktop.systemd1.manage-units ====\nAuthentication is required to manage system services or other units.\nFailed: Interactive authentication required (versuche: sudo systemctl ' + act + ' ' + u + ').';
-      if (act === 'enable') { x.enabled = true; return `Created symlink /etc/systemd/system/multi-user.target.wants/${u}.service → /lib/systemd/system/${u}.service.`; }
+      if (act === 'enable') { x.enabled = true; const sym = `Created symlink /etc/systemd/system/multi-user.target.wants/${u}.service → /lib/systemd/system/${u}.service.`; if (a.includes('--now')) { const r = systemctl(['start', raw], st); return sym + (r ? '\n' + r : ''); } return sym; }
       if (act === 'disable') { x.enabled = false; return `Removed /etc/systemd/system/multi-user.target.wants/${u}.service.`; }
       if (act === 'stop') { if (x.active) jl(d, L, u, `Stopped ${UNITS[u].d}.`); x.active = false; setSvc(d, L, u, false); return ''; }
       if (act === 'reload' && !x.active) return `Failed to reload ${u}.service: Unit ${u}.service is not active, cannot reload.`;
@@ -2841,9 +2906,11 @@ const WIKI = (function () {
   art('vm-datastore', 'server', 'Datastore: wo die VM-Platte liegt', 'Lokal oder gemeinsam auf einer SAN-LUN.', `<p>Die Dateien einer VM liegen auf einem <b>Datastore</b>. Auf einer <b>lokalen Platte</b> sieht nur der eine Host sie. Auf einer <b>gemeinsamen LUN</b> (Fibre Channel, iSCSI, NFS) sehen sie <b>alle Hosts des Clusters</b>. Das ist die Voraussetzung für Live-Migration und HA. Dafür muss die LUN allen Hosts freigegeben sein ([[lun-masking]]) und die Zonen müssen stimmen ([[zoning]]).</p><p>Kapazität: Summe der VM-Platten auf einer LUN darf deren Größe nicht überschreiten.</p>`, ['vm-migration-ha', 'lun', 'zoning']);
   art('vm-migration-ha', 'server', 'Migration, Cluster und HA', 'VMs verschieben und Ausfälle überstehen.', tbl(['Verfahren', 'Voraussetzung', 'Wirkung'], [['Kalte Migration', 'VM aus; Hosts im selben Cluster', 'VM zieht um, Platte bleibt, wenn sie auf dem Ziel erreichbar ist'], ['Live-Migration (vMotion)', 'VM auf gemeinsamem Datastore; Ziel sieht ihn; Ziel hat freien RAM', 'VM läuft ohne Unterbrechung auf anderem Host weiter'], ['HA (High Availability)', 'Cluster, gemeinsamer Datastore, Reserve-Kapazität', 'Fällt ein Host aus, starten seine VMs auf anderen Hosts neu (kurze Unterbrechung)']]) + `<p>Ein <b>Cluster</b> ist eine Gruppe von Hosts mit gleicher Netz- und Storage-Anbindung. Typische Fehler: Datastore nur für einen Host freigegeben, Hosts mit unterschiedlichen VLANs am vSwitch, kein RAM für den Ausfall eines Hosts (<b>N+1</b>-Kapazität fehlt).</p>` + plan('Szenarien: „VMs auf zwei Hosts verteilen“, „Live-Migration über SAN-Datastore“, „Host-Ausfall und HA“.'), ['vm-datastore', 'virt-grundlagen', 'spof']);
   art('virsh-kvm', 'server', 'virsh: VMs auf einem KVM-Host', 'Befehle im Terminal des Hypervisors.', tbl(['Befehl', 'Wirkung'], [['<code>virsh list --all</code>', 'Alle VMs mit Zustand'], ['<code>sudo virsh start WEB-VM</code>', 'VM starten'], ['<code>sudo virsh shutdown WEB-VM</code>', 'VM herunterfahren'], ['<code>virsh dominfo WEB-VM</code>', 'vCPU, RAM, VLAN, Datastore'], ['<code>virsh nodeinfo</code>', 'Kerne und RAM des Hosts'], ['<code>sudo virsh migrate --live WEB-VM HV2</code>', 'Live auf einen Cluster-Host verschieben']]) + `<p>Auf einem Server ohne Hypervisor-Rolle meldet <code>virsh</code>, dass es nicht zum Hypervisor verbinden kann.</p>`, ['virt-grundlagen', 'linux-grundlagen']);
+  art('hypermetro', 'storage', 'HyperMetro und Quorum-Server', 'Zwei Storage-Arrays als aktiv-aktiv-Cluster und wer bei Ausfall entscheidet.', `<p><b>HyperMetro</b> (bei Huawei OceanStor) spiegelt eine LUN synchron auf ein zweites Array an einem anderen Standort. Beide Arrays bedienen die Hosts gleichzeitig (<b>aktiv-aktiv</b>): Der Server sieht <b>ein</b> Gerät mit Pfaden zu beiden Arrays und schaltet bei einem Ausfall per Multipath um, ohne neue Platte und ohne Unterbrechung. Zusammengehörige Arrays bilden eine <b>HyperMetro-Domäne</b>, gespiegelte LUNs heißen <b>HyperMetro-Paare</b>.</p><p>Das Risiko ist <b>Split-Brain</b>: Fällt nur die Verbindung zwischen den Arrays aus, denkt jede Seite, die andere sei tot, und beide nehmen weiter Schreibzugriffe an. Die Daten laufen auseinander. Deshalb gibt es einen <b>Quorum-Server</b> an einem dritten Standort als Schiedsrichter. Wer ihn erreicht, darf weiterarbeiten.</p>` + tbl(['Situation', 'Ergebnis'], [['Alles verbunden', 'Beide Arrays aktiv'], ['Verbindung zwischen den Arrays weg, beide erreichen den Quorum-Server', 'Der bevorzugte Standort gewinnt, die andere Seite geht in Standby'], ['Nur ein Array erreicht den Quorum-Server', 'Dieses Array gewinnt'], ['Ein Array fällt aus', 'Das andere übernimmt (Failover), sofern es den Quorum-Server erreicht'], ['Verbindung und Quorum-Server weg', 'Mit <b>statischer Priorität</b> arbeitet der bevorzugte Standort weiter, ohne sie stoppen beide']]) + ul(['Die Arrays brauchen eine <b>Replikationsverbindung</b>: FC-Kabel direkt oder über den FC-Switch mit einer Zone zwischen den Array-Ports', 'Der Quorum-Server wird über das Management-Netz erreicht, nicht über FC', 'Hosts müssen auf beiden Arrays maskiert und gezont sein']) + plan('Storage anklicken → Web-GUI → „HyperMetro“: Domäne erstellen, Replikationszonen anlegen, Paar erstellen. Auf dem Quorum-Server <code>sudo apt install quorum-server</code> und <code>sudo systemctl enable --now quorum-server</code>. Zwei Szenarien unter „Aufgaben“.'), ['lun', 'lun-masking', 'multipath', 'zoning']);
+  art('dhcp-cisco', 'l3', 'DHCP auf Switch, Router und Firewall, DHCP-Relay', 'Adressvergabe ohne eigenen Server.', `<p>Nicht nur Server verteilen IP-Adressen: Ein Router, ein Layer-3-Switch und eine ASA können selbst DHCP-Server sein. Die Clients fragen per Broadcast, deshalb muss der Server im <b>selben VLAN</b> antworten, an der Schnittstelle (SVI) des Netzes. Steht der DHCP-Server in einem anderen Netz, leitet ein <b>Relay</b> (<code>ip helper-address</code>) die Anfrage an ihn weiter.</p>` + tbl(['Gerät', 'Konfiguration'], [['Cisco IOS', '<code>ip dhcp excluded-address 10.30.0.1 10.30.0.20</code>, <code>ip dhcp pool CLIENTS</code>, darin <code>network 10.30.0.0 255.255.255.0</code>, <code>default-router 10.30.0.1</code>, <code>dns-server 10.10.0.53</code>'], ['Relay (am SVI)', '<code>interface vlan 30</code>, <code>ip helper-address 10.10.0.11</code>'], ['Cisco ASA', '<code>dhcpd address 10.255.0.100-10.255.0.150 inside</code>, <code>dhcpd dns 10.10.0.53</code>, <code>dhcpd enable inside</code>'], ['Prüfen', '<code>show ip dhcp binding</code>, <code>show ip dhcp pool</code>, <code>show dhcpd binding</code>']]) + ul(['Der Pool muss zum Netz der Schnittstelle passen, sonst bekommt der Client nichts', 'Gateway und feste Server-Adressen mit <code>excluded-address</code> ausnehmen', 'Beim Relay braucht der Server einen Pool für das Netz der Relay-Schnittstelle']) + plan('Switch, Router oder ASA anklicken → Web-GUI → „DHCP-Server“. Auf einem PC im Desktop unter „Netzwerkverbindungen“ DHCP einschalten.'), ['dhcp', 'vlan', 'web-gui']);
   art('power-boot', 'l3', 'Ein- und Ausschalten, Booten und Startup-Config', 'Warum eine Konfiguration ohne Speichern verloren geht.', `<p>Jedes Gerät im Planer lässt sich ein- und ausschalten (Schalter im Detailfeld oder Werkzeug „Ein- und ausschalten“). Ein ausgeschaltetes Gerät ist nicht erreichbar, und alle Links daran sind down. Nach dem Einschalten <b>bootet</b> es: Der Planer zeigt den Bootvorgang in der Konsole, und das Gerät antwortet erst, wenn er fertig ist. Das dauert bei Switches und Routern etwa 10 Sekunden, bei Servern und Storage-Systemen länger.</p><p>Cisco-Geräte kennen zwei Konfigurationen: die <b>Running-Config</b> im Arbeitsspeicher und die <b>Startup-Config</b> im Flash. Beim Start lädt das Gerät nur die Startup-Config. Was du mit <code>write memory</code> (oder „Konfiguration speichern“ in der Weboberfläche) nicht gespeichert hast, ist nach dem Neustart weg.</p>` + ul(['Switch ausschalten: angeschlossene Geräte verlieren ihr Netz', 'Ohne <code>write memory</code> verschwinden neue VLANs, IP-Adressen und ACLs beim Neustart', 'Server behalten ihre Dateien und Dienste, sie starten nur neu']) + plan('Gerät anklicken → im Detailfeld „Ausschalten“, danach „Einschalten“. Im Tab „Systeme“ gibt es denselben Schalter über der Weboberfläche.'), ['trunk', 'web-gui']);
   art('pc-desktop', 'server', 'Der PC-Desktop', 'Windows-Arbeitsplatz im Planer: Netz einstellen, testen, Weboberflächen aufrufen.', `<p>Ein Doppelklick auf einen PC öffnet seinen <b>Desktop</b>. Er verhält sich wie ein Windows-Arbeitsplatz: Fenster lassen sich verschieben, vergrößern und minimieren, unten gibt es Taskleiste, Startmenü und Uhr. Das Netzwerksymbol rechts zeigt, ob ein Kabel Verbindung hat.</p>` + tbl(['Programm', 'Wofür'], [['Netzwerkverbindungen', 'IP-Adresse, Subnetzmaske, Gateway und DNS setzen oder DHCP einschalten'], ['Eingabeaufforderung', '<code>ipconfig /all</code>, <code>ping</code>, <code>nslookup</code>, <code>tracert</code> und PowerShell-Befehle'], ['Webbrowser', 'Webseiten aufrufen und die Weboberfläche von Switches (<code>https://&lt;IP&gt;/</code>) und Servern (<code>:8443</code>) öffnen'], ['Datei-Explorer und Editor', 'Ordner und Textdateien anlegen, bearbeiten und löschen'], ['Einstellungen', 'Gerät umbenennen und einer Domäne beitreten']]) + `<p>Typischer Ablauf bei einem Fehler: Kabel und Netzwerksymbol prüfen, in den Netzwerkverbindungen die IP-Daten kontrollieren, dann <code>ping</code> zum Gateway, danach zum Ziel, und zuletzt mit dem Browser die Dienste testen.</p>`, ['web-gui', 'win-powershell', 'subnetting']);
-  art('web-gui', 'server', 'Web-Verwaltung der Geräte', 'Switches, Router, Server, Storage und FC-Switch im Browser verwalten.', `<p>Wie in der Praxis haben Cisco-Switches und -Router, Server, Storage-Systeme und FC-Switches eine <b>Weboberfläche</b> mit Anmeldung, Menü, Tabellen und Dialogen. Im Planer öffnest du sie über „Web-GUI öffnen“ am Gerät. Alternativ rufst du sie von einem PC aus im Webbrowser auf: <code>https://&lt;IP-Adresse&gt;:8443</code> (Server, Storage, FC-Switch) oder <code>https://&lt;Management-IP&gt;/</code> (Cisco-Switch, -Router und ASA-Firewall, Port 443). Dann muss das Gerät erreichbar sein (IP, Gateway, VLAN).</p>` + tbl(['Gerät', 'Oberfläche', 'Was du dort machst'], [['Cisco-Switch', 'Catalyst Web-Oberfläche', 'Dashboard mit Portansicht, Schnittstellen (mehrere markieren und gemeinsam ändern), VLAN, Layer 3 mit SVI und Routen, ACL, Konfiguration speichern, Konsole, Ping und Traceroute'], ['ASA-Firewall', 'Firewall-Oberfläche (Stil von OPNsense)', 'Zonen mit Security-Level, Regeln und Bindung, NAT, Routen, Sicherung, Konsole, Ping'], ['Cisco-Router', 'Router Web-Oberfläche', 'Schnittstellen mit IP, statische Routen, ACL, Konfiguration speichern, Konsole, Ping und Traceroute'], ['Linux-Server', 'Server-Web-Konsole', 'Netzwerk, Dienste, Konfigurationsdateien, Speicher, Firewall, Software, Terminal'], ['Hypervisor', 'Virtualisierungs-Manager', 'VMs, virtueller Switch, Datastores, Cluster und HA'], ['Windows-Server', 'Server-Manager', 'Rollen, Active Directory, DNS, DHCP, Freigaben, Dienste, Firewall, PowerShell'], ['Storage', 'Storage-Manager', 'Pools, LUNs, Zuordnung, Ports'], ['FC-Switch', 'Fabric-Manager', 'Ports, Zoning, VSAN']]) + `<p>Jede Aktion in der Oberfläche führt dieselben Schritte aus wie das Terminal (bei Cisco-Geräten sind das IOS-Befehle). Bei Cisco-Geräten gilt: Änderungen landen in der Running-Config und gehen ohne „Konfiguration speichern“ (<code>write memory</code>) beim Neustart verloren. Unten zeigt ein Streifen „Letzte Aktionen“ den gleichwertigen Befehl. So lernst du beides: die Oberfläche für den Alltag und die Befehle für Skripte und Fehlersuche. Anmeldedaten im Simulator: <code>admin</code> und <code>NetLab-2026</code> (vorausgefüllt).</p>`, ['linux-grundlagen', 'win-powershell', 'virt-grundlagen', 'lun']);
+  art('web-gui', 'server', 'Web-Verwaltung der Geräte', 'Switches, Router, Server, Storage und FC-Switch im Browser verwalten.', `<p>Wie in der Praxis haben Cisco-Switches und -Router, Server, Storage-Systeme und FC-Switches eine <b>Weboberfläche</b> mit Anmeldung, Menü, Tabellen und Dialogen. Im Planer öffnest du sie über „Web-GUI öffnen“ am Gerät. Alternativ rufst du sie von einem PC aus im Webbrowser auf: <code>https://&lt;IP-Adresse&gt;:8443</code> (Server, Storage, FC-Switch) oder <code>https://&lt;Management-IP&gt;/</code> (Cisco-Switch, -Router und ASA-Firewall, Port 443). Dann muss das Gerät erreichbar sein (IP, Gateway, VLAN).</p>` + tbl(['Gerät', 'Oberfläche', 'Was du dort machst'], [['Cisco-Switch', 'Catalyst Web-Oberfläche', 'Dashboard mit Portansicht, Schnittstellen (mehrere markieren und gemeinsam ändern), VLAN, Layer 3 mit SVI und Routen, ACL, DHCP-Server und Relay, Konfiguration speichern, Konsole, Ping und Traceroute'], ['ASA-Firewall', 'Cisco ASDM', 'Zonen mit Security-Level, Zugriffsregeln und Bindung, NAT, Routen, DHCP-Server, Sicherung, CLI, Ping'], ['Cisco-Router', 'Router Web-Oberfläche', 'Schnittstellen mit IP, statische Routen, ACL, Konfiguration speichern, Konsole, Ping und Traceroute'], ['Linux-Server', 'Server-Web-Konsole', 'Netzwerk, Dienste, Konfigurationsdateien, Speicher, Firewall, Software, Terminal'], ['Hypervisor', 'Virtualisierungs-Manager', 'VMs, virtueller Switch, Datastores, Cluster und HA'], ['Windows-Server', 'Server-Manager', 'Rollen, Active Directory, DNS, DHCP, Freigaben, Dienste, Firewall, PowerShell'], ['Storage', 'Storage-Manager', 'Pools, LUNs, Zuordnung, Ports'], ['FC-Switch', 'Fabric-Manager', 'Ports, Zoning, VSAN']]) + `<p>Jede Aktion in der Oberfläche führt dieselben Schritte aus wie das Terminal (bei Cisco-Geräten sind das IOS-Befehle). Bei Cisco-Geräten gilt: Änderungen landen in der Running-Config und gehen ohne „Konfiguration speichern“ (<code>write memory</code>) beim Neustart verloren. Unten zeigt ein Streifen „Letzte Aktionen“ den gleichwertigen Befehl. So lernst du beides: die Oberfläche für den Alltag und die Befehle für Skripte und Fehlersuche. Anmeldedaten im Simulator: <code>admin</code> und <code>NetLab-2026</code> (vorausgefüllt).</p>`, ['linux-grundlagen', 'win-powershell', 'virt-grundlagen', 'lun']);
   art('syslog', 'server', 'Syslog und Journal', 'Wo Meldungen landen.', `<p>Geräte und Dienste melden Ereignisse an einen Logserver (UDP 514). Cisco-Meldungen haben einen Schweregrad von 0 (Notfall) bis 7 (Debug), zum Beispiel <code>%LINK-3-UPDOWN</code> (Level 3 = Error). Unter Linux sammelt <b>journald</b> die Dienstlogs (<code>journalctl</code>), klassische Dateien liegen in <code>/var/log</code>.</p>`, ['linux-systemd']);
 
   // ---------------------------------------------------------------- IOS
@@ -2979,8 +3046,12 @@ const STOR = (function () {
     if (need > info.free) return { err: `Im Pool „${p.name}“ sind nur ${info.free} GB frei, die LUN braucht ${need} GB${o.thin ? ' (Thin: Startbelegung)' : ''}. Pool erweitern oder LUN kleiner wählen.` };
     const id = S.seq++; S.luns.push({ id, name, pool: p.name, gb, thin: !!o.thin, hosts: [] }); return { ok: true, id };
   }
-  function deleteLun(d, id) { const S = st(d); S.luns = S.luns.filter(l => l.id !== id); return { ok: true }; }
-  function maskLun(d, id, hostId, on) { const l = st(d).luns.find(x => x.id === id); if (!l) return { err: 'LUN nicht gefunden.' }; l.hosts = l.hosts.filter(h => h !== hostId); if (on) l.hosts.push(hostId); return { ok: true }; }
+  function deleteLun(d, id) { const S = st(d); const l0 = S.luns.find(x => x.id === id); if (l0 && l0.hm) return { err: `Die LUN „${l0.name}“ gehört zu einem HyperMetro-Paar. Löse erst das Paar auf.` }; S.luns = S.luns.filter(l => l.id !== id); return { ok: true }; }
+  function maskLun(d, id, hostId, on, net) {
+    const l = st(d).luns.find(x => x.id === id); if (!l) return { err: 'LUN nicht gefunden.' }; l.hosts = l.hosts.filter(h => h !== hostId); if (on) l.hosts.push(hostId);
+    if (l.hm && net && net.devs[l.hm.peer]) { const r = st(net.devs[l.hm.peer]).luns.find(x => x.id === l.hm.peerLun); if (r) { r.hosts = r.hosts.filter(h => h !== hostId); if (on) r.hosts.push(hostId); } }
+    return { ok: true };
+  }
 
   // ----- Zoning (FC-Switch) -----
   const zs = m => m.zset || (m.zset = { zones: [], active: false });
@@ -3011,6 +3082,89 @@ const STOR = (function () {
   }
   const zoned = (m, a, b) => { const Z = zs(m); return Z.active && Z.zones.some(z => z.members.includes(a) && z.members.includes(b)); };
 
+
+  // ----- HyperMetro: aktiv-aktiv-Cluster aus zwei Arrays mit Quorum-Server -----
+  const QPKG = 'quorum-server';
+  const hmOf = d => (d && d.stor && d.stor.hm) || null;
+  const ipOf = d => { for (const p of d.ports) { const h = N.hip(d, p); if (h && h.ip) return h.ip; } return null; };
+  function quorumState(net, q) {
+    if (!q || q.type !== 'server') return { ok: false, why: 'Der Quorum-Server existiert nicht mehr.' };
+    if (N.isDown(q)) return { ok: false, why: `${q.cfg.hostname} ist ausgeschaltet.` };
+    const L = q.lx; if (!L || !L.pkgs.includes(QPKG)) return { ok: false, why: `Auf ${q.cfg.hostname} ist das Paket ${QPKG} nicht installiert (apt install ${QPKG}).` };
+    const u = L.units[QPKG]; if (!u || !u.active) return { ok: false, why: `Der Dienst ${QPKG} läuft auf ${q.cfg.hostname} nicht (systemctl enable --now ${QPKG}).` };
+    return { ok: true };
+  }
+  function quorumReach(net, a, dm) {
+    const q = net.devs[dm.quorum], s = quorumState(net, q); if (!s.ok) return s;
+    if (N.isDown(a)) return { ok: false, why: `${a.cfg.hostname} ist ausgeschaltet.` };
+    const ip = ipOf(q); if (!ip) return { ok: false, why: `${q.cfg.hostname} hat keine IP-Adresse.` };
+    const r = N.ping(net, a.id, ip); return r.ok ? { ok: true } : { ok: false, why: `${a.cfg.hostname} erreicht den Quorum-Server ${ip} nicht: ${r.reason}` };
+  }
+  // Replikationsverbindung: direktes FC-Kabel oder gemeinsamer FC-Switch mit aktiver Zone zwischen beiden Arrays
+  function replLink(net, a, b) {
+    const dn = [a, b].find(x => N.isDown(x)); if (dn) return { ok: false, why: `${dn.cfg.hostname} ist ausgeschaltet.` };
+    for (const p of fcPorts(a)) { const s = N.portStatus(net, a.id, p); if (s.st === 'connected' && s.peer.dev === b.id) return { ok: true, via: 'direktes FC-Kabel' }; }
+    let seen = false;
+    for (const m of Object.values(net.devs)) {
+      if (m.type !== 'fc') continue; const at = attached(net, m), wa = at.filter(x => x.dev.id === a.id), wb = at.filter(x => x.dev.id === b.id); if (!wa.length || !wb.length) continue; seen = true;
+      if (wa.some(x => wb.some(y => zoned(m, x.wwpn, y.wwpn)))) return { ok: true, via: m.cfg.hostname };
+    }
+    return { ok: false, why: seen ? 'Beide Arrays hängen am selben FC-Switch, aber es gibt keine aktive Zone zwischen ihnen (Replikationszone, Zoneset aktivieren).' : 'Keine FC-Verbindung zwischen den Arrays (direkt oder über einen gemeinsamen FC-Switch).' };
+  }
+  // Arbitrierung: wer darf Schreibzugriffe bedienen?
+  function hmState(net, a) {
+    const dm = hmOf(a); if (!dm) return null; const b = net.devs[dm.peer], up = x => !N.isDown(x);
+    const link = replLink(net, a, b), qa = quorumReach(net, a, dm), qb = quorumReach(net, b, dm), A = { id: a.id, up: up(a), q: qa, active: false }, B = { id: b.id, up: up(b), q: qb, active: false };
+    let mode, text;
+    if (A.up && B.up && link.ok) { A.active = B.active = true; mode = 'normal'; text = 'Beide Arrays sind verbunden und bedienen alle Hosts gleichzeitig (aktiv-aktiv).'; }
+    else {
+      const cA = A.up && qa.ok, cB = B.up && qb.ok, pref = net.devs[dm.preferred] || a; let win = null, how = '';
+      if (cA && cB) { win = pref.id; how = `Beide erreichen den Quorum-Server, die Verbindung zwischen den Arrays ist aber unterbrochen: Der bevorzugte Standort ${pref.cfg.hostname} gewinnt.`; }
+      else if (cA || cB) { win = (cA ? a : b).id; how = `Nur ${(cA ? a : b).cfg.hostname} erreicht den Quorum-Server und gewinnt die Arbitrierung.`; }
+      else if (dm.staticFallback && up(pref)) { win = pref.id; how = `Kein Array erreicht den Quorum-Server: Fallback „statische Priorität“, der bevorzugte Standort ${pref.cfg.hostname} läuft weiter.`; }
+      A.active = win === a.id; B.active = win === b.id;
+      mode = win ? (A.up && B.up ? 'split' : 'failover') : 'stopped';
+      text = win ? how : (dm.staticFallback ? 'Kein Array darf weiterarbeiten: Der bevorzugte Standort ist ausgefallen und der Quorum-Server ist nicht erreichbar.' : 'Kein Array erreicht den Quorum-Server und die statische Priorität ist aus: Beide Seiten stoppen, um Split-Brain zu verhindern. Die Hosts verlieren den Zugriff.');
+    }
+    return { a: A, b: B, link, mode, text, preferred: dm.preferred };
+  }
+  const hmActive = (net, sto) => { const s = hmState(net, sto); return !s || (s.a.id === sto.id ? s.a : s.b).active; };
+  function hmCreate(net, a, b, o) {
+    const q = net.devs[o.quorum], name = String(o.name || '').trim();
+    if (!b || b.type !== 'storage' || b.id === a.id) return { err: 'Wähle ein zweites Storage-System als Partner.' };
+    if (hmOf(a) || hmOf(b)) return { err: 'Eines der Arrays gehört schon zu einer HyperMetro-Domäne.' };
+    if (!q || q.type !== 'server') return { err: 'Wähle einen Server als Quorum-Server (ein dritter Standort).' };
+    if (!/^[A-Za-z][\w-]{0,23}$/.test(name)) return { err: 'Domänenname: Buchstaben, Ziffern, - und _ .' };
+    const pref = o.preferred === 'remote' ? b.id : a.id, mk = peer => ({ name, peer, quorum: q.id, preferred: pref, staticFallback: !!o.staticFallback, pairs: [] });
+    st(a).hm = mk(b.id); st(b).hm = mk(a.id); return { ok: true };
+  }
+  function hmSet(net, a, o) { const dm = hmOf(a), b = dm && net.devs[dm.peer]; if (!dm) return { err: 'Keine HyperMetro-Domäne.' }; for (const x of [dm, hmOf(b)]) { if (o.preferred) x.preferred = o.preferred; if (o.staticFallback !== undefined) x.staticFallback = !!o.staticFallback; if (o.quorum) x.quorum = o.quorum; } return { ok: true }; }
+  function hmDelete(net, a) { const dm = hmOf(a); if (!dm) return { ok: true }; if (dm.pairs.length) return { err: 'In der Domäne gibt es noch HyperMetro-Paare. Löse sie zuerst auf.' }; const b = net.devs[dm.peer]; delete st(a).hm; if (b && b.stor) delete b.stor.hm; return { ok: true }; }
+  function hmPairCreate(net, a, o) {
+    const dm = hmOf(a); if (!dm) return { err: 'Erst eine HyperMetro-Domäne anlegen.' }; const b = net.devs[dm.peer], l = st(a).luns.find(x => x.id === +o.lun);
+    if (!l) return { err: 'Wähle eine LUN.' }; if (l.hm) return { err: `Die LUN „${l.name}“ ist schon in einem Paar.` };
+    const p = poolOf(b, o.pool); if (!p) return { err: `Wähle einen Pool auf ${b.cfg.hostname} für die Partner-LUN (dort erst einen Pool anlegen).` };
+    let nm = l.name; if (st(b).luns.some(x => x.name === nm)) nm = (l.name + '_HM').slice(0, 24);
+    const r = createLun(b, { name: nm, pool: o.pool, gb: l.gb, thin: l.thin }); if (r.err) return { err: `Partner-LUN auf ${b.cfg.hostname}: ${r.err}` };
+    const rl = st(b).luns.find(x => x.id === r.id), pid = 'hm' + (st(a).seq + '_' + r.id);
+    l.hm = { pair: pid, peer: b.id, peerLun: rl.id, canon: true }; rl.hm = { pair: pid, peer: a.id, peerLun: l.id, canon: false }; rl.hosts = l.hosts.slice();
+    dm.pairs.push(pid); hmOf(b).pairs.push(pid); return { ok: true };
+  }
+  function hmPairDelete(net, a, lunId) {
+    const l = st(a).luns.find(x => x.id === +lunId); if (!l || !l.hm) return { err: 'Das ist kein HyperMetro-Paar.' }; const b = net.devs[l.hm.peer], pid = l.hm.pair;
+    if (b && b.stor) { b.stor.luns = b.stor.luns.filter(x => x.id !== l.hm.peerLun); if (b.stor.hm) b.stor.hm.pairs = b.stor.hm.pairs.filter(x => x !== pid); }
+    const dm = hmOf(a); if (dm) dm.pairs = dm.pairs.filter(x => x !== pid); delete l.hm; return { ok: true };
+  }
+  // Replikationszonen: je ein Eintrag zwischen den Ports der beiden Arrays am selben FC-Switch
+  function hmAutoZone(net, a) {
+    const dm = hmOf(a), b = dm && net.devs[dm.peer]; if (!b) return { n: 0 }; let n = 0;
+    for (const m of Object.values(net.devs)) {
+      if (m.type !== 'fc') continue; const at = attached(net, m), wa = at.filter(x => x.dev.id === a.id), wb = at.filter(x => x.dev.id === b.id), Z = zs(m);
+      for (const x of wa) for (const y of wb) { if (Z.zones.some(z => z.members.includes(x.wwpn) && z.members.includes(y.wwpn))) continue; const nm = `REPL_${a.cfg.hostname}_${x.port}__${b.cfg.hostname}_${y.port}`.replace(/[^A-Za-z0-9_-]+/g, '_').slice(0, 40); let k = nm, c = 2; while (Z.zones.some(z => z.name === k)) k = nm + '_' + c++; Z.zones.push({ name: k, members: [x.wwpn, y.wwpn] }); n++; }
+    }
+    return { n };
+  }
+
   // ----- Pfade und Sichtbarkeit -----
   function paths(net, host) {
     const out = [];
@@ -3031,9 +3185,20 @@ const STOR = (function () {
     for (const sto of Object.values(net.devs)) {
       if (sto.type !== 'storage' || !sto.stor) continue;
       const mine = P.filter(p => p.sto === sto.id); if (!mine.length) continue;
-      for (const l of sto.stor.luns) if (l.hosts.includes(host.id)) res.push({ sto: sto.id, stoName: sto.cfg.hostname, lun: l.id, name: l.name, gb: l.gb, thin: l.thin, paths: mine });
+      for (const l of sto.stor.luns) if (l.hosts.includes(host.id)) {
+        if (l.hm && !hmActive(net, sto)) continue; // Standby-Seite: Pfade nicht nutzbar
+        res.push({ sto: sto.id, stoName: sto.cfg.hostname, lun: l.id, name: l.name, gb: l.gb, thin: l.thin, paths: mine, hm: l.hm ? { pair: l.hm.pair, canon: l.hm.canon, peer: l.hm.peer, peerLun: l.hm.peerLun } : null });
+      }
     }
-    return res.sort((a, b) => (a.sto + a.lun).localeCompare(b.sto + b.lun, 'de', { numeric: true }));
+    // HyperMetro-Paare erscheinen als ein einziges Gerät mit Pfaden zu beiden Arrays (gleiche Identität, Failover ohne neue Platte)
+    const merged = [], byPair = {};
+    for (const r of res) {
+      if (!r.hm) { merged.push(r); continue; }
+      const k = r.hm.pair, ex = byPair[k]; if (ex) { ex.paths = ex.paths.concat(r.paths); if (r.hm.canon) { ex.sto = r.sto; ex.stoName = r.stoName; ex.lun = r.lun; ex.name = r.name; } continue; }
+      const row = Object.assign({}, r, { paths: r.paths.slice() }); byPair[k] = row; merged.push(row);
+    }
+    for (const r of merged) if (r.hm && !r.hm.canon) { r.sto = r.hm.peer; r.lun = r.hm.peerLun; const ps = net.devs[r.sto]; if (ps) r.stoName = ps.cfg.hostname; }
+    return merged.sort((a, b) => (a.sto + a.lun).localeCompare(b.sto + b.lun, 'de', { numeric: true }));
   }
   // Erklärung, warum eine maskierte LUN nicht sichtbar ist
   function why(net, host, sto, lun) {
@@ -3042,9 +3207,10 @@ const STOR = (function () {
     const hs = fcPorts(host); if (!hs.length) return `${host.cfg.hostname} hat keinen FC-Port (HBA fehlt).`;
     if (!hs.some(p => N.portStatus(net, host.id, p).st === 'connected')) return `Kein FC-Link am HBA von ${host.cfg.hostname}: Kabel, Transceiver und Port prüfen.`;
     if (!paths(net, host).some(p => p.sto === sto.id)) return `Kein Pfad von ${host.cfg.hostname} zu ${sto.cfg.hostname}: Zoning (aktives Zoneset mit Initiator und Target) oder Storage-Verkabelung prüfen.`;
+    if (l.hm && !hmActive(net, sto)) { const h = hmState(net, sto); return `HyperMetro: ${sto.cfg.hostname} ist im Standby. ${h.text}`; }
     return null;
   }
-  return { RAID, DISKS, st, poolInfo, createPool, deletePool, createLun, deleteLun, maskLun, zs, zoneAdd, zoneDel, zoneActive, autoZones, attached, zoned, paths, hostLuns, why, lunAlloc, lunSize, poolOf };
+  return { hm: hmOf, hmState, hmActive, hmCreate, hmSet, hmDelete, hmPairCreate, hmPairDelete, hmAutoZone, replLink, quorumState, quorumReach, QPKG, ipOf, RAID, DISKS, st, poolInfo, createPool, deletePool, createLun, deleteLun, maskLun, zs, zoneAdd, zoneDel, zoneActive, autoZones, attached, zoned, paths, hostLuns, why, lunAlloc, lunSize, poolOf };
 })();
 if (typeof module !== 'undefined') module.exports = STOR;
 
@@ -3460,7 +3626,7 @@ const WEBGUI = (function () {
     if (d.type !== 'server' || A.isCloud(d)) return null;
     return d.os === 'windows' ? 'windows' : (A.VIRT.isHost(d) ? 'hypervisor' : 'linux');
   };
-  const PRODUCT = { linux: ['Server-Web-Konsole', 'Linux'], hypervisor: ['Virtualisierungs-Manager', 'Hypervisor'], windows: ['Server-Manager', 'Windows Server 2022'], storage: ['Storage-Manager', 'Speichersystem'], fabric: ['Fabric-Manager', 'FC-Switch'], switch: ['Catalyst Web-Oberfläche', 'Cisco IOS XE Switch'], router: ['Router Web-Oberfläche', 'Cisco IOS XE Router'], firewall: ['Firewall', 'Stateful Firewall (Oberfläche im OPNsense-Stil)'] };
+  const PRODUCT = { linux: ['Server-Web-Konsole', 'Linux'], hypervisor: ['Virtualisierungs-Manager', 'Hypervisor'], windows: ['Server-Manager', 'Windows Server 2022'], storage: ['Storage-Manager', 'Speichersystem'], fabric: ['Fabric-Manager', 'FC-Switch'], switch: ['Catalyst Web-Oberfläche', 'Cisco IOS XE Switch'], router: ['Router Web-Oberfläche', 'Cisco IOS XE Router'], firewall: ['Cisco ASDM', 'Adaptive Security Device Manager'] };
   const isNet = k => k === 'switch' || k === 'router' || k === 'firewall';
   const portOf = d => { const k = kindOf(d); return isNet(k) ? NETPORT : PORT; };
   const hasGui = d => !!kindOf(d);
@@ -3494,10 +3660,11 @@ const WEBGUI = (function () {
       }
       const url = `https://${ip || d.cfg.hostname.toLowerCase()}${isNet(k) ? '' : ':' + PORT}/`;
       const chrome = G.chrome ? `<div class="wg-chrome"><span class="wg-dots"><i></i><i></i><i></i></span><div class="wg-url" title="${esc(url)}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>${esc(url)}</span>${ip ? '' : '<em>Direktzugriff (keine IP-Adresse)</em>'}</div><button class="wg-x" data-act="close" aria-label="Fenster schließen">✕</button></div>` : '';
+      if (!G.auth && k === 'firewall') { root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-login wg-firewall"><form class="as-login" data-act="login"><div class="as-lh"><svg class="as-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/></svg><b>Cisco ASDM-IDM Launcher</b></div><div class="as-lb"><p>Geben Sie die Zugangsdaten für die ASA ein.</p><div class="wg-f"><label for="wf-dev">Gerät/IP-Adresse</label><input id="wf-dev" value="${esc(ip || d.cfg.hostname)}" readonly></div>${field('user', 'Benutzername', 'admin')}${field('pw', 'Kennwort', 'NetLab-2026', { type: 'password' })}<div class="wg-row end"><button type="submit" class="wg-b primary" data-act="login">OK</button></div><small>Simulator-Zugangsdaten sind vorausgefüllt.</small></div></form></div></div>`; return; }
       if (!G.auth) { root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-login wg-${k}"><form class="wg-lc" data-act="login"><div class="wg-logo">${logo(k)}</div><h2>${PRODUCT[k][0]}</h2><p>${esc(d.cfg.hostname)} · ${PRODUCT[k][1]}</p>${field('user', 'Benutzername', k === 'windows' ? 'Administrator' : 'admin')}${field('pw', 'Kennwort', 'NetLab-2026', { type: 'password' })}<button type="submit" class="wg-b primary wide" data-act="login">Anmelden</button><small>Simulator-Zugangsdaten sind vorausgefüllt.</small></form></div></div>`; return; }
       const nav = NAV[k](d), flat = nav.filter(n => n[0][0] !== '-'), pg = G.page && flat.some(n => n[0] === G.page) ? G.page : flat[0][0]; G.page = pg;
       let body = ''; try { body = PAGES[k][pg](d, G) } catch (e) { body = `<p class="wg-empty">Fehler beim Laden der Seite: ${esc(e.message)}</p>`; console.error(e); }
-      root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-app wg-${k}">
+      if (k === 'firewall') root.innerHTML = asdmHtml(d, G, chrome, nav, pg, body); else root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-app wg-${k}">
         <header class="wg-top"><div class="wg-brand">${logo(k)}<b>${PRODUCT[k][0]}</b><span>${esc(d.cfg.hostname)}</span></div><div class="wg-user">${isNet(k) ? (d.saved ? '' : `<span class="wg-unsaved" title="Running-Config unterscheidet sich von der Startup-Config">● nicht gespeichert</span>`) + btn('Konfiguration speichern', 'iosave', null, 'sm') : ''}<span>${k === 'windows' ? 'Administrator' : 'admin'}</span>${btn('Abmelden', 'logout', null, 'ghost sm')}</div></header>
         <div class="wg-body"><nav class="wg-nav" aria-label="Navigation">${nav.map(([id, lbl]) => id[0] === '-' ? `<h4 class="wg-grp">${lbl}</h4>` : `<button type="button" class="${id === pg ? 'act' : ''}" data-act="nav" data-p="${id}" ${id === pg ? 'aria-current="page"' : ''}>${lbl}</button>`).join('')}</nav>
         <div class="wg-main" role="main" tabindex="-1"><div class="wg-ph"><h1>${flat.find(n => n[0] === pg)[1]}</h1></div>${G.msg ? `<div class="wg-msg ${G.msg.err ? 'err' : 'ok'}" role="status">${esc(G.msg.t)}</div>` : ''}${body}</div></div>
@@ -3512,16 +3679,37 @@ const WEBGUI = (function () {
   const logo = k => `<svg class="wg-ico" viewBox="0 0 24 24" aria-hidden="true">${{ linux: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>', hypervisor: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/>', windows: '<path d="M3 5l8-1.2V11H3zM13 3.6L21 2v9h-8zM3 13h8v7.2L3 19zM13 13h8v9l-8-1.6z"/>', storage: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>', firewall: '<path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/><path d="M9 12l2 2 4-4"/>', switch: '<rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/>', router: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16M8 8l-2-2M16 8l2-2M8 16l-2 2M16 16l2 2"/>', fabric: '<circle cx="12" cy="12" r="3"/><circle cx="4" cy="5" r="2"/><circle cx="20" cy="5" r="2"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="19" r="2"/><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>' }[k]}</svg>`;
   const hostIp = d => { if (d.type === 'switch' || d.type === 'router') { const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip); return n ? d.cfg.ifs[n].ip : ''; } const h = d.ports.map(p => A.hip(d, p)).find(x => x && x.ip); return h ? h.ip : ''; };
 
+  // ASDM: vier Bereiche (Startseite, Konfiguration, Überwachung, Werkzeuge) mit eigener Navigation
+  const FW = {
+    home: [['dashboard', 'Geräteinformationen']],
+    cfg: [['-a', 'Geräteeinrichtung'], ['interfaces', 'Schnittstellen'], ['routes', 'Routing'], ['-b', 'Firewall'], ['rules', 'Zugriffsregeln'], ['nat', 'NAT-Regeln'], ['-c', 'Geräteverwaltung'], ['dhcp', 'DHCP-Server'], ['general', 'System'], ['config', 'Konfiguration sichern']],
+    mon: [['-m', 'Überwachung'], ['monitor', 'Status und Tabellen']],
+    tools: [['-t', 'Werkzeuge'], ['cli', 'Befehlszeile (CLI)'], ['ping', 'Ping und Traceroute']]
+  };
+  const FWTABS = [['home', 'Startseite'], ['cfg', 'Konfiguration'], ['mon', 'Überwachung'], ['tools', 'Werkzeuge']];
+  const fwMode = pg => (FWTABS.find(([m]) => FW[m].some(n => n[0] === pg)) || FWTABS[0])[0];
+  function asdmHtml(d, G, chrome, nav, pg, body) {
+    const mode = fwMode(pg), items = FW[mode], url = hostIp(d) || d.cfg.hostname.toLowerCase();
+    return `<div class="wg-win">${chrome}<div class="as">
+      <div class="as-cap"><svg class="as-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l8 3v6c0 5-3.4 9-8 11-4.6-2-8-6-8-11V5z"/></svg>Cisco ASDM 7.18 für ASA – ${esc(url)}</div>
+      <div class="as-tb" role="tablist">${FWTABS.map(([m, l]) => `<button type="button" role="tab" class="as-tab ${m === mode ? 'act' : ''}" aria-selected="${m === mode}" data-act="mode" data-m="${m}">${l}</button>`).join('')}<span class="as-sp"></span>${btn('Speichern', 'iosave', null, 'as-b')}${btn('Aktualisieren', 'refresh', null, 'as-b')}${btn('Abmelden', 'logout', null, 'as-b')}</div>
+      <div class="as-body"><nav class="as-nav" aria-label="Navigation">${items.map(([id, lbl]) => id[0] === '-' ? `<h4>${lbl}</h4>` : `<button type="button" class="${id === pg ? 'act' : ''}" data-act="nav" data-p="${id}" ${id === pg ? 'aria-current="page"' : ''}>${lbl}</button>`).join('')}</nav>
+        <div class="as-main wg-main" role="main" tabindex="-1"><div class="as-pt">${nav.find(n => n[0] === pg)[1]}</div>${G.msg ? `<div class="wg-msg ${G.msg.err ? 'err' : 'ok'}" role="status">${esc(G.msg.t)}</div>` : ''}${body}</div></div>
+      ${G.log.length ? `<footer class="wg-log"><b>Letzte Aktionen (gleichwertig in der CLI)</b>${G.log.slice(-3).map(l => `<code class="${l.err ? 'err' : ''}">${esc(l.cmd)}</code>`).join('')}</footer>` : ''}
+      <div class="as-st"><span>${esc(d.cfg.hostname)}</span><span>admin (15)</span><span class="${d.saved ? 'ok' : 'warn'}">${d.saved ? 'Konfiguration gespeichert' : 'Änderungen nicht gespeichert'}</span></div>
+      ${G.dlg ? dlgHtml(d, G) : ''}</div></div>`;
+  }
+
   // ---------- Navigation ----------
   const NAV = {
     linux: d => [['overview', 'Übersicht'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['virt', 'Virtualisierung'], ['terminal', 'Terminal']],
     hypervisor: d => [['overview', 'Übersicht'], ['vms', 'Virtuelle Maschinen'], ['vswitch', 'Virtueller Switch'], ['datastores', 'Datastores'], ['cluster', 'Cluster und HA'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['terminal', 'Terminal']],
     windows: d => [['dashboard', 'Dashboard'], ['local', 'Lokaler Server'], ['roles', 'Rollen und Features'], ['ad', 'Active Directory'], ['dns', 'DNS'], ['dhcp', 'DHCP'], ['shares', 'Dateidienste'], ['services', 'Dienste'], ['firewall', 'Firewall'], ['terminal', 'PowerShell']],
-    storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['ports', 'Ports und Controller']],
+    storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['hypermetro', 'HyperMetro'], ['ports', 'Ports und Controller']],
     fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']],
-    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['acl', 'Zugriffslisten (ACL)'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
-    firewall: d => [['dashboard', 'Dashboard'], ['-i', 'Schnittstellen'], ['interfaces', 'Zuweisungen und Zonen'], ['-f', 'Firewall'], ['rules', 'Regeln'], ['nat', 'NAT'], ['-r', 'System'], ['routes', 'Gateways und Routen'], ['general', 'Einstellungen'], ['config', 'Sicherung und Konfiguration'], ['-t', 'Werkzeuge'], ['monitor', 'Status'], ['cli', 'Konsole (CLI)'], ['ping', 'Ping und Traceroute']],
-    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['acl', 'Zugriffslisten (ACL)'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
+    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
+    firewall: d => [].concat(...Object.values(FW)),
+    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['acl', 'Zugriffslisten (ACL)'], ['dhcp', 'DHCP-Server'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
   };
 
   // ---------- Aktionen ausführen ----------
@@ -3683,7 +3871,7 @@ const WEBGUI = (function () {
   PAGES.windows.terminal = LX.terminal;
 
   // --- Storage ---
-  const ST = () => A.STOR;
+  const ST = () => A.STOR, S0 = ST;
   PAGES.storage.dashboard = (d, G) => {
     const T = ST().st(d), pools = T.pools.map(p => ({ p, i: ST().poolInfo(d, p) })), ports = d.ports.filter(p => d.pk[p] === 'fc'), up = ports.filter(p => A.status(d, p) === 'connected');
     return `<div class="wg-grid">${card('Kapazität', pools.length ? pools.map(x => `<p class="wg-k">${esc(x.p.name)} (${ST().RAID[x.p.raid].name})</p>${bar(x.i.alloc, x.i.usable, 85)}<p class="wg-s">${gb(x.i.alloc)} von ${gb(x.i.usable)} belegt${x.i.over ? ' – <b class="wg-bad">überprovisioniert</b>' : ''}</p>`).join('') : '<p class="wg-empty">Noch kein Pool.</p>' + btn('Pool erstellen', 'nav', { p: 'pools' }, 'sm primary'))}
@@ -3796,6 +3984,25 @@ const WEBGUI = (function () {
   };
   PAGES.switch.ping = PAGES.router.ping = (d, G) => `<form class="wg-row end" data-act="pingf">${field('pdst', 'Ziel-IP-Adresse', G.pdst || '', { ph: '192.168.1.10' })}<button type="submit" class="wg-b primary" data-act="pingf" data-m="ping">Ping</button><button type="submit" class="wg-b" data-act="pingf" data-m="traceroute">Traceroute</button></form>` + (G.pout ? card(G.pout.t, `<pre class="wg-pre">${esc(G.pout.o)}</pre>`) : '<p class="wg-empty">Gib eine Ziel-IP ein. Der Test läuft vom Gerät aus, mit der Quelladresse der Ausgangsschnittstelle.</p>');
 
+  // ---------- DHCP (Cisco IOS und ASA) ----------
+  const dhcpPools = d => A.blocks(d, 'ip dhcp pool').map(b => { const g = k => { const l = b.lines.find(x => x.toLowerCase().startsWith(k + ' ')); return l ? l.slice(k.length + 1).trim() : ''; }, nm = b.head.split(' ')[3], nw = g('network').split(' '); return { name: nm, net: nw[0] || '', mask: nw[1] || '', gw: g('default-router'), dns: g('dns-server'), leases: d.leases && d.leases[nm] ? Object.keys(d.leases[nm]).length : 0 }; });
+  const excluded = d => d.cfg.lines.filter(l => /^ip dhcp excluded-address /i.test(l)).map(l => l.split(' ').slice(3));
+  PAGES.switch.dhcp = PAGES.router.dhcp = (d, G) => {
+    const ps = dhcpPools(d), ifs = Object.keys(d.cfg.ifs).filter(n => d.cfg.ifs[n].ip), has = p => ifs.find(n => A.inNet(d.cfg.ifs[n].ip, p.net, p.mask));
+    return `<p class="wg-note">Ein Switch mit <code>ip routing</code> oder ein Router kann DHCP-Server sein. Der Pool wird für das Netz benutzt, in dem die Schnittstelle (SVI) liegt, an der die Clients hängen. Clients in anderen Netzen brauchen ein Relay (<code>ip helper-address</code>).</p>`
+      + card('DHCP-Pools', `<div class="wg-row">${btn('Pool hinzufügen', 'dlg', { k: 'dpool' }, 'primary')}</div>` + tbl(['Name', 'Netz', 'Default-Router', 'DNS', 'Schnittstelle', 'Leases', ''], ps.map(p => [`<b>${esc(p.name)}</b>`, p.net ? esc(p.net + '/' + maskLen(p.mask)) : '<span class="wg-mut">fehlt</span>', esc(p.gw || '–'), esc(p.dns || '–'), has(p) ? esc(A.SH(has(p))) : chip('keine Schnittstelle im Netz', 'bad'), p.leases, btn('Löschen', 'dpooldel', { n: p.name }, 'sm ghost bad')]), 'Noch kein Pool. Ohne Pool vergibt das Gerät keine Adressen.'))
+      + card('Ausgeschlossene Adressen', `<div class="wg-row">${btn('Bereich ausschließen', 'dlg', { k: 'dexcl' }, 'primary')}</div>` + tbl(['Von', 'Bis', ''], excluded(d).map((a, i) => [`<b>${esc(a[0])}</b>`, esc(a[1] || a[0]), btn('Entfernen', 'dexcldel', { i }, 'sm ghost')]), 'Keine. Schließe Gateway und feste Server-Adressen aus dem Pool aus.'))
+      + card('DHCP-Relay (ip helper-address)', tbl(['Schnittstelle', 'IP-Adresse', 'Relay zu', ''], ifs.map(n => [`<b>${esc(A.SH(n))}</b>`, esc(d.cfg.ifs[n].ip), d.cfg.ifs[n].helper ? esc(d.cfg.ifs[n].helper) : '<span class="wg-mut">–</span>', btn('Ändern', 'dlg', { k: 'dhelp', n }, 'sm')]), 'Keine Schnittstelle mit IP-Adresse.'))
+      + card('Vergebene Adressen', showBox(d, 'show ip dhcp binding'));
+  };
+  PAGES.firewall.dhcp = (d, G) => {
+    const dd = d.cfg.dhcpd || { pools: {}, dns: null }, ifs = Object.keys(d.cfg.ifs).filter(n => d.cfg.ifs[n].nameif && d.cfg.ifs[n].ip);
+    return `<p class="wg-note">Die ASA kann pro Zone einen DHCP-Server betreiben. Der Bereich muss im Subnetz der Schnittstelle liegen; die Schnittstelle selbst ist Gateway der Clients.</p>`
+      + card('DHCP-Server je Schnittstelle', tbl(['Schnittstelle', 'Zone', 'Subnetz', 'Adressbereich', 'Status', ''], ifs.map(n => { const i = d.cfg.ifs[n], q = dd.pools[i.nameif] || {}; return [`<b>${esc(A.SH(n))}</b>`, esc(i.nameif), esc(i.ip + '/' + maskLen(i.mask)), q.start ? esc(q.start + ' – ' + q.end) : '<span class="wg-mut">nicht festgelegt</span>', q.on ? chip('aktiviert', 'ok') : chip('aus'), btn('Bearbeiten', 'dlg', { k: 'fwdhcp', n }, 'sm')]; }), 'Keine Schnittstelle mit Zone und IP-Adresse. Lege sie unter „Schnittstellen“ an.'))
+      + card('Gemeinsame Einstellungen', `<dl class="wg-dl"><dt>DNS-Server für Clients</dt><dd>${esc(dd.dns || '–')}</dd></dl>`)
+      + card('Bindings', showBox(d, 'show dhcpd binding'));
+  };
+
   // ---------- Firewall (ASA, Oberfläche im OPNsense-Stil) ----------
   const zoneOf = (d, n) => d.cfg.ifs[n].nameif;
   const fwIfs = d => d.ports.filter(p => d.cfg.ifs[p]);
@@ -3811,8 +4018,8 @@ const WEBGUI = (function () {
     if (rules && !bound) hint.push('Es gibt Regeln, aber keine ist an eine Schnittstelle gebunden. Erst die Bindung („eingehend“) macht sie wirksam.');
     return `<div class="wg-cards">
       ${card('System', `<dl class="wg-dl"><dt>Hostname</dt><dd>${esc(d.cfg.hostname)}</dd><dt>Modell</dt><dd>${esc(d.model || 'ASA')}</dd><dt>Konfiguration</dt><dd>${d.saved ? chip('gespeichert', 'ok') : chip('nicht gespeichert', 'bad')}</dd><dt>Verkehr zwischen gleichen Levels</dt><dd>${d.cfg.sameSec ? chip('erlaubt', 'ok') : chip('gesperrt')}</dd></dl>`)}
-      ${card('Schnittstellen', `<p class="wg-big">${up}<small> von ${ps.length} verbunden</small></p>${bar(up, ps.length, 101)}${btn('Zuweisungen und Zonen', 'nav', { p: 'interfaces' }, 'sm')}`)}
-      ${card('Regeln und NAT', `<p class="wg-big">${rules}<small> Regeln · ${bound} Bindungen</small></p><p class="wg-note">${d.cfg.nat.length} NAT-Regel${d.cfg.nat.length === 1 ? '' : 'n'}, ${d.cfg.routes.length} statische Route${d.cfg.routes.length === 1 ? '' : 'n'}</p>${btn('Zu den Regeln', 'nav', { p: 'rules' }, 'sm')}`)}
+      ${card('Schnittstellen', `<p class="wg-big">${up}<small> von ${ps.length} verbunden</small></p>${bar(up, ps.length, 101)}${btn('Zu den Schnittstellen', 'nav', { p: 'interfaces' }, 'sm')}`)}
+      ${card('Regeln und NAT', `<p class="wg-big">${rules}<small> Regeln · ${bound} Bindungen</small></p><p class="wg-note">${d.cfg.nat.length} NAT-Regel${d.cfg.nat.length === 1 ? '' : 'n'}, ${d.cfg.routes.length} statische Route${d.cfg.routes.length === 1 ? '' : 'n'}</p>${btn('Zu den Zugriffsregeln', 'nav', { p: 'rules' }, 'sm')}`)}
     </div>${hint.length ? `<div class="wg-msg err" role="status">${hint.map(esc).join('<br>')}</div>` : ''}
     ${card('Zonen', tbl(['Schnittstelle', 'Zone', 'Security-Level', 'IP-Adresse', 'Status'], ps.filter(p => zoneOf(d, p) || d.cfg.ifs[p].ip).map(p => { const i = d.cfg.ifs[p]; return [`<b>${esc(A.SH(p))}</b>`, i.nameif ? esc(i.nameif) : '<span class="wg-mut">–</span>', i.sl === null ? '–' : i.sl, i.ip ? esc(i.ip + '/' + maskLen(i.mask)) : '–', stChip(d, p)]; }), 'Noch keine Zonen. Weise einer Schnittstelle einen Namen zu.'))}
     <p class="wg-note">Regel: Verkehr von hohem zu niedrigem Security-Level (inside → outside) ist erlaubt, der umgekehrte Weg wird ohne ACL verworfen. Antworten auf erlaubte Verbindungen lässt die Firewall zustandsbehaftet durch.</p>`;
@@ -3831,6 +4038,23 @@ const WEBGUI = (function () {
   PAGES.firewall.general = (d, G) => card('Hostname', `<div class="wg-row end">${field('hn', 'Hostname', d.cfg.hostname)}${btn('Speichern', 'hostname', null, 'primary')}</div>`)
     + card('Verkehr zwischen Zonen gleichen Levels', `<p>${d.cfg.sameSec ? chip('erlaubt', 'ok') : chip('gesperrt')} Standardmäßig lässt die ASA keinen Verkehr zwischen Zonen mit demselben Security-Level zu.</p><div class="wg-row">${btn(d.cfg.sameSec ? 'Sperren' : 'Erlauben', 'fwsame', null, d.cfg.sameSec ? '' : 'primary')}</div><p class="wg-note"><code>same-security-traffic permit inter-interface</code></p>`);
 
+  // ---------- HyperMetro (aktiv-aktiv mit Quorum-Server) ----------
+  PAGES.storage.hypermetro = (d, G) => {
+    const net = A.net(), S = ST(), dm = S.hm(d), others = Object.values(net.devs).filter(x => x.type === 'storage' && x.id !== d.id), srvs = Object.values(net.devs).filter(x => x.type === 'server' && !A.isCloud(x) && !x.vm);
+    const intro = `<p class="wg-note">HyperMetro verbindet zwei Storage-Arrays zu einem aktiv-aktiv-Cluster: Die Hosts sehen eine LUN mit Pfaden zu <b>beiden</b> Arrays. Fällt ein Array oder die Verbindung zwischen ihnen aus, entscheidet ein <b>Quorum-Server</b> an einem dritten Standort, welche Seite weiterarbeiten darf. Ohne diesen Schiedsrichter könnten beide Seiten gleichzeitig schreiben (Split-Brain) und die Daten zerstören.</p>`;
+    if (!dm) return intro + card('HyperMetro-Domäne', `<p>${chip('nicht eingerichtet')} Dieses Array gehört noch zu keiner Domäne.</p><div class="wg-row">${btn('Domäne erstellen', 'dlg', { k: 'hmnew' }, 'primary' + (others.length && srvs.length ? '' : ' disabled'))}</div>${!others.length ? '<p class="wg-warn">Es gibt kein zweites Storage-System im Plan.</p>' : ''}${!srvs.length ? '<p class="wg-warn">Für den Quorum-Server brauchst du einen Server (dritter Standort).</p>' : ''}`);
+    const b = net.devs[dm.peer], q = net.devs[dm.quorum], st = S.hmState(net, d), me = st.a.id === d.id ? st.a : st.b, peer = st.a.id === d.id ? st.b : st.a, qs = S.quorumState(net, q), qip = q ? S.ipOf(q) : null;
+    const modes = { normal: [chip('normal: aktiv-aktiv', 'ok')], split: [chip('Verbindung getrennt: ein Array arbeitet', 'bad')], failover: [chip('Failover: ein Array arbeitet', 'bad')], stopped: [chip('gestoppt: kein Zugriff', 'bad')] };
+    const side = (x, dev) => [`<b>${esc(dev.cfg.hostname)}</b>${dm.preferred === dev.id ? ' <small class="wg-mut">(bevorzugt)</small>' : ''}`, x.up ? chip('läuft', 'ok') : chip('aus', 'bad'), x.q.ok ? chip('erreichbar', 'ok') : `${chip('nicht erreichbar', 'bad')}<br><small class="wg-mut">${esc(x.q.why || '')}</small>`, x.active ? chip('aktiv', 'ok') : chip('Standby', 'bad')];
+    const pairs = S.st(d).luns.filter(l => l.hm);
+    return intro
+      + card(`Domäne ${esc(dm.name)}`, `<p>${modes[st.mode][0]}</p><p>${esc(st.text)}</p>` + tbl(['Array', 'Zustand', 'Quorum-Server', 'Rolle'], [side(me, d), side(peer, b)])
+        + `<dl class="wg-dl"><dt>Replikationsverbindung</dt><dd>${st.link.ok ? chip('verbunden', 'ok') + ' über ' + esc(st.link.via) : chip('unterbrochen', 'bad') + ' <small class="wg-mut">' + esc(st.link.why) + '</small>'}</dd><dt>Bevorzugter Standort</dt><dd>${esc(net.devs[dm.preferred].cfg.hostname)}</dd><dt>Statische Priorität als Fallback</dt><dd>${dm.staticFallback ? chip('an', 'ok') : chip('aus')}</dd></dl>`
+        + `<div class="wg-row">${btn('Einstellungen', 'dlg', { k: 'hmset' }, 'sm')}${btn('Replikationszonen anlegen', 'hmzone', null, 'sm')}${btn('Domäne löschen', 'hmdel', null, 'sm ghost bad')}</div>`)
+      + card('Quorum-Server', `<dl class="wg-dl"><dt>Server</dt><dd>${q ? '<b>' + esc(q.cfg.hostname) + '</b>' : '–'}${qip ? ' (' + esc(qip) + ')' : ''}</dd><dt>Dienst</dt><dd>${qs.ok ? chip('läuft', 'ok') : chip('nicht bereit', 'bad') + ' <small class="wg-mut">' + esc(qs.why) + '</small>'}</dd></dl><p class="wg-note">Auf dem Server installierst du das Paket <code>quorum-server</code> und startest den Dienst: <code>sudo apt install quorum-server</code>, dann <code>sudo systemctl enable --now quorum-server</code>. Er muss von beiden Arrays über deren Management-Netz erreichbar sein, am besten an einem dritten Standort.</p>`)
+      + card('HyperMetro-Paare', `<div class="wg-row">${btn('Paar erstellen', 'dlg', { k: 'hmpair' }, 'primary')}</div>` + tbl(['LUN', 'Größe', `Pool auf ${esc(d.cfg.hostname)}`, `Partner-LUN auf ${esc(b.cfg.hostname)}`, 'Status', ''], pairs.map(l => { const r = S.st(b).luns.find(x => x.id === l.hm.peerLun), both = me.active && peer.active; return [`<b>${esc(l.name)}</b>`, gb(l.gb), esc(l.pool), r ? esc(r.name + ' (' + r.pool + ')') : '–', both ? chip('aktiv-aktiv', 'ok') : me.active || peer.active ? chip('nur ' + esc((me.active ? d : b).cfg.hostname), 'bad') : chip('gestoppt', 'bad'), btn('Auflösen', 'hmpairdel', { l: l.id }, 'sm ghost bad')]; }), 'Noch kein Paar. Ein Paar spiegelt eine LUN synchron auf das Partner-Array; Hosts bekommen sie mit Pfaden zu beiden Arrays.'));
+  };
+
   // ---------- Dialoge ----------
   function dlgHtml(d, G) {
     const x = G.dlg, k = x.k, net = A.net(), wrap = (t, body, ok, okLbl) => `<div class="wg-ov" data-act="dlgbg"><form class="wg-dlg" role="dialog" aria-modal="true" aria-label="${esc(t)}" data-act="dlgok"><h2>${t}</h2>${body}<div class="wg-row end">${btn('Abbrechen', 'dlgx', null, 'ghost')}${ok === false ? '' : `<button type="submit" class="wg-b primary" data-act="dlgok">${okLbl || 'OK'}</button>`}</div></form></div>`;
@@ -3841,6 +4065,13 @@ const WEBGUI = (function () {
       case 'fwbind': return wrap('Regelliste an Zone binden', sel('acl', 'Regelliste', Object.keys(d.cfg.acls).map(a => [a, a])) + sel('z', 'Zone (eingehend)', Object.values(d.cfg.ifs).filter(i => i.nameif).map(i => [i.nameif, i.nameif])), true, 'Binden');
       case 'fwnat': { const z = Object.values(d.cfg.ifs).filter(i => i.nameif).map(i => [i.nameif, i.nameif]); return wrap('NAT-Regel (dynamisches PAT)', sel('from', 'Von Zone (intern)', z, 'inside') + sel('to', 'Nach Zone (extern)', z, 'outside'), z.length > 1, 'Hinzufügen'); }
       case 'fwroute': return wrap('Statische Route', sel('z', 'Über Zone', Object.values(d.cfg.ifs).filter(i => i.nameif).map(i => [i.nameif, i.nameif]), 'outside') + `<div class="wg-2">${field('net', 'Zielnetz', '0.0.0.0')}${field('mask', 'Subnetzmaske', '0.0.0.0')}</div>` + field('gw', 'Gateway', '', { ph: '203.0.113.1' }), true, 'Hinzufügen');
+      case 'dpool': return wrap('DHCP-Pool hinzufügen', field('n', 'Name', '', { ph: 'CLIENTS' }) + `<div class="wg-2">${field('net', 'Netz', '', { ph: '10.30.0.0' })}${field('mask', 'Subnetzmaske', '255.255.255.0')}</div><div class="wg-2">${field('gw', 'Default-Router', '', { ph: '10.30.0.1' })}${field('dns', 'DNS-Server', '', { ph: '10.10.0.53' })}</div>`, true, 'Anlegen');
+      case 'dexcl': return wrap('Adressen ausschließen', `<div class="wg-2">${field('a', 'Von', '', { ph: '10.30.0.1' })}${field('b', 'Bis (optional)', '', { ph: '10.30.0.20' })}</div>`, true, 'Ausschließen');
+      case 'dhelp': return wrap(`Relay auf ${esc(A.SH(x.n))}`, field('h', 'DHCP-Server (leer = kein Relay)', d.cfg.ifs[x.n].helper || '', { ph: '10.10.0.11' }), true, 'Speichern');
+      case 'fwdhcp': { const i = d.cfg.ifs[x.n], q = (d.cfg.dhcpd && d.cfg.dhcpd.pools[i.nameif]) || {}; return wrap(`DHCP-Server auf ${esc(i.nameif)}`, `<div class="wg-2">${field('s', 'Erste Adresse', q.start || '', { ph: '10.255.0.100' })}${field('e', 'Letzte Adresse', q.end || '', { ph: '10.255.0.150' })}</div>` + field('dns', 'DNS-Server für Clients', (d.cfg.dhcpd && d.cfg.dhcpd.dns) || '') + sel('on', 'Status', [['1', 'aktiviert'], ['0', 'aus']], q.on ? '1' : '0'), true, 'Anwenden'); }
+      case 'hmnew': { const others = Object.values(net.devs).filter(y => y.type === 'storage' && y.id !== d.id), fcn = y => y.ports.filter(p => y.pk[p] === 'fc').length, srvs = Object.values(net.devs).filter(y => y.type === 'server' && !A.isCloud(y) && !y.vm).sort((a, b) => fcn(a) - fcn(b)); return wrap('HyperMetro-Domäne erstellen', field('n', 'Name der Domäne', 'DOM1') + sel('peer', 'Partner-Array', others.map(y => [y.id, y.cfg.hostname])) + sel('q', 'Quorum-Server (dritter Standort)', srvs.map(y => [y.id, y.cfg.hostname + (S0().ipOf(y) ? ' (' + S0().ipOf(y) + ')' : '')])) + sel('pref', 'Bevorzugter Standort', [['local', d.cfg.hostname + ' (dieses Array)'], ['remote', 'Partner-Array']], 'local', 'Bei einer Trennung gewinnt dieser Standort, wenn beide den Quorum-Server erreichen.') + `<label class="wg-ck2"><input type="checkbox" id="wf-sf" checked> Statische Priorität als Fallback, wenn der Quorum-Server nicht erreichbar ist</label>`, true, 'Erstellen'); }
+      case 'hmset': { const dm = S0().hm(d), b = net.devs[dm.peer], srvs = Object.values(net.devs).filter(y => y.type === 'server' && !A.isCloud(y) && !y.vm); return wrap('Domäne bearbeiten', sel('pref', 'Bevorzugter Standort', [[d.id, d.cfg.hostname], [b.id, b.cfg.hostname]], dm.preferred) + sel('q', 'Quorum-Server', srvs.map(y => [y.id, y.cfg.hostname]), dm.quorum) + `<label class="wg-ck2"><input type="checkbox" id="wf-sf" ${dm.staticFallback ? 'checked' : ''}> Statische Priorität als Fallback</label>`, true, 'Speichern'); }
+      case 'hmpair': { const dm = S0().hm(d), b = net.devs[dm.peer], free = S0().st(d).luns.filter(l => !l.hm); return wrap('HyperMetro-Paar erstellen', free.length ? sel('lun', 'LUN auf diesem Array', free.map(l => [l.id, `${l.name} (${gb(l.gb)})`])) + sel('pool', `Pool auf ${esc(b.cfg.hostname)} für die Partner-LUN`, S0().st(b).pools.map(p => [p.name, `${p.name} (${gb(S0().poolInfo(b, p).free)} frei)`]), '', 'Die Partner-LUN bekommt dieselbe Größe und dieselbe Host-Zuordnung.') : '<p class="wg-empty">Lege zuerst eine LUN an, die gespiegelt werden soll.</p>', free.length > 0, 'Paar erstellen'); }
       case 'ifedit': {
         const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
         const vl = Object.keys(d.cfg.vlans || {}).map(Number).sort((a, b) => a - b).map(n => [n, `${n} – ${d.cfg.vlans[n]}`]);
@@ -3910,6 +4141,13 @@ const WEBGUI = (function () {
         case 'fwbind': ok = ios(G, `access-group ${v(G, 'acl')} in interface ${v(G, 'z')}`, 'Regelliste gebunden.'); break;
         case 'fwnat': ok = ios(G, `nat (${v(G, 'from')},${v(G, 'to')}) source dynamic any interface`, 'NAT-Regel hinzugefügt.'); break;
         case 'fwroute': ok = ios(G, `route ${v(G, 'z')} ${v(G, 'net').trim()} ${v(G, 'mask').trim()} ${v(G, 'gw').trim()}`, 'Route hinzugefügt.'); break;
+        case 'dpool': { const n = v(G, 'n').trim().replace(/\s+/g, '_'), L = ['ip dhcp pool ' + n, `network ${v(G, 'net').trim()} ${v(G, 'mask').trim()}`]; if (!n) { ok = false; break; } if (v(G, 'gw').trim()) L.push('default-router ' + v(G, 'gw').trim()); if (v(G, 'dns').trim()) L.push('dns-server ' + v(G, 'dns').trim()); L.push('exit'); ok = ios(G, L, 'Pool angelegt. Die Clients bekommen ab jetzt Adressen aus diesem Netz.'); break; }
+        case 'dexcl': { const a = v(G, 'a').trim(), b = v(G, 'b').trim(); ok = ios(G, `ip dhcp excluded-address ${a}${b ? ' ' + b : ''}`, 'Bereich ausgeschlossen.'); break; }
+        case 'dhelp': { const h = v(G, 'h').trim(); ok = ios(G, ['interface ' + x.n, h ? 'ip helper-address ' + h : 'no ip helper-address', 'exit'], h ? 'Relay eingerichtet.' : 'Relay entfernt.'); break; }
+        case 'fwdhcp': { const i = dv.cfg.ifs[x.n], s0 = v(G, 's').trim(), e0 = v(G, 'e').trim(), dn = v(G, 'dns').trim(), L = []; if (s0 || e0) L.push(`dhcpd address ${s0}-${e0} ${i.nameif}`); if (dn) L.push('dhcpd dns ' + dn); L.push(v(G, 'on') === '1' ? 'dhcpd enable ' + i.nameif : 'no dhcpd enable ' + i.nameif); ok = ios(G, L, 'DHCP-Server gespeichert.'); break; }
+        case 'hmnew': A.act(() => { ok = res(G, A.STOR.hmCreate(net, dv, net.devs[v(G, 'peer')], { name: v(G, 'n'), quorum: v(G, 'q'), preferred: v(G, 'pref'), staticFallback: v(G, 'sf') }), 'HyperMetro-Domäne erstellt. Lege Replikationszonen an und richte den Quorum-Server ein.'); }); break;
+        case 'hmset': A.act(() => { ok = res(G, A.STOR.hmSet(net, dv, { preferred: v(G, 'pref'), quorum: v(G, 'q'), staticFallback: v(G, 'sf') }), 'Gespeichert.'); }); break;
+        case 'hmpair': A.act(() => { ok = res(G, A.STOR.hmPairCreate(net, dv, { lun: v(G, 'lun'), pool: v(G, 'pool') }), 'Paar erstellt. Hosts sehen die LUN jetzt mit Pfaden zu beiden Arrays (nach einem Rescan).'); }); break;
         case 'ifedit': {
           const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
           const allow = v(G, 'allow').trim().toLowerCase();
@@ -3965,7 +4203,7 @@ const WEBGUI = (function () {
         case 'newfw': E(`New-NetFirewallRule -DisplayName "${v(G, 'n')}" -Direction Inbound -LocalPort ${v(G, 'p')} -Protocol ${v(G, 'pr')} -Action Allow`, 'Regel erstellt.'); break;
         case 'newpool': A.act(() => { ok = res(G, A.STOR.createPool(dv, { name: v(G, 'n'), raid: v(G, 'r'), disks: v(G, 'c'), diskGb: v(G, 'g') }), 'Pool erstellt.'); }); break;
         case 'newlun': A.act(() => { ok = res(G, A.STOR.createLun(dv, { name: v(G, 'n'), pool: v(G, 'p'), gb: v(G, 'g'), thin: v(G, 'thin') }), 'LUN erstellt. Ordne sie jetzt einem Host zu.'); }); break;
-        case 'maplun': A.act(() => { root.querySelectorAll('[data-host]').forEach(c => A.STOR.maskLun(dv, +x.l, c.dataset.host, c.checked)); G.msg = { t: 'Zuordnung gespeichert.' }; }); break;
+        case 'maplun': A.act(() => { root.querySelectorAll('[data-host]').forEach(c => A.STOR.maskLun(dv, +x.l, c.dataset.host, c.checked, A.net())); G.msg = { t: 'Zuordnung gespeichert.' }; }); break;
         case 'newzone2': A.act(() => { ok = res(G, A.STOR.zoneAdd(dv, v(G, 'n'), [v(G, 'i'), v(G, 't')]), 'Zone erstellt. Aktiviere das Zoneset, damit sie gilt.'); }); break;
       }
       if (ok) G.dlg = null; done();
@@ -3989,6 +4227,11 @@ const WEBGUI = (function () {
       if (b.disabled || b.classList.contains('disabled')) return;
       G.msg = a === 'nav' || a === 'tab' ? null : G.msg;
       switch (a) {
+        case 'hmzone': A.act(() => { const r = A.STOR.hmAutoZone(net, dv); G.msg = { t: r.n ? `${r.n} Replikationszone${r.n > 1 ? 'n' : ''} angelegt. Aktiviere das Zoneset am FC-Switch.` : 'Keine neuen Replikationszonen nötig (oder die Arrays hängen nicht am selben FC-Switch).' }; }); break;
+        case 'hmdel': A.act(() => { res(G, A.STOR.hmDelete(net, dv), 'Domäne gelöscht.'); }); break;
+        case 'hmpairdel': A.act(() => { res(G, A.STOR.hmPairDelete(net, dv, D.l), 'Paar aufgelöst, die Partner-LUN wurde gelöscht.'); }); break;
+        case 'dpooldel': ios(G, 'no ip dhcp pool ' + D.n, 'Pool gelöscht.'); break;
+        case 'dexcldel': { const a = excluded(dv)[+D.i]; if (a) ios(G, `no ip dhcp excluded-address ${a.join(' ')}`, 'Ausschluss entfernt.'); break; }
         case 'fwacldel': ios(G, 'no access-list ' + D.a, 'Regelliste gelöscht.'); break;
         case 'fwunbind': ios(G, `no access-group x in interface ${D.z}`, 'Bindung gelöst.'); break;
         case 'fwnatdel': { const n = dv.cfg.nat[+D.i]; if (n) ios(G, `no nat (${n.from},${n.to}) source dynamic any interface`, 'NAT-Regel gelöscht.'); break; }
@@ -4008,6 +4251,8 @@ const WEBGUI = (function () {
         case 'iosave': { const o = A.ios(dv, ['write memory'], { conf: false }); G.log.push({ cmd: 'write memory', err: false }); G.msg = /OK/.test(o) ? { t: 'Konfiguration gespeichert (Startup-Config).' } : { err: true, t: o }; break; }
         case 'close': if (G.onClose) G.onClose(); return;
         case 'pwron': A.powerOn(G.id); break;
+        case 'mode': G.page = FW[D.m].find(n => n[0][0] !== '-')[0]; G.dlg = null; G.msg = null; break;
+        case 'refresh': G.msg = { t: 'Aktualisiert.' }; break;
         case 'logout': SESS[G.id] = false; G.auth = false; G.msg = null; break;
         case 'nav': G.page = D.p; G.dlg = null; break;
         case 'tab': G.tab[D.t] = D.v; break;
@@ -4023,7 +4268,7 @@ const WEBGUI = (function () {
         case 'vmdel': if (!confirm('VM löschen?')) break; A.act(() => { A.VIRT.del(net, net.devs[D.v]); }); G.msg = { t: 'VM gelöscht.' }; break;
         case 'cluster': A.act(() => { dv.hv.cluster = v(G, 'cl').trim(); }); G.msg = { t: 'Cluster gespeichert.' }; break;
         case 'delpool': { let r; A.act(() => { r = A.STOR.deletePool(dv, D.n); }); res(G, r, 'Pool gelöscht.'); break; }
-        case 'dellun': A.act(() => { A.STOR.deleteLun(dv, +D.l); }); G.msg = { t: 'LUN gelöscht.' }; break;
+        case 'dellun': { let r; A.act(() => { r = A.STOR.deleteLun(dv, +D.l); }); res(G, r, 'LUN gelöscht.'); break; }
         case 'autozone': A.act(() => { const r = A.STOR.autoZones(net, dv); G.msg = { t: r.n ? `${r.n} Zone${r.n > 1 ? 'n' : ''} angelegt. Aktiviere das Zoneset.` : 'Keine neuen Zonen nötig.' }; }); break;
         case 'zset': A.act(() => { const r = A.STOR.zoneActive(dv, !A.STOR.zs(dv).active); res(G, r, A.STOR.zs(dv).active ? 'Zoneset aktiviert.' : 'Zoneset deaktiviert: keine Verbindungen mehr.'); }); break;
         case 'delzone': A.act(() => { A.STOR.zoneDel(dv, D.n); }); G.msg = { t: 'Zone gelöscht.' }; break;
@@ -5417,20 +5662,65 @@ const Sandbox = (function () {
     if (!sv || !((port === 80 && sv.http.on) || (port === 443 && sv.http.on && sv.http.https))) return { err: `Verbindung abgelehnt: Auf ${srv ? srv.cfg.hostname : ip} lauscht kein ${port === 443 ? 'HTTPS' : 'HTTP'}-Server auf Port ${port}.` };
     return { ok: true, ip, host, scheme, port, title: sv.http.title || srv.cfg.hostname, body: sv.http.body };
   }
+  // DHCP: Server im selben Segment (Linux/Windows-Server, Cisco-Router/L3-Switch, ASA) oder über ein Relay (ip helper-address)
+  function leaseIp(srv, key, c, net, mask, from, to, skip, taken) {
+    srv.leases = srv.leases || {}; const L = srv.leases[key] = srv.leases[key] || {};
+    const ok = ip => ip && NL.inNet(ip, net, mask) && !skip(ip) && !taken.has(ip); if (ok(L[c.id])) return L[c.id];
+    Object.entries(L).forEach(([k, v]) => { if (k !== c.id) taken.add(v); });
+    for (let n = from; n <= to; n++) { const cand = NL.n2ip(n); if (ok(cand)) { L[c.id] = cand; return cand; } }
+    return null;
+  }
+  function offerFrom(sv, gi, c) {
+    const ips = allIps(), taken = new Set(Object.keys(ips).filter(k => ips[k] !== c));
+    if (NL.isHost(sv)) {
+      if (sv.type !== 'server' || !sv.svc || !sv.svc.dhcp.on) return {};
+      const pool = sv.svc.dhcp;
+      if (!NL.validIp(pool.start) || NL.maskLen(pool.mask) === null) return { why: `DHCP auf ${sv.cfg.hostname}: Pool nicht fertig konfiguriert (Startadresse/Maske).` };
+      if (!NL.inNet(pool.start, gi.ip, pool.mask) || NL.maskLen(pool.mask) !== NL.maskLen(gi.mask)) return { why: `DHCP auf ${sv.cfg.hostname}: Pool ${pool.start}/${NL.maskLen(pool.mask)} liegt nicht im Subnetz ${gi.ip}/${NL.maskLen(gi.mask)} (Schnittstelle bzw. Relay).` };
+      pool.leases = pool.leases || {}; let ip = pool.leases[c.id];
+      if (!ip) { Object.entries(pool.leases).forEach(([k, v]) => { if (k !== c.id) taken.add(v); }); for (let k = 0; k < pool.max; k++) { const cand = NL.n2ip(NL.ip2n(pool.start) + k); if (!NL.inNet(cand, gi.ip, pool.mask)) break; if (!taken.has(cand)) { ip = cand; break; } } }
+      if (!ip) return { why: `Der DHCP-Pool auf ${sv.cfg.hostname} ist erschöpft.` };
+      pool.leases[c.id] = ip; return { ok: true, ip, mask: pool.mask, gw: pool.gw, dns: pool.dns, server: sv.cfg.hostname };
+    }
+    if (sv.fw) {
+      const dd = sv.cfg.dhcpd; if (!dd) return {};
+      const nm = Object.keys(sv.cfg.ifs).find(n => sv.cfg.ifs[n].nameif && sv.cfg.ifs[n].ip && NL.inNet(gi.ip, sv.cfg.ifs[n].ip, sv.cfg.ifs[n].mask)), q = nm && dd.pools[sv.cfg.ifs[nm].nameif];
+      if (!q || !q.on) return {}; const ic = sv.cfg.ifs[nm];
+      if (!q.start || !NL.inNet(q.start, ic.ip, ic.mask) || !NL.inNet(q.end, ic.ip, ic.mask)) return { why: `DHCP auf ${sv.cfg.hostname}: Bereich ${q.start || '–'}-${q.end || '–'} liegt nicht im Subnetz ${ic.ip}/${NL.maskLen(ic.mask)}.` };
+      const ip = leaseIp(sv, ic.nameif, c, ic.ip, ic.mask, NL.ip2n(q.start), NL.ip2n(q.end), x => x === ic.ip, taken);
+      return ip ? { ok: true, ip, mask: ic.mask, gw: ic.ip, dns: dd.dns, server: sv.cfg.hostname } : { why: `Der DHCP-Bereich auf ${sv.cfg.hostname} (${ic.nameif}) ist erschöpft.` };
+    }
+    const pools = NL.blocks(sv, 'ip dhcp pool'); if (!pools.length) return {};
+    const val = (b, k) => { const l = b.lines.find(x => x.toLowerCase().startsWith(k + ' ')); return l ? l.slice(k.length + 1).trim() : null; };
+    let cfgd = false;
+    for (const b of pools) {
+      const nw = (val(b, 'network') || '').split(' '); if (!NL.validIp(nw[0]) || NL.maskLen(nw[1] || '') === null) { cfgd = true; continue; }
+      if (!NL.inNet(gi.ip, nw[0], nw[1])) continue;
+      const ex = sv.cfg.lines.filter(l => /^ip dhcp excluded-address /i.test(l)).map(l => l.split(' ').slice(3)).filter(a => NL.validIp(a[0])).map(a => [NL.ip2n(a[0]), NL.ip2n(a[1] || a[0])]);
+      const n0 = NL.netN(nw[0], nw[1]), bc = (n0 | (~NL.ip2n(nw[1]) >>> 0)) >>> 0, name = b.head.split(' ')[3];
+      const ip = leaseIp(sv, name, c, nw[0], nw[1], n0 + 1, bc - 1, x => { const n = NL.ip2n(x); return x === gi.ip || ex.some(r => n >= r[0] && n <= r[1]); }, taken);
+      return ip ? { ok: true, ip, mask: nw[1], gw: val(b, 'default-router'), dns: val(b, 'dns-server'), server: sv.cfg.hostname } : { why: `Der DHCP-Pool „${name}“ auf ${sv.cfg.hostname} ist erschöpft (oder alle Adressen sind ausgeschlossen).` };
+    }
+    return cfgd ? { why: `DHCP-Pool auf ${sv.cfg.hostname}: „network <Netz> <Maske>“ fehlt oder ist ungültig.` } : { why: `${sv.cfg.hostname} hat DHCP-Pools, aber keiner passt zum Netz ${gi.ip}/${NL.maskLen(gi.mask)} (network im Pool prüfen).` };
+  }
   function dhcpRequest(c) {
     const p = c.ports[0]; if (NL.portStatus(S.net, c.id, p).st !== 'connected') return { err: 'Kein Link – Kabel und Port prüfen.' };
-    const seg = NL.l2(S.net, c.id, p), ips = allIps(); let why = 'Kein DHCP-Server im selben Layer-2-Segment gefunden – VLAN, Trunk und Kabel prüfen (kein DHCP-Relay in diesem Lab).';
+    const seg = NL.l2(S.net, c.id, p), ips = allIps(); let why = 'Kein DHCP-Server im selben Layer-2-Segment gefunden und kein Relay (ip helper-address) an einem Router oder SVI – VLAN, Trunk, Kabel und DHCP-Dienst prüfen.';
     if (seg.notes && seg.notes.length) why += ' ' + seg.notes[0];
+    const fin = (o) => { setHostIp(c, p, o.ip, o.mask); c.cfg.gw = o.gw || null; c.cfg.dns = o.dns || null; return { ok: true, ip: o.ip, mask: o.mask, gw: o.gw, dns: o.dns, server: o.server }; };
     for (const ep of seg.eps) {
-      const sv = S.net.devs[ep.dev]; if (!sv || sv.id === c.id || sv.type !== 'server' || !sv.svc || !sv.svc.dhcp.on) continue;
-      const h = hip(sv, ep.ifn), pool = sv.svc.dhcp; if (!h || !h.ip) continue;
-      if (!NL.validIp(pool.start) || NL.maskLen(pool.mask) === null) { why = `DHCP auf ${sv.cfg.hostname}: Pool nicht fertig konfiguriert (Startadresse/Maske).`; continue; }
-      if (!NL.inNet(pool.start, h.ip, pool.mask) || NL.maskLen(pool.mask) !== NL.maskLen(h.mask)) { why = `DHCP auf ${sv.cfg.hostname}: Pool ${pool.start}/${NL.maskLen(pool.mask)} liegt nicht im Subnetz der Server-Schnittstelle ${h.ip}/${NL.maskLen(h.mask)}.`; continue; }
-      pool.leases = pool.leases || {}; let ip = pool.leases[c.id];
-      if (!ip) { const used = new Set(Object.keys(ips).filter(k => ips[k] !== c)); Object.entries(pool.leases).forEach(([k, v]) => { if (k !== c.id) used.add(v); }); for (let i = 0; i < pool.max; i++) { const cand = NL.n2ip(NL.ip2n(pool.start) + i); if (!NL.inNet(cand, h.ip, pool.mask)) break; if (!used.has(cand)) { ip = cand; break; } } }
-      if (!ip) { why = `Der DHCP-Pool auf ${sv.cfg.hostname} ist erschöpft.`; continue; }
-      pool.leases[c.id] = ip; setHostIp(c, p, ip, pool.mask); c.cfg.gw = pool.gw || null; c.cfg.dns = pool.dns || null;
-      return { ok: true, ip, mask: pool.mask, gw: pool.gw, dns: pool.dns, server: sv.cfg.hostname };
+      const nd = S.net.devs[ep.dev]; if (!nd || nd.id === c.id || NL.isDown(nd)) continue;
+      let gi, srv = nd;
+      if (NL.isHost(nd)) { const h = hip(nd, ep.ifn); if (!h || !h.ip) continue; gi = h; }
+      else {
+        const i = nd.cfg.ifs[ep.ifn]; if (!i || !i.ip) continue; gi = { ip: i.ip, mask: i.mask };
+        const lo = offerFrom(nd, gi, c); if (lo.ok) return fin(lo); if (lo.why) why = lo.why;
+        if (!i.helper) continue;
+        const sv = ips[i.helper]; if (!sv) { why = `Relay auf ${nd.cfg.hostname}: ip helper-address ${i.helper} – unter dieser Adresse antwortet kein Gerät.`; continue; }
+        const r = NL.ping(S.net, nd.id, i.helper); if (!r.ok) { why = `Relay auf ${nd.cfg.hostname} erreicht den DHCP-Server ${i.helper} nicht: ${r.reason}`; continue; }
+        srv = sv; if (NL.isDown(sv)) { why = `Der DHCP-Server ${sv.cfg.hostname} ist nicht erreichbar.`; continue; }
+      }
+      const o = offerFrom(srv, gi, c); if (o.ok) return fin(o); if (o.why) why = o.why;
     }
     return { err: why };
   }
@@ -5542,6 +5832,18 @@ const Sandbox = (function () {
       LXN.init(sd).scsi = [];
     });
     if (!o.noStorage) { const t = hd(net, 'STO-01'); [['A-slot2/1', 'fc1/9'], ['B-slot2/1', 'fc1/10']].forEach(([q, w]) => { lk(net, 'STO-01', q, 'MDS-A', w, 'mmf'); t.xcvr[q] = FCX; hd(net, 'MDS-A').xcvr[w] = FCX; }); }
+  }
+  // HyperMetro-Lab: zwei Arrays am selben FC-Switch, Quorum-Server am Management-Switch
+  function hmBase(net, o = {}) {
+    stBase(net, ['SRV-DB']); const t1 = hd(net, 'STO-01'), srv = hd(net, 'SRV-DB'), m = hd(net, 'MDS-A');
+    mk(net, 'HW-Dorado-5000V6', 1040, 520, 'STO-02'); NL.setCard(net, hd(net, 'STO-02').id, 1, 'IO-4x32G-FC'); const t2 = hd(net, 'STO-02');
+    [['A-slot2/1', 'fc1/11'], ['B-slot2/1', 'fc1/12']].forEach(([q, w]) => { lk(net, 'STO-02', q, 'MDS-A', w, 'mmf'); t2.xcvr[q] = FCX; m.xcvr[w] = FCX; });
+    mk(net, 'HW-2288H-V5', 520, 200, 'QSRV'); lk(net, 'QSRV', 'eth0', 'SW', G + 10); lk(net, 'STO-01', 'A-mgmt', 'SW', G + 11); lk(net, 'STO-02', 'A-mgmt', 'SW', G + 12);
+    rn(net, 'QSRV', ['ip 10.0.0.50/24 10.0.0.1']); rn(net, 'STO-01', ['ip A-mgmt 10.0.0.21/24 10.0.0.1']); rn(net, 'STO-02', ['ip A-mgmt 10.0.0.22/24 10.0.0.1']); LXN.init(hd(net, 'QSRV'));
+    STORN.createPool(t1, { name: 'POOL1', raid: 'raid5', disks: 6, diskGb: 600 }); STORN.createPool(t2, { name: 'POOL2', raid: 'raid5', disks: 6, diskGb: 600 }); STORN.createLun(t1, { name: 'DB01', pool: 'POOL1', gb: 200 }); STORN.maskLun(t1, 0, srv.id, true, net);
+    STORN.autoZones(net, m); STORN.zoneActive(m, true);
+    if (o.domain) { lxr(net, 'QSRV', ['sudo apt install quorum-server', 'sudo systemctl enable --now quorum-server']); STORN.hmCreate(net, t1, t2, { name: 'DOM1', quorum: hd(net, 'QSRV').id, preferred: 'local', staticFallback: false }); STORN.hmPairCreate(net, t1, { lun: 0, pool: 'POOL2' }); STORN.hmAutoZone(net, t1); STORN.autoZones(net, m); lxr(net, 'SRV-DB', ['sudo rescan-scsi-bus.sh']); }
+    else LXN.init(srv).scsi = [];
   }
   // Windows-Grundaufbau: Switch, Router-Gateway, Windows-Server und Client im 10.0.0.0/24
   function winBase(net, servers, o = {}) {
@@ -5730,6 +6032,29 @@ const Sandbox = (function () {
         { t: 'SRV-DB hat vier Pfade und <code>multipath -ll</code> zeigt nach dem Rescan vier aktive Pfade', c: n => STORN.paths(n, hd(n, 'SRV-DB')).length === 4 && hd(n, 'SRV-DB').lx.scsi[0].paths.length === 4 }],
       hints: ['Zwei HBA-Ports × zwei Controller = 4 Pfade. Klicke SRV-DB an → Port-Reiter: Ein HBA-Port hat keinen Link (rot). Welcher Transceiver fehlt?', 'Der zweite Fehler liegt im Zoning: Web-GUI von MDS-A → „Zoning“. Eine Zone ist weggefallen. „Auto-Zoning aus Verkabelung“ ergänzt sie.', 'Danach auf SRV-DB: <code>sudo rescan-scsi-bus.sh</code> und <code>multipath -ll</code>.'],
       sol(net) { const srv = hd(net, 'SRV-DB'), m = hd(net, 'MDS-A'); srv.xcvr['slot2/2'] = FCX; STORN.autoZones(net, m); lxr(net, 'SRV-DB', 'sudo rescan-scsi-bus.sh'); } }
+    ,
+    { id: 'sc-st-hm', kind: 'Aufbau', title: 'Storage: HyperMetro mit Quorum-Server', est: '25 min',
+      intro: 'Die Datenbank-LUN <code>DB01</code> liegt nur auf <code>STO-01</code>. Fällt dieses Array aus, steht die Datenbank. Baue einen <b>HyperMetro</b>-Cluster mit <code>STO-02</code>: Beide Arrays bedienen SRV-DB gleichzeitig, und der Server <code>QSRV</code> entscheidet als Quorum-Server, wer bei einer Trennung weiterarbeiten darf.',
+      build(net) { hmBase(net); },
+      goals: [
+        { t: 'Auf <code>QSRV</code> läuft der Dienst <code>quorum-server</code>', c: n => STORN.quorumState(n, hd(n, 'QSRV')).ok },
+        { t: 'Eine HyperMetro-Domäne verbindet STO-01 und STO-02 mit QSRV als Quorum-Server', c: n => { const d = STORN.hm(hd(n, 'STO-01')); return !!d && d.peer === hd(n, 'STO-02').id && d.quorum === hd(n, 'QSRV').id; } },
+        { t: 'Beide Arrays erreichen den Quorum-Server', c: n => { const a = hd(n, 'STO-01'), d = STORN.hm(a); return !!d && STORN.quorumReach(n, a, d).ok && STORN.quorumReach(n, hd(n, 'STO-02'), STORN.hm(hd(n, 'STO-02'))).ok; } },
+        { t: 'Die Replikationsverbindung zwischen den Arrays steht (Zone am MDS-A, Zoneset aktiv)', c: n => { const s = STORN.hmState(n, hd(n, 'STO-01')); return !!s && s.link.ok; } },
+        { t: '<code>DB01</code> ist ein HyperMetro-Paar, und SRV-DB erreicht sie über beide Arrays', c: n => { const r = STORN.hostLuns(n, hd(n, 'SRV-DB')).find(x => x.name === 'DB01'); return !!r && new Set(r.paths.map(p => p.sto)).size === 2; } },
+        { t: '<code>STO-01</code> ist der bevorzugte Standort', c: n => { const d = STORN.hm(hd(n, 'STO-01')); return !!d && d.preferred === hd(n, 'STO-01').id; } }],
+      hints: ['Starte mit dem Quorum-Server: Web-GUI von QSRV → „Software“ (Paket <code>quorum-server</code>) und „Dienste“. Oder im Terminal <code>sudo apt install quorum-server</code> und <code>sudo systemctl enable --now quorum-server</code>.', 'Web-GUI von STO-01 → „HyperMetro“ → Domäne erstellen: Partner STO-02, Quorum-Server QSRV. Danach „Replikationszonen anlegen“ und das Zoneset am MDS-A aktiv lassen.', 'Ein Paar erstellst du ebenfalls auf der HyperMetro-Seite. SRV-DB braucht außerdem Zonen zu STO-02: Auto-Zoning am MDS-A. Dann am Server <code>sudo rescan-scsi-bus.sh</code>.'],
+      sol(net) { const t1 = hd(net, 'STO-01'), t2 = hd(net, 'STO-02'), m = hd(net, 'MDS-A'); lxr(net, 'QSRV', ['sudo apt install quorum-server', 'sudo systemctl enable --now quorum-server']); STORN.hmCreate(net, t1, t2, { name: 'DOM1', quorum: hd(net, 'QSRV').id, preferred: 'local', staticFallback: true }); STORN.hmPairCreate(net, t1, { lun: 0, pool: 'POOL2' }); STORN.hmAutoZone(net, t1); STORN.autoZones(net, m); lxr(net, 'SRV-DB', 'sudo rescan-scsi-bus.sh'); } },
+    { id: 'sc-st-hm2', kind: 'Fehlersuche', title: 'Storage: HyperMetro verliert bei Ausfall den Zugriff', est: '20 min',
+      intro: 'Der HyperMetro-Cluster aus <code>STO-01</code> und <code>STO-02</code> lief im Test. Beim Ausfall der Verbindung zwischen den Arrays hat SRV-DB aber den Zugriff auf <code>DB01</code> verloren, obwohl ein Array noch lief. Finde heraus, warum die Arbitrierung keinen Gewinner bestimmen konnte.',
+      build(net) { hmBase(net, { domain: true }); lxr(net, 'QSRV', 'sudo systemctl stop quorum-server'); const m = hd(net, 'MDS-A'); m.zset.zones = m.zset.zones.filter(z => !z.name.startsWith('REPL_')); },
+      goals: [
+        { t: 'Der Dienst <code>quorum-server</code> läuft wieder auf QSRV', c: n => STORN.quorumState(n, hd(n, 'QSRV')).ok },
+        { t: 'Beide Arrays erreichen den Quorum-Server', c: n => { const a = hd(n, 'STO-01'), d = STORN.hm(a); return !!d && STORN.quorumReach(n, a, d).ok && STORN.quorumReach(n, hd(n, 'STO-02'), STORN.hm(hd(n, 'STO-02'))).ok; } },
+        { t: 'Die Replikationsverbindung ist wieder da (Replikationszone)', c: n => { const s = STORN.hmState(n, hd(n, 'STO-01')); return !!s && s.link.ok && s.mode === 'normal'; } },
+        { t: 'Als Absicherung ist „Statische Priorität als Fallback“ eingeschaltet', c: n => !!STORN.hm(hd(n, 'STO-01')).staticFallback }],
+      hints: ['Öffne die HyperMetro-Seite von STO-01: Die Domänenübersicht zeigt, ob die Arrays den Quorum-Server erreichen und ob die Replikationsverbindung steht.', 'Der Quorum-Dienst auf QSRV ist gestoppt (<code>sudo systemctl start quorum-server</code>), und die Replikationszone am MDS-A fehlt („Replikationszonen anlegen“).', 'Unter „Einstellungen“ schaltest du die statische Priorität ein: Dann arbeitet der bevorzugte Standort auch weiter, wenn der Quorum-Server ausfällt.'],
+      sol(net) { const t1 = hd(net, 'STO-01'); lxr(net, 'QSRV', 'sudo systemctl start quorum-server'); STORN.hmAutoZone(net, t1); STORN.hmSet(net, t1, { staticFallback: true }); } }
     ,
     // ---- System Engineer: Windows Server und Active Directory ----
     { id: 'sc-win-ad', kind: 'Aufbau', title: 'Windows: Active Directory aufbauen', est: '25 min',
@@ -6106,7 +6431,7 @@ const Sandbox = (function () {
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => downMsg(d) || hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
     isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    ios: iosRun, iosShow, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ios: iosRun, iosShow, blocks: NL.blocks, inNet: NL.inNet, powerOn, powerOff, powerState: d => powerState(d), bootLeft: d => d.boot ? Math.max(0, d.boot.t0 + d.boot.ms - Date.now()) : 0, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
     ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
   });
   DESKN.init({
@@ -6128,7 +6453,7 @@ const Sandbox = (function () {
 
   function close() { document.removeEventListener('keydown', escKey); if (S && S._bt) Object.values(S._bt).forEach(clearTimeout); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, dhcp: d => dhcpRequest(d), gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l), powerOn: id => powerOn(id), powerOff: id => powerOff(id), finishBoot: id => finishBoot(id), dev: h => hd(net, h) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;
