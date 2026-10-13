@@ -16,6 +16,7 @@ const WIN = (function () {
   function init(d) {
     if (d.win) return d.win;
     d.win = { domain: null, feats: {}, svc: { Spooler: 'Running', W32Time: 'Running', LanmanServer: 'Running', MpsSvc: 'Running' }, startup: {}, pendingName: null, fwOn: true, fw: [], files: { 'C:\\Users\\Administrator': { d: 1 }, 'C:\\inetpub': { d: 1 }, 'C:\\inetpub\\wwwroot': { d: 1 }, 'D:\\': { d: 1 } }, shares: [], dnsZones: [], dhcp: { scope: null, auth: false }, ad: null, cwd: 'C:\\Users\\Administrator' };
+    if (d.type === 'pc') { const U = 'C:\\Users\\Benutzer'; d.win.files = { [U]: { d: 1 }, [U + '\\Desktop']: { d: 1 }, [U + '\\Documents']: { d: 1 }, [U + '\\Downloads']: { d: 1 }, [U + '\\Documents\\Notizen.txt']: { t: 'Notizen zum Netzwerk\n- Gateway prüfen\n- DNS testen' }, [U + '\\Desktop\\Willkommen.txt']: { t: 'Willkommen am Arbeitsplatz!\nÖffne die Eingabeaufforderung und teste mit ping die Verbindung.' }, 'D:\\': { d: 1 } }; d.win.cwd = U; }
     if (d.svc) { d.svc.http.on = false; d.svc.dns.on = false; d.svc.dhcp.on = false; } // frische Installation: keine Rollen
     return d.win;
   }

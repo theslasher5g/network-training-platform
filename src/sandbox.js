@@ -12,6 +12,7 @@ const Sandbox = (function () {
   const WINN = typeof WIN !== 'undefined' ? WIN : require('./windows.js');
   const VIRTN = typeof VIRT !== 'undefined' ? VIRT : require('./virt.js');
   const GUIN = typeof WEBGUI !== 'undefined' ? WEBGUI : require('./webgui.js');
+  const DESKN = typeof DESKTOP !== 'undefined' ? DESKTOP : require('./desktop.js');
   const SH = NL.sh, MODELS = NL.MODELS, CARDS = NL.CARDS, XCVR = NL.XCVR, KIND = NL.KIND, hip = NL.hip;
   const RU = 42, UH = 30, RX = 46, RW = 470, VW = 1200, VH = 640;
   const VCOL = ['#2B66C8', '#1E8A57', '#8E44AD', '#D35400', '#16A085', '#C0392B', '#7F8C2D', '#2C7BB6', '#B5487E', '#5D6D7E'];
@@ -575,7 +576,7 @@ const Sandbox = (function () {
     svg.addEventListener('click', e => { const c = e.target.closest('.cp') || e.target.closest('.lw'); if (c) portClick(c.dataset.d, c.dataset.p, !e.target.closest('.cp')); });
     svg.addEventListener('keydown', e => { const g = e.target.closest('[data-dev]'); if (g && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); clickDev(g.dataset.dev); } });
   }
-  function dblDev(id) { const d = S.net.devs[id]; if (!d) return; if (canApps(d)) { S.sel = id; render(); openApps(id, 'home'); } else if (!NL.isHost(d) && d.type !== 'fc') { S.sel = id; S.dock = 'cli'; S.dockOpen = true; render(); setTimeout(() => $('#cmd').focus(), 0); } }
+  function dblDev(id) { const d = S.net.devs[id]; if (!d) return; if (isPc(d)) { S.sel = id; render(); DESKN.open(id); } else if (canApps(d)) { S.sel = id; render(); openApps(id, 'home'); } else if (!NL.isHost(d) && d.type !== 'fc') { S.sel = id; S.dock = 'cli'; S.dockOpen = true; render(); setTimeout(() => $('#cmd').focus(), 0); } }
   function delDev(id) { act(() => { VIRTN.cascade(S.net, id); S.net.links = S.net.links.filter(l => l.a !== id && l.b !== id); delete S.net.devs[id]; delete S.out[id]; if (S.sel === id) { S.sel = null; S.port = null; } }); }
   function toggleOff(id) { const d = S.net.devs[id]; act(() => { d.off = !d.off; toast(d.off ? `<b>${esc(d.cfg.hostname)}</b> ist ausgeschaltet – alle Links daran sind down.` : `${esc(d.cfg.hostname)} läuft wieder.`); }); }
   function clickDev(id) { if (S.tool === 'delete' && !S.cabling) { delDev(id); return; } if (S.tool === 'fail' && !S.cabling) { toggleOff(id); return; } if (S.tool === 'pdu' && !S.cabling) { pduPick(id); return; } const d = S.net.devs[id]; if (S.cabling && S.pend && isIcon(d) && S.pend.dev !== id) { portClick(id, d.ports[0]); return; } S.selNote = null; S.multi = new Set(); S.sel = id; S.port = isIcon(d) ? d.ports[0] : null; render(); }
@@ -765,7 +766,7 @@ const Sandbox = (function () {
     if (g('dos')) g('dos').onchange = () => act(() => { d.os = g('dos').value; delete S.out[d.id]; delete S.sess[d.id]; toast(`Betriebssystem: ${d.os === 'windows' ? 'Windows Server 2022' : 'Ubuntu Linux'}. Konsole und Web-GUI wechseln mit.`); });
     if (g('guiOpen')) g('guiOpen').onclick = () => GUIN.open(d.id);
     if (g('hvOpen')) g('hvOpen').onclick = () => GUIN.open(d.vm.host);
-    if (g('appDesk')) g('appDesk').onclick = () => openApps(d.id, 'home');
+    if (g('appDesk')) g('appDesk').onclick = () => { if (isPc(d)) DESKN.open(d.id); else openApps(d.id, 'home'); };
     if (g('appSvc')) g('appSvc').onclick = () => openApps(d.id, 'svc');
     if (g('fwBtn')) g('fwBtn').onclick = () => fwModal(d);
     if (g('vsan')) g('vsan').onchange = () => act(() => { d.cfg.vsan = Math.max(1, Math.min(4093, +g('vsan').value || 10)); });
@@ -1018,6 +1019,7 @@ const Sandbox = (function () {
     m.addEventListener('click', e => { if (e.target === m || e.target.classList.contains('mclose')) close(); }); document.addEventListener('keydown', k); $('.mclose', m).focus(); return m;
   }
   // ---------------- Apps & Dienste (PC/Server, Packet-Tracer-Desktop) ----------------
+  const isPc = d => !!d && d.type === 'pc' && d.icon === 'pc';
   const canApps = d => !!d && ((d.type === 'pc' && d.icon === 'pc') || d.type === 'server');
   const allIps = () => { const m = {}; for (const d of Object.values(S.net.devs)) { if (NL.isHost(d)) d.ports.forEach(p => { const h = hip(d, p); if (h && h.ip) m[h.ip] = d; }); else if (d.type !== 'fc') Object.values(d.cfg.ifs).forEach(i => { if (i.ip) m[i.ip] = d; }); } return m; };
   function setHostIp(d, p, ip, mask) { if (p === d.ports[0]) { d.cfg.ip = ip; d.cfg.mask = mask; } else if (ip) { d.cfg.nic = d.cfg.nic || {}; d.cfg.nic[p] = { ip, mask }; } else if (d.cfg.nic) delete d.cfg.nic[p]; }
@@ -1127,7 +1129,7 @@ const Sandbox = (function () {
     function drawWeb() {
       const w = S.web[id] = S.web[id] || { url: '', res: null };
       body.innerHTML = back('Webbrowser') + `<div class="browser"><div class="urlbar"><input id="url" value="${esc(w.url)}" placeholder="http://web.lab.local oder https://10.0.0.10:8443" aria-label="Adresse" autocomplete="off" spellcheck="false"><button class="btn primary small" id="go">Aufrufen</button></div><div class="page" id="page"></div></div>`;
-      const show = () => { const r = w.res; if (w.gui && S.net.devs[w.gui]) { g('page').innerHTML = ''; GUIN.mount(g('page'), w.gui, {}); return; } g('page').innerHTML = !r ? '<p class="muted">Gib eine Adresse ein. Namen werden über den DNS-Server der IP-Konfiguration aufgelöst.</p>' : r.err ? `<div class="neterr"><h2>Seite nicht erreichbar</h2><p>${esc(r.err)}</p>${r.why ? `<p class="muted small">${esc(r.why)}</p>` : ''}</div>` : `<h2>${esc(r.title)}</h2><p>${esc(r.body).replace(/\n/g, '<br>')}</p><p class="muted small">${r.scheme}://${esc(r.host)} → ${r.ip}:${r.port}</p>`; };
+      const show = () => { const r = w.res; if (w.gui && S.net.devs[w.gui]) { g('page').innerHTML = ''; const c = document.createElement('div'); g('page').appendChild(c); GUIN.mount(c, w.gui, {}); return; } g('page').innerHTML = !r ? '<p class="muted">Gib eine Adresse ein. Namen werden über den DNS-Server der IP-Konfiguration aufgelöst.</p>' : r.err ? `<div class="neterr"><h2>Seite nicht erreichbar</h2><p>${esc(r.err)}</p>${r.why ? `<p class="muted small">${esc(r.why)}</p>` : ''}</div>` : `<h2>${esc(r.title)}</h2><p>${esc(r.body).replace(/\n/g, '<br>')}</p><p class="muted small">${r.scheme}://${esc(r.host)} → ${r.ip}:${r.port}</p>`; };
       const go = () => { w.url = g('url').value; w.gui = null; const gt = guiTarget(d, w.url); if (gt && gt.id) { w.gui = gt.id; w.res = null; } else w.res = gt || httpGet(d, w.url); show(); }; show(); g('go').onclick = go; g('url').onkeydown = e => { if (e.key === 'Enter') go(); }; g('url').focus();
     }
     function drawEdit() { body.innerHTML = back('Texteditor') + `<textarea id="note" class="ta" rows="12" aria-label="Notizen" placeholder="Notizen zu diesem Gerät …">${esc(d.notes || '')}</textarea><p class="muted small">Wird automatisch gespeichert.</p>`; g('note').oninput = e => { d.notes = e.target.value; save(); }; }
@@ -1709,30 +1711,49 @@ const Sandbox = (function () {
   }
 
   // ---------------- Web-GUI (Schnittstelle zu webgui.js) ----------------
-  const guiHost = d => { const h = d.ports.map(p => hip(d, p)).find(x => x && x.ip); return h ? h.ip : d.cfg.hostname.toLowerCase(); };
+  const guiHost = d => { if (!NL.isHost(d)) { const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip); return n ? d.cfg.ifs[n].ip : d.cfg.hostname.toLowerCase(); } const h = d.ports.map(p => hip(d, p)).find(x => x && x.ip); return h ? h.ip : d.cfg.hostname.toLowerCase(); };
   function termRun(d, line) {
     const id = d.id, s = S.sess[id] || (S.sess[id] = NL.newSess()); ensureOut(id);
-    act(() => { push(id, 'cmd', promptOf(d, s) + line); if (/^\s*(clear|cls)\s*$/i.test(line)) { S.out[id] = []; return; } let r; try { r = hostRun(d, s, line); } catch (e) { r = '% Interner Fehler: ' + e.message; }
+    act(() => { push(id, 'cmd', promptOf(d, s) + line); if (/^\s*(clear|cls)\s*$/i.test(line)) { S.out[id] = []; return; } let r; try { r = NL.isHost(d) ? hostRun(d, s, line) : NL.exec(S.net, id, s, line); } catch (e) { r = '% Interner Fehler: ' + e.message; }
       if (r) r.split('\n').forEach(l => push(id, /^\[(Ping-Debugger|Hinweis|Pfad|Debug|NAT)\]/.test(l) ? 'dbg' : (/^%/.test(l) && !/Creating vlan/.test(l) ? 'err' : 'out'), l)); });
   }
+  // Konfiguration der Cisco-Geräte aus der Web-GUI: dieselben IOS-Befehle wie im Terminal, Ausgabe zurück an die GUI
+  function iosRun(d, lines, o) {
+    o = o || {}; let out = '';
+    act(() => {
+      const id = d.id; push(id, 'sys', '— Web-GUI —');
+      const s = S.sess[id] = NL.newSess(), all = o.conf === false ? ['enable', ...lines] : ['enable', 'configure terminal', ...lines, 'end'];
+      all.forEach(l => { push(id, 'cmd', NL.prompt(d, s) + l); const r = NL.exec(S.net, id, s, l); if (r) { if (!/^enable|configure|end$/.test(l)) out += (out ? '\n' : '') + r; r.split('\n').forEach(x => push(id, /^%/.test(x) && !/Creating vlan|Access VLAN does not exist/.test(x) ? 'err' : 'out', x)); } });
+    });
+    return out;
+  }
+  function iosShow(d, line) { const s = NL.newSess(); s.mode = 'priv'; return NL.exec(S.net, d.id, s, line); }
   GUIN.init({
     net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => hostRun(d, (S.sess && S.sess[d.id]) || NL.newSess(), line),
-    isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d), termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
-    hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
-    LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
+    isCloud: d => !!(MODELS[d.model] && MODELS[d.model].cloud), isWn, prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; },
+    ios: iosRun, iosShow, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st, statusFull: (d, p) => NL.portStatus(S.net, d.id, p), wwpn: NL.wwpn, fmtSpeed: NL.fmtSpeed, fcLabel, defSvc,
+    ifUp: (d, n) => NL.ifUp(S.net, d.id, n), LX: LXN, WIN: WINN, STOR: STORN, VIRT: VIRTN
+  });
+  DESKN.init({
+    net: () => S.net, act: fn => act(fn), ctx: () => lxCtx(), exec: (d, line) => hostRun(d, (S.sess && S.sess[d.id]) || (S.sess[d.id] = NL.newSess()), line),
+    prompt: d => promptOf(d, S.sess[d.id] || NL.newSess()), termRun, termOut: d => { ensureOut(d.id); return S.out[d.id]; }, hip, SH, status: (d, p) => NL.portStatus(S.net, d.id, p).st,
+    guiTarget: (d, u) => guiTarget(d, u), httpGet: (d, u) => httpGet(d, u), dhcp: d => dhcpRequest(d), setIp: setHostIp, validIp: NL.validIp, maskLen: NL.maskLen, inNet: NL.inNet, WIN: WINN, GUI: GUIN
   });
   // Browser im Planer: https://<Gerät>:8443 öffnet die Web-GUI des Geräts, wenn es erreichbar ist
   function guiTarget(c, url) {
-    const m = String(url || '').trim().match(/^https?:\/\/([^\/:]+):(\d+)(\/.*)?$/i); if (!m || +m[2] !== GUIN.PORT) return null;
-    let ip = m[1]; if (!NL.validIp(ip)) { const r = resolve(c, ip); if (r.err) return { err: r.err }; ip = r.ip; }
-    const r = NL.ping(S.net, c.id, ip, { proto: 'tcp', port: GUIN.PORT }); if (!r.ok) return { err: `Zeitüberschreitung: ${ip}:${GUIN.PORT} ist nicht erreichbar.`, why: r.reason };
-    const dev = allIps()[ip]; if (!dev || !GUIN.hasGui(dev)) return { err: `Verbindung abgelehnt: Auf ${dev ? dev.cfg.hostname : ip} gibt es keine Weboberfläche auf Port ${GUIN.PORT}.` };
+    const m = String(url || '').trim().match(/^(https?):\/\/([^\/:]+)(?::(\d+))?(\/.*)?$/i); if (!m) return null;
+    const port = +(m[3] || (m[1].toLowerCase() === 'https' ? 443 : 80)); if (port !== GUIN.PORT && port !== GUIN.NETPORT) return null;
+    let ip = m[2]; if (!NL.validIp(ip)) { const r = resolve(c, ip); if (r.err) return port === GUIN.PORT ? { err: r.err } : null; ip = r.ip; }
+    const dev = allIps()[ip];
+    if (port === GUIN.NETPORT && !(dev && GUIN.hasGui(dev) && GUIN.portOf(dev) === port)) return null;
+    const r = NL.ping(S.net, c.id, ip, { proto: 'tcp', port }); if (!r.ok) return { err: `Zeitüberschreitung: ${ip}:${port} ist nicht erreichbar.`, why: r.reason };
+    if (!dev || !GUIN.hasGui(dev) || GUIN.portOf(dev) !== port) return { err: `Verbindung abgelehnt: Auf ${dev ? dev.cfg.hostname : ip} gibt es keine Weboberfläche auf Port ${port}.` };
     return { id: dev.id };
   }
 
   function close() { document.removeEventListener('keydown', escKey); S = null; }
   function lintNet(net) { const keep = S; S = { net }; try { return lint(net); } finally { S = keep; } }
-  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN }; }
+  function testApi(net) { S = { net, sess: {}, out: {}, cmd: {}, web: {}, multi: new Set() }; migrate(net); return { resolve, httpGet, dhcpRequest, hostLine, SC, buildScen, hd, addDev: (m, x, y, h) => addDev(net, m, x, y, h), clone: ids => instantiate(payloadOf(ids), 48, 48), search: searchIndex, notes, lx: (h, line) => LXN.exec(lxCtx(), hd(net, h), line), lxPrompt: h => LXN.prompt(hd(net, h)), win: (h, line) => WINN.exec(lxCtx(), hd(net, h), line), VIRT: VIRTN, winPrompt: h => WINN.prompt(hd(net, h)), STOR: STORN, gui: (h, url) => guiTarget(hd(net, h), url), ios: (h, lines, o) => iosRun(hd(net, h), lines, o), iosShow: (h, l) => iosShow(hd(net, h), l) }; }
   return { open, close, lint: lintNet, example, testApi };
 })();
 if (typeof module !== 'undefined') module.exports = Sandbox;

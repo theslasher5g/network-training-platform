@@ -3,17 +3,19 @@
 // Die Oberflächen rufen dieselben Funktionen wie die Terminals auf (Linux, PowerShell) beziehungsweise
 // die Module für Storage und Virtualisierung. Das Planer-Skript übergibt die Schnittstelle über init().
 const WEBGUI = (function () {
-  const PORT = 8443;
+  const PORT = 8443, NETPORT = 443;
   let A = null; const SESS = {};
   const init = api => { A = api; };
   const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
   const kindOf = d => {
-    if (!d) return null; if (d.type === 'storage') return 'storage'; if (d.type === 'fc') return 'fabric';
+    if (!d) return null; if (d.type === 'switch') return 'switch'; if (d.type === 'router') return d.fw || A.isCloud(d) ? null : 'router'; if (d.type === 'storage') return 'storage'; if (d.type === 'fc') return 'fabric';
     if (d.type !== 'server' || A.isCloud(d)) return null;
     return d.os === 'windows' ? 'windows' : (A.VIRT.isHost(d) ? 'hypervisor' : 'linux');
   };
-  const PRODUCT = { linux: ['Server-Web-Konsole', 'Linux'], hypervisor: ['Virtualisierungs-Manager', 'Hypervisor'], windows: ['Server-Manager', 'Windows Server 2022'], storage: ['Storage-Manager', 'Speichersystem'], fabric: ['Fabric-Manager', 'FC-Switch'] };
+  const PRODUCT = { linux: ['Server-Web-Konsole', 'Linux'], hypervisor: ['Virtualisierungs-Manager', 'Hypervisor'], windows: ['Server-Manager', 'Windows Server 2022'], storage: ['Storage-Manager', 'Speichersystem'], fabric: ['Fabric-Manager', 'FC-Switch'], switch: ['Catalyst Web-Oberfläche', 'Cisco IOS XE Switch'], router: ['Router Web-Oberfläche', 'Cisco IOS XE Router'] };
+  const isNet = k => k === 'switch' || k === 'router';
+  const portOf = d => { const k = kindOf(d); return isNet(k) ? NETPORT : PORT; };
   const hasGui = d => !!kindOf(d);
 
   // ---------- kleine UI-Bausteine ----------
@@ -36,15 +38,15 @@ const WEBGUI = (function () {
       const d = dev(); if (!d) { root.innerHTML = '<p class="wg-empty">Das Gerät gibt es nicht mehr.</p>'; return; }
       const k = kind(), main = root.querySelector('.wg-main'), top = main ? main.scrollTop : 0, ip = hostIp(d);
       if (!k) { root.innerHTML = '<p class="wg-empty">Dieses Gerät hat keine Weboberfläche.</p>'; return; }
-      const url = `https://${ip || d.cfg.hostname.toLowerCase()}:${PORT}/`;
+      const url = `https://${ip || d.cfg.hostname.toLowerCase()}${isNet(k) ? '' : ':' + PORT}/`;
       const chrome = G.chrome ? `<div class="wg-chrome"><span class="wg-dots"><i></i><i></i><i></i></span><div class="wg-url" title="${esc(url)}"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg><span>${esc(url)}</span>${ip ? '' : '<em>Direktzugriff (keine IP-Adresse)</em>'}</div><button class="wg-x" data-act="close" aria-label="Fenster schließen">✕</button></div>` : '';
       if (!G.auth) { root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-login wg-${k}"><form class="wg-lc" data-act="login"><div class="wg-logo">${logo(k)}</div><h2>${PRODUCT[k][0]}</h2><p>${esc(d.cfg.hostname)} · ${PRODUCT[k][1]}</p>${field('user', 'Benutzername', k === 'windows' ? 'Administrator' : 'admin')}${field('pw', 'Kennwort', 'NetLab-2026', { type: 'password' })}<button type="submit" class="wg-b primary wide" data-act="login">Anmelden</button><small>Simulator-Zugangsdaten sind vorausgefüllt.</small></form></div></div>`; return; }
-      const nav = NAV[k](d), pg = G.page && nav.some(n => n[0] === G.page) ? G.page : nav[0][0]; G.page = pg;
+      const nav = NAV[k](d), flat = nav.filter(n => n[0][0] !== '-'), pg = G.page && flat.some(n => n[0] === G.page) ? G.page : flat[0][0]; G.page = pg;
       let body = ''; try { body = PAGES[k][pg](d, G) } catch (e) { body = `<p class="wg-empty">Fehler beim Laden der Seite: ${esc(e.message)}</p>`; console.error(e); }
       root.innerHTML = `<div class="wg-win">${chrome}<div class="wg-app wg-${k}">
-        <header class="wg-top"><div class="wg-brand">${logo(k)}<b>${PRODUCT[k][0]}</b><span>${esc(d.cfg.hostname)}</span></div><div class="wg-user"><span>${k === 'windows' ? 'Administrator' : 'admin'}</span>${btn('Abmelden', 'logout', null, 'ghost sm')}</div></header>
-        <div class="wg-body"><nav class="wg-nav" aria-label="Navigation">${nav.map(([id, lbl]) => `<button type="button" class="${id === pg ? 'act' : ''}" data-act="nav" data-p="${id}" ${id === pg ? 'aria-current="page"' : ''}>${lbl}</button>`).join('')}</nav>
-        <div class="wg-main" role="main" tabindex="-1"><div class="wg-ph"><h1>${nav.find(n => n[0] === pg)[1]}</h1></div>${G.msg ? `<div class="wg-msg ${G.msg.err ? 'err' : 'ok'}" role="status">${esc(G.msg.t)}</div>` : ''}${body}</div></div>
+        <header class="wg-top"><div class="wg-brand">${logo(k)}<b>${PRODUCT[k][0]}</b><span>${esc(d.cfg.hostname)}</span></div><div class="wg-user">${isNet(k) ? (d.saved ? '' : `<span class="wg-unsaved" title="Running-Config unterscheidet sich von der Startup-Config">● nicht gespeichert</span>`) + btn('Konfiguration speichern', 'iosave', null, 'sm') : ''}<span>${k === 'windows' ? 'Administrator' : 'admin'}</span>${btn('Abmelden', 'logout', null, 'ghost sm')}</div></header>
+        <div class="wg-body"><nav class="wg-nav" aria-label="Navigation">${nav.map(([id, lbl]) => id[0] === '-' ? `<h4 class="wg-grp">${lbl}</h4>` : `<button type="button" class="${id === pg ? 'act' : ''}" data-act="nav" data-p="${id}" ${id === pg ? 'aria-current="page"' : ''}>${lbl}</button>`).join('')}</nav>
+        <div class="wg-main" role="main" tabindex="-1"><div class="wg-ph"><h1>${flat.find(n => n[0] === pg)[1]}</h1></div>${G.msg ? `<div class="wg-msg ${G.msg.err ? 'err' : 'ok'}" role="status">${esc(G.msg.t)}</div>` : ''}${body}</div></div>
         ${G.log.length ? `<footer class="wg-log"><b>Letzte Aktionen (gleichwertig im Terminal)</b>${G.log.slice(-3).map(l => `<code class="${l.err ? 'err' : ''}">${esc(l.cmd)}</code>`).join('')}</footer>` : ''}
         ${G.dlg ? dlgHtml(d, G) : ''}</div></div>`;
       const m = root.querySelector('.wg-main'); if (m && top) m.scrollTop = top;
@@ -53,8 +55,8 @@ const WEBGUI = (function () {
     };
     G.draw = draw; G.dev = dev; G.root = root; G.kind = kind; return G;
   }
-  const logo = k => `<svg class="wg-ico" viewBox="0 0 24 24" aria-hidden="true">${{ linux: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>', hypervisor: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/>', windows: '<path d="M3 5l8-1.2V11H3zM13 3.6L21 2v9h-8zM3 13h8v7.2L3 19zM13 13h8v9l-8-1.6z"/>', storage: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>', fabric: '<circle cx="12" cy="12" r="3"/><circle cx="4" cy="5" r="2"/><circle cx="20" cy="5" r="2"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="19" r="2"/><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>' }[k]}</svg>`;
-  const hostIp = d => { const h = d.ports.map(p => A.hip(d, p)).find(x => x && x.ip); return h ? h.ip : ''; };
+  const logo = k => `<svg class="wg-ico" viewBox="0 0 24 24" aria-hidden="true">${{ linux: '<rect x="3" y="4" width="18" height="6" rx="1.5"/><rect x="3" y="14" width="18" height="6" rx="1.5"/><path d="M7 7h.01M7 17h.01"/>', hypervisor: '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="18" height="8" rx="1.5"/>', windows: '<path d="M3 5l8-1.2V11H3zM13 3.6L21 2v9h-8zM3 13h8v7.2L3 19zM13 13h8v9l-8-1.6z"/>', storage: '<ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/>', switch: '<rect x="2" y="8" width="20" height="8" rx="1.5"/><path d="M6 12h.01M10 12h.01M14 12h.01M18 12h.01"/>', router: '<circle cx="12" cy="12" r="8"/><path d="M12 4v16M4 12h16M8 8l-2-2M16 8l2-2M8 16l-2 2M16 16l2 2"/>', fabric: '<circle cx="12" cy="12" r="3"/><circle cx="4" cy="5" r="2"/><circle cx="20" cy="5" r="2"/><circle cx="4" cy="19" r="2"/><circle cx="20" cy="19" r="2"/><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"/>' }[k]}</svg>`;
+  const hostIp = d => { if (d.type === 'switch' || d.type === 'router') { const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip); return n ? d.cfg.ifs[n].ip : ''; } const h = d.ports.map(p => A.hip(d, p)).find(x => x && x.ip); return h ? h.ip : ''; };
 
   // ---------- Navigation ----------
   const NAV = {
@@ -62,7 +64,9 @@ const WEBGUI = (function () {
     hypervisor: d => [['overview', 'Übersicht'], ['vms', 'Virtuelle Maschinen'], ['vswitch', 'Virtueller Switch'], ['datastores', 'Datastores'], ['cluster', 'Cluster und HA'], ['network', 'Netzwerk'], ['services', 'Dienste'], ['files', 'Konfigurationsdateien'], ['storage', 'Speicher'], ['firewall', 'Firewall'], ['software', 'Software'], ['terminal', 'Terminal']],
     windows: d => [['dashboard', 'Dashboard'], ['local', 'Lokaler Server'], ['roles', 'Rollen und Features'], ['ad', 'Active Directory'], ['dns', 'DNS'], ['dhcp', 'DHCP'], ['shares', 'Dateidienste'], ['services', 'Dienste'], ['firewall', 'Firewall'], ['terminal', 'PowerShell']],
     storage: d => [['dashboard', 'Dashboard'], ['pools', 'Speicherpools'], ['luns', 'LUNs'], ['hosts', 'Hosts und Zugriff'], ['ports', 'Ports und Controller']],
-    fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']]
+    fabric: d => [['dashboard', 'Dashboard'], ['ports', 'Ports'], ['zoning', 'Zoning'], ['fabric', 'Fabric']],
+    switch: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['vlans', 'VLAN'], ['l3', 'Layer 3'], ['acl', 'Zugriffslisten (ACL)'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']],
+    router: d => [['dashboard', 'Dashboard'], ['-m', 'Überwachung'], ['monitor', 'Status und Tabellen'], ['-c', 'Konfiguration'], ['interfaces', 'Schnittstellen'], ['l3', 'Routing'], ['acl', 'Zugriffslisten (ACL)'], ['-a', 'Verwaltung'], ['mgmt', 'Verwaltung'], ['config', 'Konfigurationsverwaltung'], ['cli', 'Konsole (CLI)'], ['-t', 'Fehlersuche'], ['ping', 'Ping und Traceroute']]
   };
 
   // ---------- Aktionen ausführen ----------
@@ -71,11 +75,19 @@ const WEBGUI = (function () {
     for (const c of cmds) { let out = ''; A.act(() => { out = A.exec(d, c); }); const bad = failed(out); G.log.push({ cmd: (A.isWn(d) ? 'PS> ' : '$ ') + c, err: bad }); last = out; if (bad) { G.msg = { err: true, t: String(out).split('\n').filter(Boolean).slice(0, 3).join(' ') }; G.log = G.log.slice(-8); return false; } }
     G.msg = ok ? { t: ok } : null; G.log = G.log.slice(-8); return last || true;
   }
+  // IOS-Befehle (Konfigurationsmodus) über den Simulator ausführen; Fehlermeldungen beginnen mit %
+  const iosBad = out => String(out || '').split('\n').filter(l => /^%/.test(l) && !/Creating vlan|Access VLAN does not exist/.test(l));
+  function ios(G, lines, ok) {
+    const d = G.dev(); lines = [].concat(lines); const out = A.ios(d, lines);
+    lines.forEach(l => G.log.push({ cmd: l, err: false })); const bad = iosBad(out);
+    if (bad.length) { G.log[G.log.length - 1].err = true; G.msg = { err: true, t: bad.slice(0, 2).join(' ') }; G.log = G.log.slice(-10); return false; }
+    G.msg = ok ? { t: ok } : null; G.log = G.log.slice(-10); return true;
+  }
   const res = (G, r, ok) => { G.msg = r && r.err ? { err: true, t: r.err } : (ok ? { t: ok } : null); return !(r && r.err); };
   const v = (G, id) => { const e = G.root.querySelector('#wf-' + id); return e ? (e.type === 'checkbox' ? e.checked : e.value) : ''; };
 
   // ---------- Seiten ----------
-  const PAGES = { linux: {}, hypervisor: {}, windows: {}, storage: {}, fabric: {} };
+  const PAGES = { linux: {}, hypervisor: {}, windows: {}, storage: {}, fabric: {}, switch: {}, router: {} };
   const ifaces = d => A.ctx().ifaces(d);
   const maskLen = m => m ? m.split('.').reduce((a, x) => a + (+x).toString(2).replace(/0/g, '').length, 0) : '';
 
@@ -256,11 +268,101 @@ const WEBGUI = (function () {
   };
   PAGES.fabric.fabric = (d, G) => card('Fabric-Einstellungen', `<div class="wg-row">${field('vsan', 'VSAN', d.cfg.vsan || 10, { type: 'number', min: 1, max: 4093 })}${btn('Übernehmen', 'vsan', null, 'primary')}</div><p class="wg-note">Ein VSAN trennt FC-Fabrics logisch auf einem Switch (vergleichbar mit einem VLAN).</p>`);
 
+  // ---------- Cisco Switch / Router ----------
+  const natSort = a => a.slice().sort((x, y) => x.localeCompare(y, 'en', { numeric: true }));
+  const vlStr = a => { if (a === null) return 'alle'; const o = []; let i = 0; a = a.slice().sort((x, y) => x - y); while (i < a.length) { let j = i; while (j + 1 < a.length && a[j + 1] === a[j] + 1) j++; o.push(j > i ? a[i] + '-' + a[j] : '' + a[i]); i = j + 1; } return o.join(',') || 'keine'; };
+  const stChip = (d, p) => { const s = A.statusFull(d, p), i = d.cfg.ifs[p]; return i.shutdown ? chip('admin down', 'bad') : s.st === 'connected' ? chip('up', 'ok') : s.st === 'err-disabled' ? chip('err-disabled', 'bad') : chip('down'); };
+  const peerName = (d, p) => { const s = A.statusFull(d, p), pd = s.peer ? A.net().devs[s.peer.dev] : null; return pd ? esc(pd.cfg.hostname + ' ' + A.SH(s.peer.port)) : '<span class="wg-mut">–</span>'; };
+  const mgmtAddr = d => { const n = Object.keys(d.cfg.ifs).find(k => d.cfg.ifs[k].ip); return n ? { n, ip: d.cfg.ifs[n].ip, mask: d.cfg.ifs[n].mask } : null; };
+  const showBox = (d, c) => `<pre class="wg-pre">${esc(A.iosShow(d, c) || '(keine Ausgabe)')}</pre>`;
+  const faceplate = d => `<div class="wg-face" role="group" aria-label="Portansicht">${d.ports.map(p => { const s = A.statusFull(d, p), i = d.cfg.ifs[p], c = i.shutdown ? 'adm' : s.st === 'connected' ? 'up' : s.st === 'err-disabled' ? 'err' : 'dn'; return `<button type="button" class="wg-port ${c}" data-act="nav" data-p="interfaces" title="${esc(A.SH(p))}: ${i.shutdown ? 'admin down' : s.st}${d.type === 'switch' ? (i.mode === 'trunk' ? ', Trunk' : ', VLAN ' + i.vlan) : ''}" aria-label="${esc(A.SH(p))} ${i.shutdown ? 'admin down' : s.st}"><i></i><span>${esc(A.SH(p).replace(/^[A-Za-z]+/, ''))}</span></button>`; }).join('')}</div><div class="wg-leg"><span><i class="up"></i>up</span><span><i class="dn"></i>down</span><span><i class="adm"></i>admin down</span><span><i class="err"></i>err-disabled</span></div>`;
+  PAGES.switch.dashboard = PAGES.router.dashboard = (d, G) => {
+    const up = d.ports.filter(p => !d.cfg.ifs[p].shutdown && A.status(d, p) === 'connected').length, m = mgmtAddr(d), sw = d.type === 'switch', nv = sw ? Object.keys(d.cfg.vlans).length : 0;
+    const nb = A.iosShow(d, 'show cdp neighbors').split('\n').slice(3).filter(l => l.trim());
+    return `<div class="wg-cards">
+      ${card('Gerät', `<dl class="wg-dl"><dt>Hostname</dt><dd>${esc(d.cfg.hostname)}</dd><dt>Modell</dt><dd>${esc(d.model || (sw ? 'Switch' : 'Router'))}</dd><dt>Software</dt><dd>Cisco IOS XE (NetLab)</dd><dt>Management-IP</dt><dd>${m ? esc(m.ip + '/' + maskLen(m.mask) + ' (' + A.SH(m.n) + ')') : '<span class="wg-mut">keine – ' + (sw ? 'SVI anlegen' : 'Schnittstelle konfigurieren') + '</span>'}</dd><dt>Konfiguration</dt><dd>${d.saved ? chip('gespeichert', 'ok') : chip('nicht gespeichert', 'bad')}</dd></dl>`)}
+      ${card('Schnittstellen', `<p class="wg-big">${up}<small> von ${d.ports.length} up</small></p>${bar(up, d.ports.length, 101)}<p class="wg-note">${d.ports.filter(p => d.cfg.ifs[p].shutdown).length} administrativ abgeschaltet</p>${btn('Zu den Schnittstellen', 'nav', { p: 'interfaces' }, 'sm')}`)}
+      ${sw ? card('VLANs', `<p class="wg-big">${nv}<small> angelegt</small></p><p class="wg-note">Layer 3: ${d.cfg.ipRouting ? chip('ip routing an', 'ok') : chip('reiner Layer-2-Switch')}</p>${btn('Zu den VLANs', 'nav', { p: 'vlans' }, 'sm')}`) : card('Routing', `<p class="wg-big">${d.cfg.routes.length}<small> statische Routen</small></p>${btn('Zum Routing', 'nav', { p: 'l3' }, 'sm')}`)}
+    </div>${card('Portansicht', faceplate(d))}
+    ${card('Nachbarn (CDP)', nb.length ? `<pre class="wg-pre">${esc(['Gerät          Lokal         Plattform        Port', ...nb].join('\n'))}</pre>` : '<p class="wg-empty">Keine CDP-Nachbarn. Verbinde den Port mit einem Switch oder Router.</p>')}`;
+  };
+  PAGES.switch.monitor = PAGES.router.monitor = (d, G) => {
+    const sw = d.type === 'switch', tabs = [['ifs', 'Schnittstellen', 'show interfaces status'], ['ip', 'IP-Schnittstellen', 'show ip interface brief'], ['route', 'Routing-Tabelle', 'show ip route'], ['cdp', 'CDP-Nachbarn', 'show cdp neighbors'], ['inv', 'Inventar', 'show inventory'], ['ver', 'Version', 'show version']].concat(sw ? [['vlan', 'VLAN', 'show vlan brief'], ['trunk', 'Trunks', 'show interfaces trunk']] : []).concat([['acl', 'ACLs', 'show access-lists']]);
+    const t = G.tab.mon || 'ifs', cur = tabs.find(x => x[0] === t) || tabs[0];
+    return `<div class="wg-tabs" role="tablist">${tabs.map(x => `<button type="button" role="tab" class="${x[0] === cur[0] ? 'act' : ''}" aria-selected="${x[0] === cur[0]}" data-act="tab" data-t="mon" data-v="${x[0]}">${x[1]}</button>`).join('')}</div>` + card(cur[1], `<p class="wg-note">Entspricht dem Befehl <code>${cur[2]}</code>.</p>${showBox(d, cur[2])}`);
+  };
+  PAGES.switch.interfaces = PAGES.router.interfaces = (d, G) => {
+    const sw = d.type === 'switch', ps = d.ports; G.isel = (G.isel || []).filter(p => ps.includes(p));
+    const hdr = sw ? ['Port', 'Status', 'Beschreibung', 'Modus', 'VLAN', 'Verbunden mit', ''] : ['Port', 'Status', 'Beschreibung', 'IP-Adresse', 'Verbunden mit', ''];
+    const rows = ps.map(p => { const i = d.cfg.ifs[p], chk = `<label class="wg-ck"><input type="checkbox" data-act="isel" data-p="${esc(p)}" ${G.isel.includes(p) ? 'checked' : ''} aria-label="${esc(A.SH(p))} auswählen"></label>`;
+      const base = [`<span class="wg-nw">${chk}<b>${esc(A.SH(p))}</b></span>`, stChip(d, p), esc(i.desc || '')];
+      const mid = sw ? [i.mode === 'trunk' ? 'Trunk' : 'Access', i.mode === 'trunk' ? `nativ ${i.native}, erlaubt ${vlStr(i.allowed)}` : i.vlan] : [i.ip ? esc(i.ip + '/' + maskLen(i.mask)) : '<span class="wg-mut">keine</span>'];
+      return base.concat(mid, [peerName(d, p), btn('Bearbeiten', 'dlg', { k: 'ifedit', p }, 'sm')]); });
+    const sel = G.isel.length;
+    const svi = sw ? Object.keys(d.cfg.ifs).filter(n => n.startsWith('Vlan')) : [];
+    return `<div class="wg-row">${btn(`Auswahl bearbeiten (${sel})`, 'dlg', { k: 'ifedit', p: '*' }, 'primary' + (sel ? '' : ' disabled'))}${btn('Alle auswählen', 'isall', null, 'sm')}${btn('Auswahl aufheben', 'isnone', null, 'sm ghost')}${btn('Auswahl aktivieren', 'ifup', null, 'sm' + (sel ? '' : ' disabled'))}${btn('Auswahl abschalten', 'ifdown', null, 'sm' + (sel ? '' : ' disabled'))}</div>`
+      + tbl(hdr, rows, 'Keine Schnittstellen.') + (svi.length ? `<p class="wg-note">SVIs (Vlan-Schnittstellen) findest du unter Layer 3.</p>` : '');
+  };
+  PAGES.switch.vlans = (d, G) => {
+    const vs = Object.keys(d.cfg.vlans).map(Number).sort((a, b) => a - b);
+    return `<div class="wg-row">${btn('VLAN hinzufügen', 'dlg', { k: 'newvlan' }, 'primary')}</div>` + tbl(['VLAN-ID', 'Name', 'Status', 'Access-Ports', 'Trunks', ''], vs.map(v => { const acc = natSort(d.ports.filter(p => d.cfg.ifs[p].mode !== 'trunk' && d.cfg.ifs[p].vlan === v)), tr = d.ports.filter(p => d.cfg.ifs[p].mode === 'trunk' && (d.cfg.ifs[p].allowed === null || d.cfg.ifs[p].allowed.includes(v)));
+      return [`<b>${v}</b>`, esc(d.cfg.vlans[v]), chip('active', 'ok'), acc.length ? esc(acc.map(A.SH).join(', ')) : '<span class="wg-mut">keine</span>', tr.length ? esc(tr.map(A.SH).join(', ')) : '<span class="wg-mut">–</span>', `<div class="wg-row">${btn('Umbenennen', 'dlg', { k: 'vlname', v }, 'sm')}${v === 1 ? '' : btn('Löschen', 'vldel', { v }, 'sm ghost bad')}</div>`]; }))
+      + '<p class="wg-note">Ein Access-Port gehört zu genau einem VLAN. Auf Trunks fließen mehrere VLANs getaggt (802.1Q). Ein VLAN, das nicht angelegt ist, macht seine Ports inaktiv.</p>';
+  };
+  PAGES.switch.l3 = PAGES.router.l3 = (d, G) => {
+    const sw = d.type === 'switch', svis = sw ? natSort(Object.keys(d.cfg.ifs).filter(n => n.startsWith('Vlan'))) : [];
+    let h = '';
+    if (sw) {
+      h += card('IP-Routing', `<p>${d.cfg.ipRouting ? chip('aktiv', 'ok') + ' Der Switch routet zwischen seinen SVIs (Layer-3-Switch).' : chip('aus') + ' Der Switch arbeitet nur auf Layer 2. Die SVIs dienen als Management-Adresse.'}</p><div class="wg-row">${btn(d.cfg.ipRouting ? 'Routing abschalten' : 'Routing aktivieren', 'iprt', null, d.cfg.ipRouting ? '' : 'primary')}</div>`);
+      h += card('SVIs (Vlan-Schnittstellen)', `<div class="wg-row">${btn('SVI hinzufügen', 'dlg', { k: 'newsvi' }, 'primary')}</div>` + tbl(['Schnittstelle', 'IP-Adresse', 'Status', ''], svis.map(n => { const i = d.cfg.ifs[n]; return [`<b>${esc(n)}</b>`, i.ip ? esc(i.ip + '/' + maskLen(i.mask)) : '<span class="wg-mut">keine</span>', i.shutdown ? chip('admin down', 'bad') : (A.ifUp && !A.ifUp(d, n) ? chip('down') : chip('up', 'ok')), `<div class="wg-row">${btn('Bearbeiten', 'dlg', { k: 'editsvi', n }, 'sm')}${n === 'Vlan1' ? '' : btn('Löschen', 'svidel', { n }, 'sm ghost bad')}</div>`]; }), 'Keine SVIs.'));
+      h += card('Default-Gateway (Layer-2-Betrieb)', `<div class="wg-row end">${field('dgw', 'ip default-gateway', d.cfg.gw || '', { ph: '192.168.1.1' })}${btn('Speichern', 'dgw', null, 'primary')}</div><p class="wg-note">Wird benutzt, solange <code>ip routing</code> aus ist, damit der Switch aus anderen Netzen erreichbar ist.</p>`);
+    }
+    h += card('Statische Routen', `<div class="wg-row">${btn('Route hinzufügen', 'dlg', { k: 'newroute' }, 'primary')}</div>` + (sw && !d.cfg.ipRouting ? '<p class="wg-note">Statische Routen wirken erst mit <code>ip routing</code>.</p>' : '') + tbl(['Zielnetz', 'Maske', 'Next Hop / Schnittstelle', ''], d.cfg.routes.map((r, i) => [`<b>${esc(r.net)}</b>`, esc(r.mask) + ' <small class="wg-mut">(/' + maskLen(r.mask) + ')</small>', esc(r.nh || A.SH(r.ifn)), btn('Löschen', 'rtdel', { i }, 'sm ghost bad')]), 'Keine statischen Routen.'));
+    h += card('Routing-Tabelle', showBox(d, 'show ip route'));
+    return h;
+  };
+  PAGES.switch.acl = PAGES.router.acl = (d, G) => {
+    const names = Object.keys(d.cfg.acls), ifs = Object.keys(d.cfg.ifs).filter(n => d.cfg.ifs[n].aclIn || d.cfg.ifs[n].aclOut);
+    return `<div class="wg-row">${btn('Regel hinzufügen', 'dlg', { k: 'newace' }, 'primary')}${btn('ACL an Schnittstelle binden', 'dlg', { k: 'aclbind' }, 'sm' + (names.length ? '' : ' disabled'))}</div>`
+      + (names.length ? names.map(a => card('ACL ' + esc(a), tbl(['Nr.', 'Regel'], d.cfg.acls[a].map((e, i) => [(i + 1) * 10, `<code>${esc(e.text)}</code>`])) + `<div class="wg-row">${btn('ACL löschen', 'acldel', { a }, 'sm ghost bad')}</div>`)).join('') : '<p class="wg-empty">Noch keine Zugriffsliste. Lege mit „Regel hinzufügen“ die erste an.</p>')
+      + card('Gebunden an', tbl(['Schnittstelle', 'ACL', 'Richtung', ''], ifs.flatMap(n => [d.cfg.ifs[n].aclIn ? [`<b>${esc(A.SH(n))}</b>`, esc(d.cfg.ifs[n].aclIn), 'in', btn('Lösen', 'aclunbind', { n, dir: 'in' }, 'sm ghost')] : null, d.cfg.ifs[n].aclOut ? [`<b>${esc(A.SH(n))}</b>`, esc(d.cfg.ifs[n].aclOut), 'out', btn('Lösen', 'aclunbind', { n, dir: 'out' }, 'sm ghost')] : null].filter(Boolean)), 'Keine ACL gebunden. Eine ACL wirkt erst, wenn sie an eine Schnittstelle gebunden ist.'))
+      + '<p class="wg-note">Am Ende jeder Liste steht ein unsichtbares <code>deny ip any any</code>. Reihenfolge zählt: die erste passende Regel gewinnt. Quelle und Ziel: <code>any</code>, <code>host 10.0.0.5</code> oder <code>10.0.0.0 0.0.0.255</code> (Wildcard-Maske).</p>';
+  };
+  PAGES.switch.mgmt = PAGES.router.mgmt = (d, G) => {
+    const sw = d.type === 'switch', m = mgmtAddr(d);
+    return card('Hostname', `<div class="wg-row end">${field('hn', 'Hostname', d.cfg.hostname)}${btn('Speichern', 'hostname', null, 'primary')}</div>`)
+      + card('Management-Zugang', `<dl class="wg-dl"><dt>Web-Oberfläche</dt><dd>${m ? `<code>https://${esc(m.ip)}/</code> ${chip('erreichbar, wenn Routing stimmt', 'ok')}` : chip('keine Management-IP', 'bad')}</dd><dt>Management-Schnittstelle</dt><dd>${m ? esc(A.SH(m.n)) : '–'}</dd></dl><p class="wg-note">Von einem PC erreichst du diese Seite im Webbrowser unter der Management-Adresse. Der PC braucht dafür eine IP im selben Netz (oder ein Gateway dorthin).</p>`)
+      + card('Gerät', `<dl class="wg-dl"><dt>Modell</dt><dd>${esc(d.model || '–')}</dd><dt>Ports</dt><dd>${d.ports.length}</dd></dl>${showBox(d, 'show inventory')}`);
+  };
+  PAGES.switch.config = PAGES.router.config = (d, G) => card('Running-Config', `<div class="wg-row">${btn('Konfiguration speichern (write memory)', 'iosave', null, 'primary')}${d.saved ? chip('gespeichert', 'ok') : chip('nicht gespeichert', 'bad')}</div><p class="wg-note">Ohne Speichern ist die Konfiguration nach einem Neustart weg. Die Running-Config ist die laufende Konfiguration, die Startup-Config wird beim Start geladen.</p>${showBox(d, 'show running-config')}`);
+  PAGES.switch.cli = PAGES.router.cli = (d, G) => {
+    const lines = A.termOut(d);
+    return `<div class="wg-term" id="wg-out" role="log" aria-live="polite">${lines.map(o => `<div class="k-${o.c}">${esc(o.t) || '&nbsp;'}</div>`).join('')}</div><form class="wg-termin" data-act="term"><label for="wg-cmd">${esc(A.prompt(d))}</label><input id="wg-cmd" autocomplete="off" spellcheck="false" aria-label="Befehl"></form>`;
+  };
+  PAGES.switch.ping = PAGES.router.ping = (d, G) => `<form class="wg-row end" data-act="pingf">${field('pdst', 'Ziel-IP-Adresse', G.pdst || '', { ph: '192.168.1.10' })}<button type="submit" class="wg-b primary" data-act="pingf" data-m="ping">Ping</button><button type="submit" class="wg-b" data-act="pingf" data-m="traceroute">Traceroute</button></form>` + (G.pout ? card(G.pout.t, `<pre class="wg-pre">${esc(G.pout.o)}</pre>`) : '<p class="wg-empty">Gib eine Ziel-IP ein. Der Test läuft vom Gerät aus, mit der Quelladresse der Ausgangsschnittstelle.</p>');
+
   // ---------- Dialoge ----------
   function dlgHtml(d, G) {
     const x = G.dlg, k = x.k, net = A.net(), wrap = (t, body, ok, okLbl) => `<div class="wg-ov" data-act="dlgbg"><form class="wg-dlg" role="dialog" aria-modal="true" aria-label="${esc(t)}" data-act="dlgok"><h2>${t}</h2>${body}<div class="wg-row end">${btn('Abbrechen', 'dlgx', null, 'ghost')}${ok === false ? '' : `<button type="submit" class="wg-b primary" data-act="dlgok">${okLbl || 'OK'}</button>`}</div></form></div>`;
     const servers = Object.values(net.devs).filter(s => s.type === 'server' && !A.isCloud(s));
     switch (k) {
+      case 'ifedit': {
+        const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1 ? d.cfg.ifs[ps[0]] : null, sw = d.type === 'switch', U = one ? '' : [['', '– unverändert –']];
+        const vl = Object.keys(d.cfg.vlans || {}).map(Number).sort((a, b) => a - b).map(n => [n, `${n} – ${d.cfg.vlans[n]}`]);
+        if (!ps.length) return wrap('Schnittstellen bearbeiten', '<p class="wg-empty">Wähle zuerst Schnittstellen in der Tabelle aus.</p>', false);
+        return wrap(one ? `Schnittstelle ${esc(A.SH(ps[0]))}` : `${ps.length} Schnittstellen bearbeiten`,
+          (one ? field('desc', 'Beschreibung', one.desc || '', { ph: 'z. B. Uplink zu SW2' }) : '')
+          + sel('st', 'Status', (one ? [] : [['', '– unverändert –']]).concat([['up', 'aktiv (no shutdown)'], ['down', 'abgeschaltet (shutdown)']]), one ? (one.shutdown ? 'down' : 'up') : '')
+          + (sw ? sel('mode', 'Modus', (one ? [] : [['', '– unverändert –']]).concat([['access', 'Access'], ['trunk', 'Trunk']]), one ? one.mode : '') + sel('vlan', 'Access-VLAN', (one ? [] : [['', '– unverändert –']]).concat(vl), one ? one.vlan : '', 'Gilt im Modus Access.') + `<div class="wg-2">${field('nat', 'Native VLAN (Trunk)', one ? one.native : '', { type: 'number', min: 1, max: 4094 })}${field('allow', 'Erlaubte VLANs (Trunk)', one ? (one.allowed === null ? 'all' : vlStr(one.allowed)) : '', { ph: 'all oder 10,20,30', hint: 'all, none oder Liste' })}</div>`
+            : (one ? `<div class="wg-2">${field('ip', 'IP-Adresse', one.ip || '', { ph: '10.0.0.1' })}${field('mask', 'Subnetzmaske', one.mask || '', { ph: '255.255.255.0' })}</div>` : '')), true, 'Übernehmen');
+      }
+      case 'newvlan': return wrap('VLAN hinzufügen', `<div class="wg-2">${field('id', 'VLAN-ID', '', { type: 'number', min: 2, max: 4094, ph: '10' })}${field('n', 'Name', '', { ph: 'Verkauf' })}</div>`, true, 'Hinzufügen');
+      case 'vlname': return wrap(`VLAN ${esc(x.v)} umbenennen`, field('n', 'Name', d.cfg.vlans[x.v] || ''), true, 'Speichern');
+      case 'newsvi': return wrap('SVI hinzufügen', field('id', 'VLAN-ID', '', { type: 'number', min: 1, max: 4094, ph: '10' }) + `<div class="wg-2">${field('ip', 'IP-Adresse', '', { ph: '192.168.10.1' })}${field('mask', 'Subnetzmaske', '255.255.255.0')}</div>`, true, 'Anlegen');
+      case 'editsvi': { const i = d.cfg.ifs[x.n]; return wrap(esc(x.n), `<div class="wg-2">${field('ip', 'IP-Adresse', i.ip || '')}${field('mask', 'Subnetzmaske', i.mask || '255.255.255.0')}</div>` + sel('st', 'Status', [['up', 'aktiv'], ['down', 'abgeschaltet']], i.shutdown ? 'down' : 'up'), true, 'Speichern'); }
+      case 'newroute': return wrap('Statische Route', `<div class="wg-2">${field('net', 'Zielnetz', '', { ph: '10.2.0.0' })}${field('mask', 'Subnetzmaske', '255.255.255.0')}</div>` + field('nh', 'Next Hop (IP-Adresse)', '', { ph: '10.0.0.2' }), true, 'Hinzufügen');
+      case 'newace': return wrap('ACL-Regel hinzufügen', `<div class="wg-2">${field('acl', 'ACL-Nummer oder Name', Object.keys(d.cfg.acls)[0] || '100', { hint: '1–99 Standard, 100–199 erweitert' })}${sel('act', 'Aktion', [['permit', 'permit (erlauben)'], ['deny', 'deny (verwerfen)']])}</div>` + `<div class="wg-2">${sel('proto', 'Protokoll', [['ip', 'ip (alles)'], ['icmp', 'icmp'], ['tcp', 'tcp'], ['udp', 'udp']])}${field('port', 'Zielport (tcp/udp)', '', { ph: '80 oder www' })}</div>` + field('src', 'Quelle', 'any', { hint: 'any, host 10.0.0.5 oder 10.0.0.0 0.0.0.255' }) + field('dst', 'Ziel', 'any'), true, 'Hinzufügen');
+      case 'aclbind': return wrap('ACL an Schnittstelle binden', sel('acl', 'ACL', Object.keys(d.cfg.acls).map(a => [a, a])) + sel('if', 'Schnittstelle', Object.keys(d.cfg.ifs).filter(n => !(d.type === 'switch' && !n.startsWith('Vlan') && !d.cfg.ipRouting && false)).map(n => [n, A.SH(n)])) + sel('dir', 'Richtung', [['in', 'in (eingehend)'], ['out', 'out (ausgehend)']]), true, 'Binden');
       case 'host': return wrap('Hostname ändern', field('h', 'Neuer Hostname', d.cfg.hostname), true, 'Ändern');
       case 'net': { const i = ifaces(d).find(y => y.lin === x.i) || {}; return wrap(`Schnittstelle ${esc(x.i)}`, field('ip', 'IPv4-Adresse', i.ip || '', { ph: '10.0.0.10' }) + field('len', 'Präfixlänge', i.mask ? maskLen(i.mask) : 24, { type: 'number', min: 1, max: 32 }), true, 'Übernehmen'); }
       case 'gw': return wrap('Gateway und DNS', field('gw', 'Standard-Gateway', d.cfg.gw || '', { ph: '10.0.0.1' }) + field('dns', 'DNS-Server', d.cfg.dns || '', { ph: '10.0.0.10' }), true, 'Übernehmen');
@@ -302,6 +404,35 @@ const WEBGUI = (function () {
       const x = G.dlg, k = x.k, dv = d(), net = A.net(); let ok = true;
       const E = (c, m) => { const r = exec(G, c, m); ok = !!r; };
       switch (k) {
+        case 'ifedit': {
+          const ps = x.p === '*' ? (G.isel || []) : [x.p], one = ps.length === 1, sw = dv.type === 'switch', L = [];
+          const allow = v(G, 'allow').trim().toLowerCase();
+          if (sw && allow && allow !== 'all' && allow !== 'none' && !/^\d+([,-]\d+)*$/.test(allow)) { G.msg = { err: true, t: 'Erlaubte VLANs: all, none oder eine Liste wie 10,20,30.' }; ok = false; break; }
+          ps.forEach(p => {
+            L.push('interface ' + p);
+            if (one) { const ds = v(G, 'desc').trim(); L.push(ds ? 'description ' + ds : 'no description'); }
+            const st = v(G, 'st'); if (st) L.push(st === 'up' ? 'no shutdown' : 'shutdown');
+            if (sw) {
+              const md = v(G, 'mode'); if (md) L.push('switchport mode ' + md);
+              const av = v(G, 'vlan'); if (av && (md || dv.cfg.ifs[p].mode) !== 'trunk') L.push('switchport access vlan ' + av);
+              if ((md || dv.cfg.ifs[p].mode) === 'trunk') { const nv = v(G, 'nat'); if (nv) L.push('switchport trunk native vlan ' + nv); if (allow) L.push('switchport trunk allowed vlan ' + allow); }
+            } else if (one) { const ip = v(G, 'ip').trim(), mk = v(G, 'mask').trim(); L.push(ip ? `ip address ${ip} ${mk}` : 'no ip address'); }
+            L.push('exit');
+          });
+          ok = ios(G, L, ps.length > 1 ? `${ps.length} Schnittstellen geändert.` : 'Schnittstelle gespeichert.'); break;
+        }
+        case 'newvlan': { const id = +v(G, 'id'), n = v(G, 'n').trim().replace(/\s+/g, '_'); if (!(id >= 2 && id <= 4094)) { G.msg = { err: true, t: 'VLAN-ID 2–4094.' }; ok = false; break; } ok = ios(G, ['vlan ' + id].concat(n ? ['name ' + n] : []).concat(['exit']), `VLAN ${id} angelegt.`); break; }
+        case 'vlname': { const n = v(G, 'n').trim().replace(/\s+/g, '_'); if (!n) { ok = false; break; } ok = ios(G, ['vlan ' + x.v, 'name ' + n, 'exit'], 'VLAN umbenannt.'); break; }
+        case 'newsvi': { const id = +v(G, 'id'); if (!(id >= 1 && id <= 4094)) { G.msg = { err: true, t: 'VLAN-ID 1–4094.' }; ok = false; break; } ok = ios(G, (dv.cfg.vlans[id] ? [] : ['vlan ' + id, 'exit']).concat(['interface vlan ' + id, `ip address ${v(G, 'ip').trim()} ${v(G, 'mask').trim()}`, 'no shutdown', 'exit']), `SVI Vlan${id} angelegt.` + (dv.cfg.ipRouting ? '' : ' Für Routing zwischen VLANs braucht der Switch „ip routing“.')); break; }
+        case 'editsvi': { const ip = v(G, 'ip').trim(); ok = ios(G, ['interface ' + x.n, ip ? `ip address ${ip} ${v(G, 'mask').trim()}` : 'no ip address', v(G, 'st') === 'up' ? 'no shutdown' : 'shutdown', 'exit'], 'SVI gespeichert.'); break; }
+        case 'newroute': ok = ios(G, `ip route ${v(G, 'net').trim()} ${v(G, 'mask').trim()} ${v(G, 'nh').trim()}`, 'Route hinzugefügt.'); break;
+        case 'newace': {
+          const pr = v(G, 'proto'), pt = v(G, 'port').trim(), a = v(G, 'acl').trim(); if (!a) { ok = false; break; }
+          if (pt && !['tcp', 'udp'].includes(pr)) { G.msg = { err: true, t: 'Ports gibt es nur bei tcp und udp.' }; ok = false; break; }
+          const std = /^\d+$/.test(a) && +a < 100;
+          ok = ios(G, std ? `access-list ${a} ${v(G, 'act')} ${v(G, 'src').trim()}` : `access-list ${a} ${v(G, 'act')} ${pr} ${v(G, 'src').trim()} ${v(G, 'dst').trim()}${pt ? ' eq ' + pt : ''}`, 'Regel hinzugefügt. Sie wirkt, sobald die ACL an eine Schnittstelle gebunden ist.'); break;
+        }
+        case 'aclbind': ok = ios(G, ['interface ' + v(G, 'if'), `ip access-group ${v(G, 'acl')} ${v(G, 'dir')}`, 'exit'], 'ACL gebunden.'); break;
         case 'host': { const n = v(G, 'h').trim().replace(/\s+/g, '-'); if (!n) { ok = false; break; } E('sudo hostnamectl set-hostname ' + n, 'Hostname geändert.'); break; }
         case 'net': { const ip = v(G, 'ip').trim(), len = v(G, 'len'); if (!ip) { G.msg = { err: true, t: 'IP-Adresse fehlt.' }; ok = false; break; } E(`sudo ip addr add ${ip}/${len} dev ${x.i}`, 'Schnittstelle konfiguriert.'); break; }
         case 'gw': { const gw = v(G, 'gw').trim(), dns = v(G, 'dns').trim(); if (gw) { E('sudo ip route add default via ' + gw); } if (ok && dns) A.act(() => { dv.cfg.dns = dns; }); if (ok) G.msg = { t: 'Gateway und DNS gespeichert.' }; break; }
@@ -333,10 +464,11 @@ const WEBGUI = (function () {
       }
       if (ok) G.dlg = null; done();
     };
-    root.addEventListener('submit', e => { e.preventDefault(); const f = e.target.closest('[data-act]'); if (!f) return; if (f.dataset.act === 'login') { SESS[G.id] = true; G.auth = true; G.msg = null; done(); } else if (f.dataset.act === 'dlgok') dlgOk(); else if (f.dataset.act === 'term') { const i = root.querySelector('#wg-cmd'); if (i && i.value.trim()) { A.termRun(d(), i.value); i.value = ''; } done(); } });
+    root.addEventListener('submit', e => { e.preventDefault(); const f = e.target.closest('[data-act]'); if (!f) return; if (f.dataset.act === 'login') { SESS[G.id] = true; G.auth = true; G.msg = null; done(); } else if (f.dataset.act === 'dlgok') dlgOk(); else if (f.dataset.act === 'pingf') { const dst = v(G, 'pdst').trim(), m = (e.submitter && e.submitter.dataset.m) || 'ping'; G.pdst = dst; if (dst) { const dv = d(); G.pout = { t: `${m} ${dst}`, o: A.iosShow(dv, `${m} ${dst}`) }; } done(); } else if (f.dataset.act === 'term') { const i = root.querySelector('#wg-cmd'); if (i && i.value.trim()) { A.termRun(d(), i.value); i.value = ''; } done(); } });
     root.addEventListener('change', e => {
       const t = e.target, a = t.dataset && t.dataset.act; if (!a) return; const dv = d(), net = A.net();
-      if (a === 'enable') { if (exec(G, `sudo systemctl ${t.checked ? 'enable' : 'disable'} ${t.dataset.u}`, 'Autostart geändert.')) { } done(); }
+      if (a === 'isel') { G.isel = G.isel || []; G.isel = t.checked ? G.isel.concat(t.dataset.p) : G.isel.filter(x => x !== t.dataset.p); G._keep = 1; done(); }
+      else if (a === 'enable') { if (exec(G, `sudo systemctl ${t.checked ? 'enable' : 'disable'} ${t.dataset.u}`, 'Autostart geändert.')) { } done(); }
       else if (a === 'uplink') { A.act(() => { A.VIRT.setUplink(dv, t.dataset.p, t.checked); }); G.msg = { t: 'Uplinks gespeichert.' }; done(); }
       else if (a === 'ha') { A.act(() => { A.VIRT.setHa(net, dv, t.checked); }); G.msg = { t: t.checked ? 'HA aktiv: Fällt ein Host aus, starten seine VMs auf anderen Cluster-Hosts neu.' : 'HA aus.' }; done(); }
       else if (a === 'fwrule') { exec(G, `${t.checked ? 'Enable' : 'Disable'}-NetFirewallRule -DisplayName "${t.dataset.n}"`, 'Regel geändert.'); done(); }
@@ -351,6 +483,18 @@ const WEBGUI = (function () {
       if (b.disabled || b.classList.contains('disabled')) return;
       G.msg = a === 'nav' || a === 'tab' ? null : G.msg;
       switch (a) {
+        case 'isall': G.isel = dv.ports.slice(); break;
+        case 'isnone': G.isel = []; break;
+        case 'ifup': case 'ifdown': { const ps = G.isel || []; if (ps.length) ios(G, [].concat(...ps.map(p => ['interface ' + p, a === 'ifup' ? 'no shutdown' : 'shutdown', 'exit'])), a === 'ifup' ? 'Ausgewählte Schnittstellen aktiviert.' : 'Ausgewählte Schnittstellen abgeschaltet.'); break; }
+        case 'vldel': ios(G, 'no vlan ' + D.v, `VLAN ${D.v} gelöscht. Ports in diesem VLAN sind jetzt inaktiv.`); break;
+        case 'iprt': ios(G, dv.cfg.ipRouting ? 'no ip routing' : 'ip routing', dv.cfg.ipRouting ? 'Routing abgeschaltet.' : 'Routing aktiviert.'); break;
+        case 'dgw': { const g2 = v(G, 'dgw').trim(); ios(G, g2 ? 'ip default-gateway ' + g2 : 'no ip default-gateway', 'Default-Gateway gespeichert.'); break; }
+        case 'svidel': ios(G, 'no interface ' + D.n, 'SVI gelöscht.'); break;
+        case 'rtdel': { const r = dv.cfg.routes[+D.i]; if (r) ios(G, `no ip route ${r.net} ${r.mask} ${r.nh || r.ifn}`, 'Route gelöscht.'); break; }
+        case 'acldel': ios(G, 'no access-list ' + D.a, 'ACL gelöscht.'); break;
+        case 'aclunbind': ios(G, ['interface ' + D.n, `no ip access-group ${D.dir}`, 'exit'], 'ACL gelöst.'); break;
+        case 'hostname': { const n = v(G, 'hn').trim().replace(/\s+/g, '-'); if (n) ios(G, 'hostname ' + n, 'Hostname geändert.'); break; }
+        case 'iosave': { const o = A.ios(dv, ['write memory'], { conf: false }); G.log.push({ cmd: 'write memory', err: false }); G.msg = /OK/.test(o) ? { t: 'Konfiguration gespeichert (Startup-Config).' } : { err: true, t: o }; break; }
         case 'close': if (G.onClose) G.onClose(); return;
         case 'logout': SESS[G.id] = false; G.auth = false; G.msg = null; break;
         case 'nav': G.page = D.p; G.dlg = null; break;
@@ -381,28 +525,35 @@ const WEBGUI = (function () {
 
   // ---------- Öffentliche Schnittstelle ----------
   const OPEN = {}; let ZTOP = 40, CASCADE = 0;
-  function open(devId) {
-    const ex = OPEN[devId]; if (ex && document.body.contains(ex.host)) { ex.host.style.zIndex = ++ZTOP; ex.host.classList.remove('min'); return ex.G; }
-    const vw = window.innerWidth, vh = window.innerHeight, w = Math.min(1040, vw - 24), h = Math.min(700, vh - 24), off = (CASCADE++ % 6) * 28;
-    const host = document.createElement('div'); host.className = 'wg-float'; host.style.cssText = `left:${Math.max(8, Math.round((vw - w) / 2) + off - 70)}px;top:${Math.max(8, 40 + off)}px;width:${w}px;height:${h}px;z-index:${++ZTOP}`;
-    const win = document.createElement('div'); host.appendChild(win); document.body.appendChild(host);
-    const close = () => { host.remove(); delete OPEN[devId]; };
+  // Verschiebbares, in der Größe änderbares, maximierbares Fenster (auch vom PC-Desktop benutzt)
+  function floatFrame(o) {
+    o = o || {}; const handle = o.handle || '.wg-chrome';
+    const vw = window.innerWidth, vh = window.innerHeight, w = Math.min(o.w || 1040, vw - 24), h = Math.min(o.h || 700, vh - 24), off = (CASCADE++ % 6) * 28;
+    const host = document.createElement('div'); host.className = 'wg-float ' + (o.cls || ''); host.style.cssText = `left:${Math.max(8, Math.round((vw - w) / 2) + off - 70)}px;top:${Math.max(8, 40 + off)}px;width:${w}px;height:${h}px;z-index:${++ZTOP}`;
+    const body = document.createElement('div'); host.appendChild(body); document.body.appendChild(host);
+    const close = () => { host.remove(); if (o.onClose) o.onClose(); };
     // Verschieben an der Titelleiste, Doppelklick maximiert, Ziehen an der unteren rechten Ecke ändert die Größe
     let drag = null, saved = null;
     host.addEventListener('pointerdown', e => {
       host.style.zIndex = ++ZTOP;
-      const bar = e.target.closest('.wg-chrome'); if (!bar || e.target.closest('button') || host.classList.contains('max')) return;
+      const bar = e.target.closest(handle); if (!bar || e.target.closest('button,input,select,textarea,a') || host.classList.contains('max')) return;
       drag = { x: e.clientX, y: e.clientY, l: host.offsetLeft, t: host.offsetTop }; host.setPointerCapture(e.pointerId); host.classList.add('moving');
     });
     host.addEventListener('pointermove', e => { if (!drag) return; const L = Math.min(window.innerWidth - 80, Math.max(80 - host.offsetWidth, drag.l + e.clientX - drag.x)), T = Math.min(window.innerHeight - 40, Math.max(0, drag.t + e.clientY - drag.y)); host.style.left = L + 'px'; host.style.top = T + 'px'; });
     const end = () => { drag = null; host.classList.remove('moving'); }; host.addEventListener('pointerup', end); host.addEventListener('pointercancel', end);
-    host.addEventListener('dblclick', e => { const bar = host.querySelector('.wg-chrome'), r = bar && bar.getBoundingClientRect(); if (!r || e.clientY < r.top || e.clientY > r.bottom || e.target.closest('button')) return; if (host.classList.toggle('max')) { saved = host.style.cssText; host.style.cssText = `z-index:${ZTOP}`; } else if (saved) host.style.cssText = saved + `;z-index:${++ZTOP}`; });
-    const G = bind(create(devId, win, { chrome: true, onClose: close })); OPEN[devId] = { host, G }; G.draw(); return G;
+    const toggleMax = () => { if (host.classList.toggle('max')) { saved = host.style.cssText; host.style.cssText = `z-index:${ZTOP}`; } else if (saved) host.style.cssText = saved + `;z-index:${++ZTOP}`; };
+    host.addEventListener('dblclick', e => { const bar = host.querySelector(handle), r = bar && bar.getBoundingClientRect(); if (!r || e.clientY < r.top || e.clientY > r.bottom || e.target.closest('button,input,select,textarea,a')) return; toggleMax(); });
+    return { host, body, close, toggleMax };
+  }
+  function open(devId) {
+    const ex = OPEN[devId]; if (ex && document.body.contains(ex.host)) { ex.host.style.zIndex = ++ZTOP; ex.host.classList.remove('min'); return ex.G; }
+    const f = floatFrame({ onClose: () => { delete OPEN[devId]; } });
+    const G = bind(create(devId, f.body, { chrome: true, onClose: f.close })); OPEN[devId] = { host: f.host, G }; G.draw(); return G;
   }
   function mount(root, devId, o) { const G = bind(create(devId, root, Object.assign({ chrome: false }, o || {}))); G.draw(); return G; }
   // Testhilfe: Seitenaufbau ohne DOM
   function renderPage(devId, page) { const fake = { innerHTML: '', querySelector: () => null, addEventListener() { } }, G = create(devId, fake, { auth: true }); G.page = page; const d = G.dev(), k = kindOf(d); return PAGES[k][page](d, G); }
-  const pages = devId => { const d = A.net().devs[devId]; const k = kindOf(d); return k ? NAV[k](d).map(n => n[0]) : []; };
-  return { init, open, mount, hasGui, kindOf, PORT, renderPage, pages };
+  const pages = devId => { const d = A.net().devs[devId]; const k = kindOf(d); return k ? NAV[k](d).map(n => n[0]).filter(x => x[0] !== '-') : []; };
+  return { init, open, mount, hasGui, kindOf, PORT, NETPORT, portOf, renderPage, pages, floatFrame };
 })();
 if (typeof module !== 'undefined') module.exports = WEBGUI;
